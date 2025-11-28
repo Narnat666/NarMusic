@@ -69,13 +69,32 @@ void HttpServer::handleClient(int client_socket) {
     request.parse(buffer);
     request.print();
 
+    std::string method = request.getMethod();
     std::string path = request.getPath();
-    if (path == "/") {
-        path = "/index.html";
-    }
 
-    std::string full_path = root_dir_ + path;
+    // 根据请求方法分发处理
+    if (method == "GET") {
+        handleGetRequest(client_socket, path);
+    } else if (method == "POST") {
+        handlePostRequest(client_socket, request);
+    }
+}
+
+void HttpServer::handleGetRequest(int client_socket, const std::string& path) {
+    std::string actual_path = path;
+    if (actual_path == "/") {
+        actual_path = "index.html";
+    }
+    std::string full_path = root_dir_ + actual_path;
     sendFile(client_socket, full_path);
+}
+
+void HttpServer::handlePostRequest(int client_socket, const HttpRequest& request) {
+    std::string path = request.getPath();
+
+    if (path == "/api/set" || path == "/set") {
+        // ToDo
+    }
 }
 
 std::string HttpServer::getMimeType(const std::string& path) {
