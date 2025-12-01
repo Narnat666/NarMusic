@@ -1,4 +1,4 @@
-# simple_http_server
+# http_server
 
 交叉编译：
 mkdir build-aarch64
