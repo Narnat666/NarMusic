@@ -80,6 +80,7 @@ clean_build() {
     if [ -d "build-aarch64" ]; then
         rm -rf build-aarch64
         rm -rf http_server
+        rm -rf /mnt/hgfs/tanran/share/*
         success "构建目录已清理"
     else
         warning "构建目录不存在，无需清理"
@@ -128,7 +129,7 @@ build_project() {
     if [ $? -eq 0 ]; then
         success "编译成功完成！"
         cp http_server ../
-        
+        cp http_server /mnt/hgfs/tanran/share/ -rf
         # 显示生成的可执行文件
         if [ -f "http_server" ]; then
             echo ""
