@@ -75,15 +75,15 @@ std::string TaskManager::getTaskStatus(const std::string& task_id) // 状态获�
 }
 
 // 清理旧任务
-void TaskManager::cleanupOldTasks(int max_age_hours) {
+void TaskManager::cleanupOldTasks(int max_age_seconds /*=10*/) {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto now = std::chrono::system_clock::now();
-    
+    const auto now = std::chrono::system_clock::now();
+
     for (auto it = tasks_.begin(); it != tasks_.end(); ) {
-        auto duration = std::chrono::duration_cast<std::chrono::hours>(
-            now - it->second.created_time);
-        
-        if (duration.count() > max_age_hours) {
+        auto age = std::chrono::duration_cast<std::chrono::seconds>(
+                       now - it->second.created_time);
+        if (age.count() > max_age_seconds) {
+            std::cout << "erase task: " << it->second.task_id << std::endl;
             it = tasks_.erase(it);
         } else {
             ++it;

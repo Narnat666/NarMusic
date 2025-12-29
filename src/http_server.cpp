@@ -167,6 +167,14 @@ void HttpServer::start() {
     }
 
     std::cout << "Server started on port " << port_ << std::endl;
+
+    // 定时清理map表
+    std::thread([&]() {  // 只捕获不拷贝
+        while (true) { 
+            TaskManager::instance().cleanupOldTasks(60);
+            std::this_thread::sleep_for(std::chrono::seconds(60)); // 睡眠
+        }
+    }).detach();
     
     while (true) {
         sockaddr_in clientAddress;
