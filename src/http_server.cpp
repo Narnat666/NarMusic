@@ -10,6 +10,7 @@
 #include <sstream>
 #include <fstream>
 #include <sys/stat.h>
+#include "task_manger.h"
 
 void sendResponse(int socket, const std::string& status, const std::string& body) {
     std::stringstream response;
@@ -69,8 +70,37 @@ void HttpServer::handleRequest(int clientSocket) {
                 return;
             }
         }
-        // 可选：支持其他静态资源（如 /style.css 等）
-        // 这里简化，只支持根路径
+
+        // status 请求
+        if (request.getPath() == "/api/download/status") {
+            std::string query = request.getQueryString();
+            std::string task_id;
+            
+            // 简单解析 task_id 参数
+            size_t pos = query.find("task_id=");
+            if (pos != std::string::npos) {
+                task_id = query.substr(pos + 8);
+                // 移除可能的后缀
+                size_t end = task_id.find('&');
+                if (end != std::string::npos) {
+                    task_id = task_id.substr(0, end);
+                }
+            }
+            
+            if (task_id.empty()) {
+                std::cerr << "missing taskid: " << task_id << std::endl;
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"missing_task_id\"}");
+                close(clientSocket);
+                return;
+            }
+            
+            // 获取任务状态
+            std::string status = TaskManager::instance().getTaskStatus(task_id);
+            sendResponse(clientSocket, "200 OK", status);
+            close(clientSocket);
+            return;
+        }
+        
     }
     if (request.getMethod() == "POST" && request.getPath() == "/api/message") {
         std::string body = request.getBody();
@@ -88,16 +118,21 @@ void HttpServer::handleRequest(int clientSocket) {
                 }
             }
         }
-
-        // 构造响应JSON
+        
+        // 创建下载任务
+        std::string task_id = TaskManager::instance().createTask(content);
+        
+        // 返回任务ID
         std::stringstream response;
-        response << "{";
-        response << "\"received_content\": \"" << content << "\",";
-        response << "\"server_time\": \"" << std::to_string(time(nullptr)) << "\",";
-        response << "\"server_response\": \"Success\"";
-        response << "}";
+        response << "{\"task_id\":\"" << task_id << "\","
+                 << "\"message\":\"download_started\","
+                 << "\"url\":\"" << content << "\"}";
+        
+        std::cout << "create task success taskid: " << task_id << " url: " << content << std::endl;
         
         sendResponse(clientSocket, "200 OK", response.str());
+        close(clientSocket);
+
     } else {
         sendResponse(clientSocket, "404 Not Found", "{\"error\": \"Not found\"}");
     }

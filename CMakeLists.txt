@@ -9,6 +9,8 @@ add_executable(http_server
     src/main.cpp
     src/http_server.cpp
     src/http_request.cpp
+    src/music_analysis.cpp
+    src/task_manger
 )
 
 # 编译器选项

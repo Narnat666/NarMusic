@@ -25,6 +25,13 @@ bool HttpRequest::parse() {
     method_ = request_line.substr(0, space_pos);
     path_ = request_line.substr(space_pos + 1, request_line.find(' ', space_pos + 1) - space_pos - 1);
     
+    // 分离路径和查询字符串
+    size_t query_pos = path_.find('?');
+    if (query_pos != std::string::npos) {
+        query_string_ = path_.substr(query_pos + 1);
+        path_ = path_.substr(0, query_pos);
+    }
+
     // 解析头部
     size_t header_end = request.find("\r\n\r\n");
     if (header_end == std::string::npos) return false;
@@ -69,3 +76,5 @@ std::string HttpRequest::getHeader(const std::string& key) const {
 }
 std::string HttpRequest::getBody() const { return body_; }
 int HttpRequest::getBodyLength() const { return body_length_; }
+
+const std::string& HttpRequest::getQueryString() { return query_string_; }

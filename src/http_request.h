@@ -13,6 +13,7 @@ public:
     std::string getHeader(const std::string& key) const;
     std::string getBody() const;
     int getBodyLength() const;
+    const std::string& getQueryString(); // 获取查询字符串
 
 private:
     int socket_;
@@ -21,6 +22,8 @@ private:
     std::map<std::string, std::string> headers_;
     std::string body_;
     int body_length_;
+    std::string query_string_;
+
 };
 
 #endif // HTTP_REQUEST_H
