@@ -1,5 +1,6 @@
 #include "task_manger.h"
 #include "nlohmann/json.hpp"
+#include <filesystem>
 
 using json = nlohmann::json;
 
@@ -18,17 +19,19 @@ std::string TaskManager::generateTaskId() {
 std::string TaskManager::createTask(const std::string& url, const std::string& file_name) { // 创建线程任务函数
     // 创建任务id
     std::string task_id = generateTaskId();
-    auto analyzer = std::make_shared<MusicAnaly>(); // 智能指针接管
+    std::string name = task_id;
+    if (!file_name.empty()) name = file_name; // 文件名为空则用taskid做为名字
 
+    auto analyzer = std::make_shared<MusicAnaly>(name); // 智能指针接管
     { // 上锁
         std::lock_guard<std::mutex> lock(mutex_);
-        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), file_name};
+        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName()};
         // 加入到任务，并解锁
     }
 
     // 启动下载线程
-    std::thread([this, task_id, analyzer, url, file_name](){
-        analyzer->download(url, file_name);
+    std::thread([this, task_id, analyzer, url](){
+        analyzer->download(url);
 
         // 等待下载完成
         while (!analyzer->downloadIfFinished()) {
@@ -85,6 +88,25 @@ void TaskManager::cleanupOldTasks(int max_age_seconds /*=10*/) {
                        now - it->second.created_time);
         if (age.count() > max_age_seconds) {
             std::cout << "erase task: " << it->second.task_id << std::endl;
+            std::string file_path_name = it->second.file_path_name;
+            try {
+                // 检查文件是否存在
+                if (!std::filesystem::exists(file_path_name)) {
+                    std::cout << "文件不存在: " << file_path_name << std::endl;
+                    return;
+                }
+                
+                // 删除文件
+                bool success = std::filesystem::remove(file_path_name);
+                
+                if (success) {
+                    std::cout << "已删除: " << file_path_name << std::endl;
+                } else {
+                    std::cerr << "删除失败: " << file_path_name << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "删除异常: " << e.what() << " 文件: " << file_path_name << std::endl;
+            }
             it = tasks_.erase(it);
         } else {
             ++it;

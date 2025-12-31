@@ -23,7 +23,7 @@
         }
         
         .container {
-            max-width: 800px;
+            max-width: 900px;
             width: 100%;
             background: white;
             border-radius: 20px;
@@ -114,7 +114,13 @@
         .button-group {
             display: flex;
             gap: 20px;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
+        }
+        
+        .button-group-main {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
         }
         
         button {
@@ -161,12 +167,29 @@
             background: #e9ecef;
         }
         
+        #localDownloadBtn {
+            background: linear-gradient(to right, #28a745, #20c997);
+            color: white;
+            display: none;
+        }
+        
+        #localDownloadBtn:enabled:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.3);
+        }
+        
+        #localDownloadBtn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
         /* 状态显示区域 */
         .status-section {
             background: #f8f9fa;
             border-radius: 15px;
             padding: 30px;
             border: 2px solid #e9ecef;
+            margin-bottom: 30px;
         }
         
         .status-header {
@@ -381,6 +404,57 @@
             border: 1px solid #b8daff;
         }
         
+        /* 文件信息区域 */
+        .file-info {
+            background: #e8f4ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px dashed #6a11cb;
+            display: none;
+        }
+        
+        .file-info-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .file-info-header i {
+            font-size: 24px;
+            color: #2575fc;
+        }
+        
+        .file-info-header h4 {
+            color: #2c3e50;
+            font-size: 20px;
+        }
+        
+        .file-info-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .file-info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .file-info-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        
+        .file-info-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #495057;
+            word-break: break-all;
+        }
+        
         /* 响应式设计 */
         @media (max-width: 768px) {
             .container {
@@ -391,7 +465,7 @@
                 padding: 25px;
             }
             
-            .button-group {
+            .button-group, .button-group-main {
                 flex-direction: column;
             }
             
@@ -408,6 +482,10 @@
             .light-container {
                 flex-direction: row;
                 gap: 15px;
+            }
+            
+            .file-info-content {
+                grid-template-columns: 1fr;
             }
         }
         
@@ -466,13 +544,20 @@
                 </div>
             </div>
             
-            <!-- 按钮区域 -->
-            <div class="button-group">
+            <!-- 主按钮区域 -->
+            <div class="button-group-main">
                 <button id="sendBtn">
                     <i class="fas fa-download"></i> 开始下载
                 </button>
                 <button id="clearBtn">
                     <i class="fas fa-eraser"></i> 清空所有
+                </button>
+            </div>
+            
+            <!-- 下载本地按钮 -->
+            <div class="button-group">
+                <button id="localDownloadBtn" disabled>
+                    <i class="fas fa-file-download"></i> 下载本地文件
                 </button>
             </div>
             
@@ -529,6 +614,32 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- 文件信息区域 -->
+                <div class="file-info" id="fileInfo">
+                    <div class="file-info-header">
+                        <i class="fas fa-file-audio"></i>
+                        <h4>文件信息</h4>
+                    </div>
+                    <div class="file-info-content">
+                        <div class="file-info-item">
+                            <div class="file-info-label">文件名</div>
+                            <div class="file-info-value" id="fileName">-</div>
+                        </div>
+                        <div class="file-info-item">
+                            <div class="file-info-label">文件大小</div>
+                            <div class="file-info-value" id="fileSize">-</div>
+                        </div>
+                        <div class="file-info-item">
+                            <div class="file-info-label">文件路径</div>
+                            <div class="file-info-value" id="filePath">-</div>
+                        </div>
+                        <div class="file-info-item">
+                            <div class="file-info-label">下载时间</div>
+                            <div class="file-info-value" id="downloadTime">-</div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- 状态消息 -->
@@ -557,6 +668,8 @@
         let lastSpeedUpdateTime = Date.now();
         let lastSpeedBytes = 0;
         let speedHistory = [];
+        let currentFileName = "";
+        let currentFileSize = 0;
         const MAX_SPEED_HISTORY = 5;
         
         document.addEventListener('DOMContentLoaded', function() {
@@ -564,9 +677,17 @@
             const filenameInput = document.getElementById('filenameInput');
             const sendBtn = document.getElementById('sendBtn');
             const clearBtn = document.getElementById('clearBtn');
+            const localDownloadBtn = document.getElementById('localDownloadBtn');
             const copyBtn = document.getElementById('copyBtn');
             const responseContent = document.getElementById('responseContent');
             const statusMessage = document.getElementById('statusMessage');
+            const fileInfo = document.getElementById('fileInfo');
+            
+            // 文件信息元素
+            const fileNameEl = document.getElementById('fileName');
+            const fileSizeEl = document.getElementById('fileSize');
+            const filePathEl = document.getElementById('filePath');
+            const downloadTimeEl = document.getElementById('downloadTime');
             
             // 状态灯相关元素
             const statusLight = document.getElementById('statusLight');
@@ -635,6 +756,24 @@
                 return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
             
+            // 更新文件信息显示
+            function updateFileInfo(fileInfoData) {
+                if (fileInfoData && fileInfoData.filename) {
+                    fileNameEl.textContent = fileInfoData.filename;
+                    fileSizeEl.textContent = fileInfoData.filesize ? formatBytes(fileInfoData.filesize) : '-';
+                    filePathEl.textContent = fileInfoData.filepath ? fileInfoData.filepath : '-';
+                    downloadTimeEl.textContent = new Date().toLocaleString();
+                    
+                    fileInfo.style.display = 'block';
+                    currentFileName = fileInfoData.filename;
+                    currentFileSize = fileInfoData.filesize || 0;
+                } else {
+                    fileInfo.style.display = 'none';
+                    currentFileName = "";
+                    currentFileSize = 0;
+                }
+            }
+            
             // 开始轮询下载状态
             function startPollingTaskStatus() {
                 if (pollingInterval) {
@@ -700,13 +839,34 @@
                 if (status.is_downloading) {
                     taskStatusEl.textContent = '下载中';
                     updateStatusLight('downloading', true);
+                    localDownloadBtn.style.display = 'none';
                 } else if (status.is_finished) {
                     if (status.is_success) {
                         taskStatusEl.textContent = '下载成功';
                         updateStatusLight('success');
+                        
+                        // 显示下载本地按钮
+                        localDownloadBtn.style.display = 'flex';
+                        localDownloadBtn.disabled = false;
+                        localDownloadBtn.innerHTML = '<i class="fas fa-file-download"></i> 下载本地文件';
+                        
+                        // 更新文件信息
+                        if (status.file_info) {
+                            updateFileInfo(status.file_info);
+                        } else if (status.downloaded_bytes > 0) {
+                            // 如果没有文件信息但有下载字节数，创建一个简单的文件信息
+                            updateFileInfo({
+                                filename: filenameInput.value.trim() || '未命名文件',
+                                filesize: status.downloaded_bytes,
+                                filepath: '/downloads/' + (filenameInput.value.trim() || '未命名文件') + '.mp3'
+                            });
+                        }
+                        
+                        showStatus('文件下载完成，可以下载到本地了！', 'success');
                     } else {
                         taskStatusEl.textContent = '下载失败';
                         updateStatusLight('error');
+                        localDownloadBtn.style.display = 'none';
                     }
                     
                     // 下载完成后停止轮询
@@ -716,6 +876,7 @@
                 } else {
                     taskStatusEl.textContent = '等待开始';
                     updateStatusLight('idle');
+                    localDownloadBtn.style.display = 'none';
                 }
                 
                 // 更新已下载字节数
@@ -763,8 +924,11 @@
                 downloadedBytesEl.textContent = '0 B';
                 downloadSpeedEl.textContent = '0 B/s';
                 taskStatusEl.textContent = '未开始';
+                fileInfo.style.display = 'none';
                 
                 updateStatusLight('idle');
+                localDownloadBtn.style.display = 'none';
+                localDownloadBtn.disabled = true;
                 
                 lastDownloadedBytes = 0;
                 lastSpeedBytes = 0;
@@ -859,6 +1023,62 @@
                 resetTaskStatus();
                 currentTaskId = null;
                 showStatus('内容已清空', 'success');
+            });
+            
+            // 下载本地文件
+            localDownloadBtn.addEventListener('click', async function() {
+                if (!currentTaskId) {
+                    showStatus('没有可下载的文件', 'error');
+                    return;
+                }
+                
+                showStatus('正在准备下载文件...', 'info');
+                localDownloadBtn.disabled = true;
+                localDownloadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 准备中...';
+                
+                try {
+                    // 请求下载文件
+                    const response = await fetch(`/api/download/file?task_id=${currentTaskId}`, {
+                        method: 'GET'
+                    });
+                    
+                    if (response.ok) {
+                        // 获取文件名，优先使用服务器返回的文件名，其次使用当前存储的文件名
+                        const contentDisposition = response.headers.get('Content-Disposition');
+                        let filename = currentFileName || 'downloaded_file';
+                        
+                        if (contentDisposition) {
+                            const matches = /filename="?([^"]+)"?/i.exec(contentDisposition);
+                            if (matches && matches[1]) {
+                                filename = matches[1];
+                            }
+                        }
+                        
+                        // 创建下载链接
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        // 清理
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                        
+                        showStatus('文件下载开始！', 'success');
+                    } else {
+                        const errorData = await response.json();
+                        showStatus(`下载失败: ${errorData.error || '未知错误'}`, 'error');
+                    }
+                } catch (error) {
+                    showStatus(`下载错误: ${error.message}`, 'error');
+                    console.error('下载文件时出错:', error);
+                } finally {
+                    localDownloadBtn.disabled = false;
+                    localDownloadBtn.innerHTML = '<i class="fas fa-file-download"></i> 下载本地文件';
+                }
             });
             
             // 复制响应内容

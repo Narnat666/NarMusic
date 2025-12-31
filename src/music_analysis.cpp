@@ -211,8 +211,8 @@ bool MusicAnaly::downloadIfSuccess(void) {
     return downloadSuccess;
 }
 
-bool MusicAnaly::download(const std::string& url, const std::string& file_name) {
-    std::string outputFilename = file_name;
+bool MusicAnaly::download(const std::string& url) {
+    std::string outputFilename = outputFilename_;
     std::cout << "handle url: " << url << std::endl;
 
     // 状态重置
@@ -330,4 +330,8 @@ bool MusicAnaly::download(const std::string& url, const std::string& file_name) 
     download_thread.detach();
 
     return true;
+}
+
+std::string MusicAnaly::getDownloadFilePathName(void) { // 获取文件路径+名字+后缀
+    return outputfiledownloadpath_ + outputFilename_ + outputfiletype_;
 }

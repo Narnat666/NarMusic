@@ -17,7 +17,7 @@ struct TaskInfo {
     std::shared_ptr<MusicAnaly> analyzer; // 下载类
     bool is_finished = false;
     std::chrono::system_clock::time_point created_time; // 时间
-    std::string file_name; // 存储文件名
+    std::string file_path_name; // 存储文件名
 };
 
 class TaskManager { 
@@ -26,11 +26,11 @@ class TaskManager {
         std::string createTask(const std::string& url, const std::string& file_name); // 创建任务函数
         std::string getTaskStatus(const std::string& task_id); // 获取任务状态
         void cleanupOldTasks(int max_age_seconds = 10); // 清理函数
+        std::map<std::string, TaskInfo> tasks_; // map
+        std::mutex mutex_;
         
     private:
         std::string generateTaskId(); // 创建taskid
-        std::map<std::string, TaskInfo> tasks_; // map
-        std::mutex mutex_;
 };
 
 

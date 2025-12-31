@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include "task_manger.h"
 #include "nlohmann/json.hpp"
+#include "curl/curl.h"
 
 using json = nlohmann::json;
 
@@ -41,6 +42,120 @@ bool fileExists(const std::string& filename) {
     return (stat(filename.c_str(), &buffer) == 0);
 }
 
+std::string getTaskIdByJson(std::string& query) {
+    size_t pos = query.find("task_id=");
+    std::string task_id = "";
+    if (pos != std::string::npos) {
+        task_id = query.substr(pos + 8);
+        // 移除可能的后缀
+        size_t end = task_id.find('&');
+        if (end != std::string::npos) {
+            task_id = task_id.substr(0, end);
+        }
+    }
+    return task_id;
+}
+
+static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* userdata) { // 短链接回调函数
+    std::string* location = static_cast<std::string*>(userdata);
+    std::string header(buffer, size * nitems);
+    
+    // 查找Location头部
+    if (header.find("Location:") == 0) {
+        std::string loc = header.substr(10);
+        // 去除末尾的换行符
+        loc.erase(std::remove(loc.begin(), loc.end(), '\r'), loc.end());
+        loc.erase(std::remove(loc.begin(), loc.end(), '\n'), loc.end());
+        *location = loc;
+    }
+    
+    return size * nitems;
+}
+
+std::string resolveShortUrl(const std::string& shortUrl) {  // 解析短链接函数
+    CURL* curl = curl_easy_init();
+    std::string location;
+    
+    if (curl) {
+        // 设置CURL选项
+        curl_easy_setopt(curl, CURLOPT_URL, shortUrl.c_str());
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
+        curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+        curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, headerCallback);
+        curl_easy_setopt(curl, CURLOPT_HEADERDATA, &location);
+        
+        // 禁用SSL证书验证（开发环境使用）
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        
+        // 设置超时和用户代理
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0");
+        
+        // 执行请求
+        CURLcode res = curl_easy_perform(curl);
+        
+        if (res != CURLE_OK) {
+            std::cerr << "CURL错误: " << curl_easy_strerror(res) << std::endl;
+        }
+        
+        curl_easy_cleanup(curl);
+        
+        // 如果找到了重定向位置，返回它
+        if (!location.empty()) {
+            std::cout << "解析到重定向链接: " << location << std::endl;
+            return location;
+        }
+    }
+    
+    // 如果解析失败，返回原链接
+    return shortUrl;
+}
+
+std::string urlEncodeUtf8(const std::string& utf8Str) { // 字符串转码utf8
+    std::ostringstream escaped;
+    escaped.fill('0');
+    escaped << std::hex;
+    
+    for (size_t i = 0; i < utf8Str.size(); ++i) {
+        unsigned char c = static_cast<unsigned char>(utf8Str[i]);
+        
+        // 判断UTF-8字符字节数
+        if (c <= 0x7F) {  // ASCII字符
+            if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+                escaped << static_cast<char>(c);
+            } else {
+                escaped << '%' << std::setw(2) << std::uppercase << static_cast<int>(c);
+            }
+        } 
+        else if ((c & 0xE0) == 0xC0) {  // 2字节UTF-8
+            // 编码两个字节
+            escaped << '%' << std::setw(2) << std::uppercase << static_cast<int>(c);
+            if (i + 1 < utf8Str.size()) {
+                escaped << '%' << std::setw(2) << std::uppercase 
+                        << static_cast<int>(static_cast<unsigned char>(utf8Str[++i]));
+            }
+        }
+        else if ((c & 0xF0) == 0xE0) {  // 3字节UTF-8
+            // 编码三个字节
+            for (int j = 0; j < 3 && i < utf8Str.size(); ++j, ++i) {
+                escaped << '%' << std::setw(2) << std::uppercase 
+                        << static_cast<int>(static_cast<unsigned char>(utf8Str[i]));
+            }
+            --i;  // 循环会多递增一次
+        }
+        else if ((c & 0xF8) == 0xF0) {  // 4字节UTF-8
+            // 编码四个字节
+            for (int j = 0; j < 4 && i < utf8Str.size(); ++j, ++i) {
+                escaped << '%' << std::setw(2) << std::uppercase 
+                        << static_cast<int>(static_cast<unsigned char>(utf8Str[i]));
+            }
+            --i;  // 循环会多递增一次
+        }
+    }
+    
+    return escaped.str();
+}
 
 void HttpServer::handleRequest(int clientSocket) {
     HttpRequest request(clientSocket);
@@ -54,6 +169,7 @@ void HttpServer::handleRequest(int clientSocket) {
     // 处理静态文件请求（GET）
     if (request.getMethod() == "GET") {
         std::string filepath = "web/index.html";
+        
         // 如果请求的是根路径 "/"，返回 index.html
         if (request.getPath() == "/") {
             if (fileExists(filepath)) {
@@ -79,16 +195,7 @@ void HttpServer::handleRequest(int clientSocket) {
             std::string query = request.getQueryString();
             std::string task_id;
             
-            // 简单解析 task_id 参数
-            size_t pos = query.find("task_id=");
-            if (pos != std::string::npos) {
-                task_id = query.substr(pos + 8);
-                // 移除可能的后缀
-                size_t end = task_id.find('&');
-                if (end != std::string::npos) {
-                    task_id = task_id.substr(0, end);
-                }
-            }
+            task_id = getTaskIdByJson(query);
             
             if (task_id.empty()) {
                 std::cerr << "missing taskid: " << task_id << std::endl;
@@ -103,67 +210,162 @@ void HttpServer::handleRequest(int clientSocket) {
             close(clientSocket);
             return;
         }
-        
-    }
-    if (request.getMethod() == "POST" && request.getPath() == "/api/message") {
-        std::string body = request.getBody();
-        
-        // 使用nlohmann/json解析JSON中的content字段
-        std::string content = "";
-        try {
-            json j = json::parse(body);
-            if (j.contains("content") && j["content"].is_string()) {
-                content = j["content"].get<std::string>();
-            } else {
-                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Missing or invalid content field\"}");
+
+        // 文件下载请求
+        if (request.getPath() == "/api/download/file") {
+            std::string query = request.getQueryString();
+            std::string task_id;
+            TaskManager& nt = TaskManager::instance();
+            task_id = getTaskIdByJson(query);
+            
+            if (task_id.empty()) {
+                std::cerr << "missing taskid: " << task_id << std::endl;
+                sendResponse(clientSocket, "400 Missing Task Id", "{\"error\":\"missing_task_id\"}");
                 close(clientSocket);
                 return;
             }
-        } catch (const json::parse_error& e) {
-            sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
-            close(clientSocket);
-            return;
-        }
 
-        // 提取文件名
-        std::string file_name = ""; // 默认文件名
+            // 查看文件是否还在
+            auto it = nt.tasks_.find(task_id);
+            { 
+                // 开始上锁防止下载时文件被删掉
+                std::lock_guard<std::mutex> lock(nt.mutex_);
+                if (it != nt.tasks_.end()) { // 找到文件准备发送
+
+                    // 查看文件是否下载成功
+                    if (!it->second.is_finished) {
+                        sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");
+                        close(clientSocket);
+                        return;
+                    }
+
+                    // 查看文件是否存在
+                    MusicAnaly analy;
+                    std::string file_name_path = it->second.file_path_name;
+                    if (file_name_path.empty() || !analy.fileExists(file_name_path)) {
+                        sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");
+                        close(clientSocket);
+                        return;
+                    }
+
+                    // 发送文件
+                    std::cout << "send file begin: " << file_name_path << std::endl;
+
+                    // 读取文件内容
+                    std::ifstream file(file_name_path, std::ios::binary);
+                    if (!file.is_open()) {
+                        sendResponse(clientSocket, "500 Internal Server Error", "{\"error\":\"cannot_open_file\"}");
+                        close(clientSocket);
+                        return;
+                    }
+                
+                    // 获取文件大小
+                    file.seekg(0, std::ios::end);
+                    size_t fileSize = file.tellg();
+                    file.seekg(0, std::ios::beg);
+                
+                    // 读取文件内容到缓冲区
+                    std::vector<char> buffer(fileSize);
+                    file.read(buffer.data(), fileSize);
+                    file.close();
+                
+                    // 从文件路径提取文件名
+                    size_t pos = file_name_path.find_last_of("/\\");
+                    std::string filename = file_name_path.substr(pos + 1);
+
+                    // 发送文件
+                    std::stringstream response;
+                    response << "HTTP/1.1 200 OK\r\n";
+                    response << "Content-Type: application/octet-stream\r\n";
+                    response << "Content-Disposition: attachment; filename=\"" << urlEncodeUtf8(filename) << "\"\r\n";
+                    response << "Content-Length: " << fileSize << "\r\n";
+                    response << "\r\n";
+                
+                    // 先发送头部
+                    std::string headers = response.str();
+                    send(clientSocket, headers.c_str(), headers.length(), 0);
+                
+                    // 然后发送文件内容
+                    send(clientSocket, buffer.data(), buffer.size(), 0);
+                
+                    std::cout << "文件发送成功: " << urlEncodeUtf8(filename) << " (" << fileSize << " 字节)" << std::endl;
+                
+                    close(clientSocket);
+                    return;
+
+        
+                }
+            }
     
-        try {
-            json j = json::parse(body);      
+        }    
+    
+    }
+
+    if (request.getMethod() == "POST" && request.getPath() == "/api/message") {
+            std::string body = request.getBody();
             
-            // 提取filename字段
-            if (j.contains("filename") && j["filename"].is_string()) {
-                file_name = j["filename"].get<std::string>();
-                std::cout << "使用自定义文件名: " << file_name << std::endl;
-            } else {
-                std::cout << "使用默认文件名: " << file_name << std::endl;
+            // 使用nlohmann/json解析JSON中的content字段
+            std::string content = "";
+            std::string rawContent = "";
+            try {
+                json j = json::parse(body);
+                if (j.contains("content") && j["content"].is_string()) {
+                    rawContent = j["content"].get<std::string>();
+                    // 转换短链接为标准链接
+                    content = resolveShortUrl(rawContent);
+                    
+                    std::cout << "原始URL: " << rawContent << std::endl;
+                    std::cout << "转换后URL: " << content << std::endl;
+                } else {
+                    sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Missing or invalid content field\"}");
+                    close(clientSocket);
+                    return;
+                }
+            } catch (const json::parse_error& e) {
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
+                close(clientSocket);
+                return;
+            }
+
+            // 提取文件名
+            std::string file_name = ""; // 默认文件名
+        
+            try {
+                json j = json::parse(body);      
+                
+                // 提取filename字段
+                if (j.contains("filename") && j["filename"].is_string()) {
+                    file_name = j["filename"].get<std::string>();
+                    std::cout << "使用自定义文件名: " << file_name << std::endl;
+                } else {
+                    std::cout << "使用默认文件名: " << file_name << std::endl;
+                }
+                
+            } catch (const json::parse_error& e) {
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
+                close(clientSocket);
+                return;
             }
             
-        } catch (const json::parse_error& e) {
-            sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
+            // 创建下载任务
+            std::string task_id = TaskManager::instance().createTask(content, file_name);
+            
+            // 使用nlohmann/json创建JSON响应
+            json responseJson;
+            responseJson["task_id"] = task_id;
+            responseJson["message"] = "download_started";
+            responseJson["url"] = content;
+            
+            std::cout << "create task success taskid: " << task_id << " url: " << content << std::endl;
+            
+            sendResponse(clientSocket, "200 OK", responseJson.dump());
             close(clientSocket);
-            return;
+
+        } else {
+            sendResponse(clientSocket, "404 Not Found", "{\"error\": \"Not found\"}");
         }
         
-        // 创建下载任务
-        std::string task_id = TaskManager::instance().createTask(content, file_name);
-        
-        // 使用nlohmann/json创建JSON响应
-        json responseJson;
-        responseJson["task_id"] = task_id;
-        responseJson["message"] = "download_started";
-        responseJson["url"] = content;
-        
-        std::cout << "create task success taskid: " << task_id << " url: " << content << std::endl;
-        
-        sendResponse(clientSocket, "200 OK", responseJson.dump());
         close(clientSocket);
-
-    } else {
-        sendResponse(clientSocket, "404 Not Found", "{\"error\": \"Not found\"}");
-    }
-    
-    close(clientSocket);
 }
 
 HttpServer::HttpServer(int port) : port_(port), serverSocket_(-1) {}
