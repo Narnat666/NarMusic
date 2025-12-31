@@ -1,437 +1,333 @@
 #include "music_analysis.h"
+#include "curl/curl.h"
+#include "nlohmann/json.hpp"
 #include <iostream>
-#include <fstream>
-#include <chrono>
 #include <thread>
-#include <iomanip>
-#include <sstream>
-#include <filesystem>
+#include <cstdlib>
+#include <sys/stat.h>
 
-// CURL写回调函数（用于接收文本数据）
-size_t MusicAnaly::writeCallback(void* contents, size_t size, size_t nmemb, void* userp) {
-    size_t totalSize = size * nmemb;
-    CallbackData* data = static_cast<CallbackData*>(userp);
-    data->response.append(static_cast<char*>(contents), totalSize);
-    return totalSize;
+using json = nlohmann::json;
+
+const std::string BILIBILI_VIEW_API_BASE = "https://api.bilibili.com/x/web-interface/view?bvid=";
+const std::string BILIBILI_API_QUERY_PARM = "&qn=0&type=&otype=json&fnver=0&fnval=80";
+const std::string BILIBILI_PLAYER_API_BASE = "https://api.bilibili.com/x/player/playurl?avid=";
+const std::string BILIBILI_CID = "&cid=";
+
+// curl回调函数用于接收数据
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* data) {
+    data->append((char*)contents, size * nmemb);
+    return size * nmemb;
 }
 
-// CURL写文件回调函数
-size_t MusicAnaly::writeFileCallback(void* contents, size_t size, size_t nmemb, void* userp) {
-    CallbackData* data = static_cast<CallbackData*>(userp);
-    size_t written = fwrite(contents, size, nmemb, data->outputFile);
-    
-    // 更新下载字节数
-    if (data->downloadedBytes) {
-        *data->downloadedBytes += written * size;
-    }
-    
+// curl回调函数用于下载文件
+static size_t WriteFileCallback(void* ptr, size_t size, size_t nmemb, FILE* stream) {
+    size_t written = fwrite(ptr, size, nmemb, stream);
     return written;
 }
 
-// CURL进度回调函数
-int MusicAnaly::progressCallback(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
-    MusicAnaly* analyzer = static_cast<MusicAnaly*>(clientp);
-    
-    // 如果设置了取消标志，返回非0值会中止传输
-    if (analyzer->shouldCancel.load()) {
-        return 1; // 非0值会中止传输
+// curl进度回调函数
+static int ProgressCallback(void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
+    (void)dltotal;    // 明确标记为未使用
+    (void)ultotal;    // 明确标记为未使用
+    (void)ulnow;      // 明确标记为未使用
+    long long* downloadedBytes = (long long*)clientp;
+    if (downloadedBytes && dlnow > 0) {
+        *downloadedBytes = dlnow;
     }
-    
-    // 更新下载字节数
-    analyzer->downloadedBytes.store(dlnow);
-    
-    // 返回0继续传输
     return 0;
 }
 
-// 构造函数
-MusicAnaly::MusicAnaly(const std::string& filename, 
-                      const std::string& filetype, 
-                      const std::string& downloadpath)
-    : outputFilename_(filename), 
-      outputfiletype_(filetype), 
-      outputfiledownloadpath_(downloadpath),
-      curl(nullptr) {
-    
-    // 初始化CURL
-    curl_global_init(CURL_GLOBAL_DEFAULT);
-    curl = curl_easy_init();
-    
-    // 确保下载路径存在
-    if (!outputfiledownloadpath_.empty() && outputfiledownloadpath_ != "./") {
-        std::filesystem::create_directories(outputfiledownloadpath_);
-    }
-}
-
-// 析构函数
-MusicAnaly::~MusicAnaly() {
-    if (curl) {
-        curl_easy_cleanup(curl);
-    }
-    curl_global_cleanup();
-}
-
-// 从URL提取BVID
 std::string MusicAnaly::getBVID(const std::string& url) {
     size_t bv_pos = url.find("BV");
     if (bv_pos != std::string::npos && bv_pos + 12 <= url.length()) {
-        std::string bvid = url.substr(bv_pos, 12);
-        // 验证BVID格式
-        if (bvid.find("BV") == 0 && bvid.length() == 12) {
-            return bvid;
-        }
+        return url.substr(bv_pos, 12);
     }
-    return "";
+    return "";   
 }
 
-// 从JSON提取字符串
-std::string MusicAnaly::extractJsonString(const json& j, const std::string& key) {
+// 使用curl库获取JSON数据
+std::string MusicAnaly::fetchJsonData(const std::string& url) {
+    CURL* curl = curl_easy_init();
+    std::string response;
+    
+    if (curl) {
+        struct curl_slist* headers = NULL;
+        headers = curl_slist_append(headers, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        headers = curl_slist_append(headers, "Referer: https://www.bilibili.com");
+        headers = curl_slist_append(headers, "Origin: https://www.bilibili.com");
+        headers = curl_slist_append(headers, "Accept: application/json, text/plain, */*");
+        
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L); // 忽略SSL验证
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        
+        CURLcode res = curl_easy_perform(curl);
+        if (res != CURLE_OK) {
+            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+        }
+        
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+    }
+    
+    return response;
+}
+
+// 使用nlohmann/json提取信息
+std::string MusicAnaly::extractInfoFromJson(const std::string& jsonStr, const std::string& key) {
     try {
-        if (j.contains(key) && !j[key].is_null()) {
-            if (j[key].is_string()) {
-                return j[key].get<std::string>();
-            } else if (j[key].is_number()) {
-                return std::to_string(j[key].get<long long>());
+        json j = json::parse(jsonStr);
+        
+        // 递归查找key
+        std::function<json(const json&, const std::string&)> findKey;
+        findKey = [&](const json& obj, const std::string& k) -> json {
+            if (obj.is_object()) {
+                if (obj.contains(k)) {
+                    return obj[k];
+                }
+                for (auto& [key, val] : obj.items()) {
+                    if (val.is_object() || val.is_array()) {
+                        json result = findKey(val, k);
+                        if (!result.is_null()) {
+                            return result;
+                        }
+                    }
+                }
+            } else if (obj.is_array()) {
+                for (auto& item : obj) {
+                    if (item.is_object() || item.is_array()) {
+                        json result = findKey(item, k);
+                        if (!result.is_null()) {
+                            return result;
+                        }
+                    }
+                }
+            }
+            return json();
+        };
+        
+        json result = findKey(j, key);
+        if (!result.is_null()) {
+            if (result.is_string()) {
+                return result.get<std::string>();
+            } else if (result.is_number()) {
+                return std::to_string(result.get<long long>());
+            } else {
+                return result.dump();
             }
         }
-    } catch (const json::exception& e) {
-        std::cerr << "JSON提取错误 (" << key << "): " << e.what() << std::endl;
-    }
-    return "";
-}
-
-// 从JSON提取整数
-std::string MusicAnaly::extractJsonInt(const json& j, const std::string& key) {
-    try {
-        if (j.contains(key) && !j[key].is_null()) {
-            if (j[key].is_number()) {
-                return std::to_string(j[key].get<long long>());
-            } else if (j[key].is_string()) {
-                return j[key].get<std::string>();
-            }
-        }
-    } catch (const json::exception& e) {
-        std::cerr << "JSON提取错误 (" << key << "): " << e.what() << std::endl;
-    }
-    return "";
-}
-
-// 获取JSON数据
-bool MusicAnaly::fetchJsonData(const std::string& url, json& jsonData, const std::vector<std::string>& headers) {
-    if (!curl) {
-        std::cerr << "CURL未初始化" << std::endl;
-        return false;
-    }
-    
-    CallbackData data;
-    data.response.clear();
-    
-    CURLcode res;
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-    curl_easy_setopt(curl, CURLOPT_REFERER, "https://www.bilibili.com");
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-    
-    // 添加自定义头部
-    struct curl_slist* chunk = nullptr;
-    for (const auto& header : headers) {
-        chunk = curl_slist_append(chunk, header.c_str());
-    }
-    if (chunk) {
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, chunk);
-    }
-    
-    res = curl_easy_perform(curl);
-    
-    // 清理头部
-    if (chunk) {
-        curl_slist_free_all(chunk);
-    }
-    
-    if (res != CURLE_OK) {
-        std::cerr << "CURL请求失败: " << curl_easy_strerror(res) << std::endl;
-        return false;
-    }
-    
-    try {
-        jsonData = json::parse(data.response);
-        return true;
     } catch (const json::parse_error& e) {
-        std::cerr << "JSON解析失败: " << e.what() << std::endl;
-        std::cerr << "响应内容: " << data.response.substr(0, 200) << "..." << std::endl;
-        return false;
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
     }
+    return "";
 }
 
-// 下载文件
-bool MusicAnaly::downloadFile(const std::string& url, const std::string& outputPath) {
-    if (!curl) {
-        std::cerr << "CURL未初始化" << std::endl;
-        return false;
+// 使用nlohmann/json提取音频URL
+std::string MusicAnaly::getAudioUrlFromJson(const std::string& jsonStr) {
+    try {
+        json j = json::parse(jsonStr);
+        
+        // 查找音频URL
+        std::function<std::string(const json&)> findAudioUrl;
+        findAudioUrl = [&](const json& obj) -> std::string {
+            if (obj.is_object()) {
+                if (obj.contains("audio") && obj["audio"].is_array() && !obj["audio"].empty()) {
+                    for (auto& audioItem : obj["audio"]) {
+                        if (audioItem.is_object() && audioItem.contains("baseUrl") && 
+                            audioItem["baseUrl"].is_string()) {
+                            return audioItem["baseUrl"].get<std::string>();
+                        }
+                    }
+                }
+                if (obj.contains("dash") && obj["dash"].is_object() && 
+                    obj["dash"].contains("audio") && obj["dash"]["audio"].is_array() &&
+                    !obj["dash"]["audio"].empty()) {
+                    for (auto& audioItem : obj["dash"]["audio"]) {
+                        if (audioItem.is_object() && audioItem.contains("baseUrl") && 
+                            audioItem["baseUrl"].is_string()) {
+                            return audioItem["baseUrl"].get<std::string>();
+                        }
+                    }
+                }
+                for (auto& [key, val] : obj.items()) {
+                    if (val.is_object() || val.is_array()) {
+                        std::string result = findAudioUrl(val);
+                        if (!result.empty()) {
+                            return result;
+                        }
+                    }
+                }
+            } else if (obj.is_array()) {
+                for (auto& item : obj) {
+                    if (item.is_object() || item.is_array()) {
+                        std::string result = findAudioUrl(item);
+                        if (!result.empty()) {
+                            return result;
+                        }
+                    }
+                }
+            }
+            return "";
+        };
+        
+        return findAudioUrl(j);
+    } catch (const json::parse_error& e) {
+        std::cerr << "JSON parse error: " << e.what() << std::endl;
     }
-    
-    FILE* file = fopen(outputPath.c_str(), "wb");
-    if (!file) {
-        std::cerr << "无法创建文件: " << outputPath << std::endl;
-        return false;
-    }
-    
-    CallbackData data;
-    data.downloadedBytes = &downloadedBytes;
-    data.outputFile = file;
-    
-    CURLcode res;
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFileCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &data);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-    curl_easy_setopt(curl, CURLOPT_REFERER, "https://www.bilibili.com");
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
-    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progressCallback);
-    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, this);
-    
-    // 设置超时
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 0L); // 无总超时
-    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1024L); // 1KB/s
-    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 30L); // 30秒
-    
-    std::cout << "开始下载: " << url << " -> " << outputPath << std::endl;
-    
-    res = curl_easy_perform(curl);
-    fclose(file);
-    
-    if (res != CURLE_OK) {
-        if (res == CURLE_ABORTED_BY_CALLBACK && shouldCancel.load()) {
-            std::cout << "下载已被取消" << std::endl;
-        } else {
-            std::cerr << "下载失败: " << curl_easy_strerror(res) << std::endl;
-        }
-        // 删除可能已下载的部分文件
-        std::filesystem::remove(outputPath);
-        return false;
-    }
-    
-    return true;
+    return "";
 }
 
-// 主下载函数
+bool MusicAnaly::fileExists(const std::string& filename) {
+    struct stat buffer;
+    return (stat(filename.c_str(), &buffer) == 0);
+}
+
+long long MusicAnaly::getFileSize(const std::string& filename) {
+    if (!fileExists(filename)) return 0;
+    
+    struct stat buffer;
+    if (stat(filename.c_str(), &buffer) == 0) {
+        return buffer.st_size;
+    }
+    return 0;
+}
+
+long long MusicAnaly::getDownloadBytes(void) {
+    return downloadedBytes;
+}
+
+bool MusicAnaly::ifDownloading(void) {
+    return isDownloading;
+}
+
+bool MusicAnaly::downloadIfFinished(void) {
+    return downloadFinished;
+}
+
+bool MusicAnaly::downloadIfSuccess(void) {
+    return downloadSuccess;
+}
+
 bool MusicAnaly::download(const std::string& url) {
+    std::string outputFilename = outputFilename_;
+    std::cout << "handle url: " << url << std::endl;
+
     // 状态重置
     downloadedBytes = 0;
     isDownloading = true;
     downloadFinished = false;
     downloadSuccess = false;
-    shouldCancel = false;
-    
-    std::cout << "处理URL: " << url << std::endl;
-    
-    // 提取BVID
+
+    // 根据视频链接提取bvid
     std::string bvid = getBVID(url);
     if (bvid.empty()) {
-        std::cerr << "无法从URL提取BVID: " << url << std::endl;
+        std::cerr << "failed get bvid !" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
     }
-    std::cout << "提取到BVID: " << bvid << std::endl;
-    
+    std::cout << "get bvid: " << bvid << std::endl;
+
     // 获取视频信息
-    std::string infoUrl = "https://api.bilibili.com/x/web-interface/view?bvid=" + bvid;
-    json infoJson;
+    std::string infoUrl = BILIBILI_VIEW_API_BASE + bvid;
+    std::string info_json = fetchJsonData(infoUrl);
     
-    if (!fetchJsonData(infoUrl, infoJson)) {
-        std::cerr << "获取视频信息失败" << std::endl;
+    if (info_json.empty()) {
+        std::cerr << "failed to get video info !" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
     }
-    
-    // 提取aid和cid
-    std::string aid, cid;
-    try {
-        if (infoJson.contains("data")) {
-            const auto& data = infoJson["data"];
-            aid = extractJsonString(data, "aid");
-            cid = extractJsonString(data, "cid");
-        }
-    } catch (const json::exception& e) {
-        std::cerr << "解析视频信息失败: " << e.what() << std::endl;
-    }
-    
+
+    // 提取关键字
+    std::string aid = extractInfoFromJson(info_json, "aid");
+    std::string cid = extractInfoFromJson(info_json, "cid");
     if (aid.empty() || cid.empty()) {
-        std::cerr << "无法提取aid或cid" << std::endl;
-        std::cerr << "响应内容: " << infoJson.dump(2) << std::endl;
+        std::cerr << "failed to get key word !" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
     }
-    std::cout << "提取到aid: " << aid << ", cid: " << cid << std::endl;
-    
+    std::cout << "get aid: " << aid << " get cid: " << cid << std::endl;
+
     // 获取音频信息
-    std::string audioUrl = "https://api.bilibili.com/x/player/playurl?avid=" + aid + 
-                          "&cid=" + cid + "&qn=0&type=&otype=json&fnver=0&fnval=80";
-    json audioJson;
+    std::string audioUrl = BILIBILI_PLAYER_API_BASE + aid + BILIBILI_CID + cid + BILIBILI_API_QUERY_PARM;
+    std::string audio_json = fetchJsonData(audioUrl);
     
-    if (!fetchJsonData(audioUrl, audioJson)) {
-        std::cerr << "获取音频信息失败" << std::endl;
+    if (audio_json.empty()) {
+        std::cerr << "failed to get audio json !" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
     }
-    
-    // 提取音频下载URL
-    std::string audioDownloadUrl;
-    try {
-        if (audioJson.contains("data") && audioJson["data"].contains("dash")) {
-            const auto& dash = audioJson["data"]["dash"];
-            if (dash.contains("audio") && dash["audio"].is_array() && !dash["audio"].empty()) {
-                const auto& audio = dash["audio"][0];
-                if (audio.contains("baseUrl")) {
-                    audioDownloadUrl = audio["baseUrl"].get<std::string>();
-                }
-            }
-        }
-    } catch (const json::exception& e) {
-        std::cerr << "解析音频信息失败: " << e.what() << std::endl;
-    }
-    
-    if (audioDownloadUrl.empty()) {
-        std::cerr << "无法提取音频下载URL" << std::endl;
-        std::cerr << "响应内容: " << audioJson.dump(2) << std::endl;
+
+    // 提取音频下载链接
+    std::string audio_url = getAudioUrlFromJson(audio_json);
+    if (audio_url.empty()) {
+        std::cerr << "failed to get audio url !" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
     }
-    
-    // 处理转义字符
-    size_t pos;
-    while ((pos = audioDownloadUrl.find("\\u0026")) != std::string::npos) {
-        audioDownloadUrl.replace(pos, 6, "&");
-    }
-    
-    std::cout << "提取到音频下载URL: " << audioDownloadUrl.substr(0, 100) << "..." << std::endl;
-    
-    // 构建输出文件名
-    std::string outputFilename = outputFilename_;
-    if (outputFilename.empty()) {
-        outputFilename = bvid;
-    }
+
+    // 构建下载文件名
+    if (outputFilename.empty()) outputFilename = bvid;
     outputFilename += outputfiletype_;
-    std::string outputPath = outputfiledownloadpath_ + outputFilename;
-    
-    // 如果文件已存在，删除它
-    if (fileExists(outputPath)) {
-        std::cout << "删除已存在的文件: " << outputPath << std::endl;
-        std::filesystem::remove(outputPath);
+    std::string download_file_path_name = outputfiledownloadpath_ + outputFilename;
+
+    // 删掉旧文件
+    if (fileExists(download_file_path_name)) {
+        remove(download_file_path_name.c_str());
     }
+
+    // 下载开始
+    std::cout << "begin down load: " << download_file_path_name << std::endl;
     
-    // 启动下载线程
-    std::thread download_thread([this, audioDownloadUrl, outputPath]() {
-        bool success = this->downloadFile(audioDownloadUrl, outputPath);
+    std::thread download_thread([this, audio_url, download_file_path_name]() {
+        CURL* curl = curl_easy_init();
+        FILE* file = fopen(download_file_path_name.c_str(), "wb");
         
-        // 更新状态
-        this->downloadSuccess = success;
-        this->isDownloading = false;
-        this->downloadFinished = true;
-        
-        if (success) {
-            long long fileSize = getFileSize(outputPath);
-            this->downloadedBytes = fileSize;
-            std::cout << "下载完成，文件大小: " << fileSize << " 字节" << std::endl;
+        if (curl && file) {
+            struct curl_slist* headers = NULL;
+            headers = curl_slist_append(headers, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            headers = curl_slist_append(headers, "Referer: https://www.bilibili.com");
+            
+            curl_easy_setopt(curl, CURLOPT_URL, audio_url.c_str());
+            curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteFileCallback);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+            curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+            curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, ProgressCallback);
+            curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &downloadedBytes);
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+            curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+            
+            CURLcode res = curl_easy_perform(curl);
+            
+            fclose(file);
+            curl_slist_free_all(headers);
+            curl_easy_cleanup(curl);
+            
+            downloadSuccess = (res == CURLE_OK);
+            isDownloading = false;
+            downloadFinished = true;
+            
+            if (downloadSuccess) {
+                downloadedBytes = getFileSize(download_file_path_name);
+            }
+        } else {
+            if (file) fclose(file);
+            downloadSuccess = false;
+            isDownloading = false;
+            downloadFinished = true;
         }
     });
-    
+
     download_thread.detach();
-    
+
     return true;
-}
-
-// 取消下载
-void MusicAnaly::cancelDownload() {
-    shouldCancel = true;
-}
-
-// 获取下载字节数
-long long MusicAnaly::getDownloadBytes() const {
-    return downloadedBytes.load();
-}
-
-// 检查是否正在下载
-bool MusicAnaly::ifDownloading() const {
-    return isDownloading.load();
-}
-
-// 检查下载是否完成
-bool MusicAnaly::downloadIfFinished() const {
-    return downloadFinished.load();
-}
-
-// 检查下载是否成功
-bool MusicAnaly::downloadIfSuccess() const {
-    return downloadSuccess.load();
-}
-
-// 获取下载进度百分比
-double MusicAnaly::getDownloadProgress() const {
-    // 这里需要知道文件总大小才能计算百分比
-    // 由于我们不知道总大小，所以返回-1表示未知
-    // 或者可以实现更复杂的逻辑来获取总大小
-    return -1.0; // 表示未知
-}
-
-// 设置输出文件名
-void MusicAnaly::setOutputFilename(const std::string& filename) {
-    outputFilename_ = filename;
-}
-
-// 设置输出文件类型
-void MusicAnaly::setOutputFiletype(const std::string& filetype) {
-    outputfiletype_ = filetype;
-}
-
-// 设置输出路径
-void MusicAnaly::setOutputPath(const std::string& path) {
-    outputfiledownloadpath_ = path;
-    if (!outputfiledownloadpath_.empty() && outputfiledownloadpath_ != "./") {
-        std::filesystem::create_directories(outputfiledownloadpath_);
-    }
-}
-
-// 检查文件是否存在
-bool MusicAnaly::fileExists(const std::string& filename) {
-    return std::filesystem::exists(filename);
-}
-
-// 获取文件大小
-long long MusicAnaly::getFileSize(const std::string& filename) {
-    try {
-        return std::filesystem::file_size(filename);
-    } catch (...) {
-        return 0;
-    }
-}
-
-// 从URL获取文件名
-std::string MusicAnaly::getFilenameFromUrl(const std::string& url) {
-    size_t lastSlash = url.find_last_of("/");
-    if (lastSlash != std::string::npos && lastSlash + 1 < url.length()) {
-        std::string filename = url.substr(lastSlash + 1);
-        
-        // 移除查询参数
-        size_t questionMark = filename.find("?");
-        if (questionMark != std::string::npos) {
-            filename = filename.substr(0, questionMark);
-        }
-        
-        return filename;
-    }
-    return "";
 }

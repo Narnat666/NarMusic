@@ -1,4 +1,7 @@
 #include "task_manger.h"
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 TaskManager& TaskManager::instance() { // 返回同一个对象
     static TaskManager manager;
@@ -60,18 +63,16 @@ std::string TaskManager::getTaskStatus(const std::string& task_id) // 状态获�
         return R"({"error":"analyzer_not_found"})";
     }
 
-    std::string json;
-    json.reserve(256);
-    json += '{';
-    json += "\"task_id\":\"";   json += task_id;                 json += "\",";
-    json += "\"url\":\"";       json += info.url;               json += "\",";
-    json += "\"is_downloading\":"; json += (analyzer->ifDownloading()         ? "true" : "false"); json += ',';
-    json += "\"is_finished\":";   json += (analyzer->downloadIfFinished()    ? "true" : "false"); json += ',';
-    json += "\"is_success\":";    json += (analyzer->downloadIfSuccess()     ? "true" : "false"); json += ',';
-    json += "\"downloaded_bytes\":"; json += std::to_string(analyzer->getDownloadBytes());
-    json += '}';
+    // 使用nlohmann/json创建JSON
+    json j;
+    j["task_id"] = task_id;
+    j["url"] = info.url;
+    j["is_downloading"] = analyzer->ifDownloading();
+    j["is_finished"] = analyzer->downloadIfFinished();
+    j["is_success"] = analyzer->downloadIfSuccess();
+    j["downloaded_bytes"] = analyzer->getDownloadBytes();
 
-    return json;
+    return j.dump();
 }
 
 // 清理旧任务

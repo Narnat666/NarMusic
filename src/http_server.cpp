@@ -11,6 +11,9 @@
 #include <fstream>
 #include <sys/stat.h>
 #include "task_manger.h"
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 void sendResponse(int socket, const std::string& status, const std::string& body) {
     std::stringstream response;
@@ -105,32 +108,35 @@ void HttpServer::handleRequest(int clientSocket) {
     if (request.getMethod() == "POST" && request.getPath() == "/api/message") {
         std::string body = request.getBody();
         
-        // 手动解析JSON中的content字段
+        // 使用nlohmann/json解析JSON中的content字段
         std::string content = "";
-        size_t pos = body.find("\"content\":");
-        if (pos != std::string::npos) {
-            pos += 10; // 跳过"content": 
-            if (body[pos] == '"') {
-                pos++;
-                size_t end = body.find('"', pos);
-                if (end != std::string::npos) {
-                    content = body.substr(pos, end - pos);
-                }
+        try {
+            json j = json::parse(body);
+            if (j.contains("content") && j["content"].is_string()) {
+                content = j["content"].get<std::string>();
+            } else {
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Missing or invalid content field\"}");
+                close(clientSocket);
+                return;
             }
+        } catch (const json::parse_error& e) {
+            sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
+            close(clientSocket);
+            return;
         }
         
         // 创建下载任务
         std::string task_id = TaskManager::instance().createTask(content);
         
-        // 返回任务ID
-        std::stringstream response;
-        response << "{\"task_id\":\"" << task_id << "\","
-                 << "\"message\":\"download_started\","
-                 << "\"url\":\"" << content << "\"}";
+        // 使用nlohmann/json创建JSON响应
+        json responseJson;
+        responseJson["task_id"] = task_id;
+        responseJson["message"] = "download_started";
+        responseJson["url"] = content;
         
         std::cout << "create task success taskid: " << task_id << " url: " << content << std::endl;
         
-        sendResponse(clientSocket, "200 OK", response.str());
+        sendResponse(clientSocket, "200 OK", responseJson.dump());
         close(clientSocket);
 
     } else {
