@@ -10,7 +10,15 @@ add_executable(http_server
     src/http_server.cpp
     src/http_request.cpp
     src/music_analysis.cpp
-    src/task_manger
+    src/task_manger.cpp
+)
+
+# 添加头文件包含路径到目标
+target_include_directories(http_server PRIVATE
+    include
+    include/curl
+    include/narnat
+    include/nlohmann
 )
 
 # 编译器选项

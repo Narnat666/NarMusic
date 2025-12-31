@@ -3,7 +3,7 @@
 交叉编译：
 mkdir build-aarch64
 cd build-aarch64
-cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-aarch64.cmake ..
+cmake -D CMAKE_TOOLCHAIN_FILE=../toolchain-aarch64.cmake ..
 make
 
 # 学习目标

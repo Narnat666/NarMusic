@@ -2,13 +2,15 @@
 
 
 const std::string CURL_COMMAND = "curl -s -k ";
-const std::string USER_AGENT_HEADER = "-H \"User-Agent: Mozilla/5.0\" ";
+const std::string USER_AGENT_HEADER = "-H \"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\" ";
 const std::string BILIBILI_REFERER_HEADER = "-H \"Referer: https://www.bilibili.com\" ";
 const std::string BILIBILI_VIEW_API_BASE = "\"https://api.bilibili.com/x/web-interface/view?bvid=";
 const std::string BILIBILI_API_QUERY_PARM = "&qn=0&type=&otype=json&fnver=0&fnval=80\"";
 const std::string BILIBILI_PLAYER_API_BASE = "\"https://api.bilibili.com/x/player/playurl?avid=";
 const std::string BILIBILI_CID = "&cid=";
 const std::string BILIBILI_DOWN_LOAD_CURL = "curl -L -s -k -o \"";
+const std::string ORIGIN_HEADER = "-H \"Origin: https://www.bilibili.com\" ";
+const std::string ACCEPT_HEADER = "-H \"Accept: application/json, text/plain, */*\" ";
 
 std::string MusicAnaly::getBVID(const std::string& url) { // 参数为视频链接
     size_t bv_pos = url.find("BV");
@@ -18,8 +20,8 @@ std::string MusicAnaly::getBVID(const std::string& url) { // 参数为视频链�
     return "";   
 }
 
-std::string MusicAnaly::buildInfoCmd(const std::string& bvid) { // 用于获取视频信息
-    return CURL_COMMAND + USER_AGENT_HEADER + 
+std::string MusicAnaly::buildInfoCmd(const std::string& bvid) {
+    return CURL_COMMAND + USER_AGENT_HEADER + ORIGIN_HEADER + ACCEPT_HEADER + 
             BILIBILI_REFERER_HEADER + BILIBILI_VIEW_API_BASE + bvid + "\"";
 }
 
@@ -40,6 +42,7 @@ std::string MusicAnaly::cmdHandle(const std::string& cmd) {  // 返回链接处�
     }
     pclose(pipe);
     
+    std::cout << "handle result: " << result << std::endl;
     while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) {
         result.pop_back();
     }
@@ -161,6 +164,7 @@ bool MusicAnaly::download(const std::string& url) { // 下载操作函数
     std::cout << "get bvid: " << bvid << std::endl;
 
     // 构建链接提取视频信息
+    std::cout << "build info: " << buildInfoCmd(bvid) << std::endl;
     std::string info_json = cmdHandle(buildInfoCmd(bvid));
     if (info_json.empty()) {
         std::cerr << "failed to get video info !" << std::endl;

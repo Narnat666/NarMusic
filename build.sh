@@ -109,7 +109,7 @@ build_project() {
     
     # 运行 CMake 配置
     info "运行 CMake 配置..."
-    cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-aarch64.cmake ..
+    cmake -D CMAKE_TOOLCHAIN_FILE=../toolchain-aarch64.cmake ..
     
     if [ $? -eq 0 ]; then
         success "CMake 配置成功"
