@@ -15,20 +15,20 @@ std::string TaskManager::generateTaskId() {
     return ss;
 }
 
-std::string TaskManager::createTask(const std::string& url) { // 创建线程任务函数
+std::string TaskManager::createTask(const std::string& url, const std::string& file_name) { // 创建线程任务函数
     // 创建任务id
     std::string task_id = generateTaskId();
     auto analyzer = std::make_shared<MusicAnaly>(); // 智能指针接管
 
     { // 上锁
         std::lock_guard<std::mutex> lock(mutex_);
-        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now()};
+        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), file_name};
         // 加入到任务，并解锁
     }
 
     // 启动下载线程
-    std::thread([this, task_id, analyzer, url](){
-        analyzer->download(url);
+    std::thread([this, task_id, analyzer, url, file_name](){
+        analyzer->download(url, file_name);
 
         // 等待下载完成
         while (!analyzer->downloadIfFinished()) {

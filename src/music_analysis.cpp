@@ -211,8 +211,8 @@ bool MusicAnaly::downloadIfSuccess(void) {
     return downloadSuccess;
 }
 
-bool MusicAnaly::download(const std::string& url) {
-    std::string outputFilename = outputFilename_;
+bool MusicAnaly::download(const std::string& url, const std::string& file_name) {
+    std::string outputFilename = file_name;
     std::cout << "handle url: " << url << std::endl;
 
     // 状态重置

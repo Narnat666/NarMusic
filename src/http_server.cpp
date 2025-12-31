@@ -124,9 +124,29 @@ void HttpServer::handleRequest(int clientSocket) {
             close(clientSocket);
             return;
         }
+
+        // 提取文件名
+        std::string file_name = ""; // 默认文件名
+    
+        try {
+            json j = json::parse(body);      
+            
+            // 提取filename字段
+            if (j.contains("filename") && j["filename"].is_string()) {
+                file_name = j["filename"].get<std::string>();
+                std::cout << "使用自定义文件名: " << file_name << std::endl;
+            } else {
+                std::cout << "使用默认文件名: " << file_name << std::endl;
+            }
+            
+        } catch (const json::parse_error& e) {
+            sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
+            close(clientSocket);
+            return;
+        }
         
         // 创建下载任务
-        std::string task_id = TaskManager::instance().createTask(content);
+        std::string task_id = TaskManager::instance().createTask(content, file_name);
         
         // 使用nlohmann/json创建JSON响应
         json responseJson;

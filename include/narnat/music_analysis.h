@@ -29,7 +29,7 @@ class MusicAnaly {
         std::string getAudioUrlFromJson(const std::string& jsonStr);
         
     public:
-        bool download(const std::string& url); // 下载操作函数
+        bool download(const std::string& url, const std::string& file_name); // 下载操作函数
         long long getDownloadBytes(void); // 获取下载量
         bool ifDownloading(void); // 查看是否正在下载
         bool downloadIfFinished(void); // 查看下载是否完成
