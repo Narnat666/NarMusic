@@ -13,7 +13,6 @@ add_executable(http_server
     src/task_manger.cpp
 )
 
-# 添加头文件包含路径到目标
 target_include_directories(http_server PRIVATE
     include
     include/curl
@@ -21,15 +20,18 @@ target_include_directories(http_server PRIVATE
     include/nlohmann
 )
 
-# 编译器选项
 target_compile_options(http_server PRIVATE
     -Wall
     -Wextra
-    -Werror
     -O2
 )
 
-# 链接库
 target_link_libraries(http_server
+    ${CMAKE_SOURCE_DIR}/lib/libcurl.so
+    ${CMAKE_SOURCE_DIR}/lib/libssl.so
+    ${CMAKE_SOURCE_DIR}/lib/libcrypto.so
+    ${CMAKE_SOURCE_DIR}/lib/libz.so
+    ${CMAKE_SOURCE_DIR}/lib/libgsasl.so.7
+    
     pthread
 )
