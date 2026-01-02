@@ -16,9 +16,9 @@ class MusicAnaly {
         std::atomic<bool> isDownloading{false}; // 下载状态标志位
         std::atomic<bool> downloadFinished{false};  // 下载成功标志位
         std::atomic<bool> downloadSuccess{false};   // 下载成功标志位 
-        std::string outputFilename_; // 文件名
-        std::string outputfiletype_; // 文件后缀
-        std::string outputfiledownloadpath_; // 文件下载路径
+        std::string downloadFilename_; // 文件名
+        std::string downloadFiletype_; // 文件后缀
+        std::string downloadFilepath_; // 文件下载路径
         
         std::string getBVID(const std::string& url); // 视频ID提取
         std::string replaceAll(std::string str, const std::string& from, const std::string& to); // 字符串替换函数
@@ -35,9 +35,10 @@ class MusicAnaly {
         bool downloadIfSuccess(void); // 查看下载是否成功
         std::string getDownloadFilePathName(void);
         bool fileExists(const std::string& filename); // 文件存在查看函数
+        std::string getDownloadFileType(void);
 
         explicit MusicAnaly(const std::string& filename = "", const std::string& filetype = ".m4a", const std::string& downloadpath = "./") 
-        : outputFilename_(filename), outputfiletype_(filetype), outputfiledownloadpath_(downloadpath) {
+        : downloadFilename_(filename), downloadFiletype_(filetype), downloadFilepath_(downloadpath) {
         }
 
 };

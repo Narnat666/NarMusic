@@ -17,7 +17,8 @@ struct TaskInfo {
     std::shared_ptr<MusicAnaly> analyzer; // 下载类
     bool is_finished = false;
     std::chrono::system_clock::time_point created_time; // 时间
-    std::string file_path_name; // 存储文件名
+    std::string file_path_name; // 存储真实路径和名称
+    std::string file_send_name; // 文件发送名称
 };
 
 class TaskManager { 

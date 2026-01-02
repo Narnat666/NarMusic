@@ -212,7 +212,7 @@ bool MusicAnaly::downloadIfSuccess(void) {
 }
 
 bool MusicAnaly::download(const std::string& url) {
-    std::string outputFilename = outputFilename_;
+    std::string outputFilename = downloadFilename_;
     std::cout << "handle url: " << url << std::endl;
 
     // 状态重置
@@ -275,8 +275,8 @@ bool MusicAnaly::download(const std::string& url) {
 
     // 构建下载文件名
     if (outputFilename.empty()) outputFilename = bvid;
-    outputFilename += outputfiletype_;
-    std::string download_file_path_name = outputfiledownloadpath_ + outputFilename;
+    outputFilename += downloadFiletype_;
+    std::string download_file_path_name = downloadFilepath_ + outputFilename;
 
     // 删掉旧文件
     if (fileExists(download_file_path_name)) {
@@ -333,5 +333,9 @@ bool MusicAnaly::download(const std::string& url) {
 }
 
 std::string MusicAnaly::getDownloadFilePathName(void) { // 获取文件路径+名字+后缀
-    return outputfiledownloadpath_ + outputFilename_ + outputfiletype_;
+    return downloadFilepath_ + downloadFilename_ + downloadFiletype_;
+}
+
+std::string MusicAnaly::getDownloadFileType(void) {
+    return downloadFiletype_;
 }

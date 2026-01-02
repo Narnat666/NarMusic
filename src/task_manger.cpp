@@ -22,10 +22,10 @@ std::string TaskManager::createTask(const std::string& url, const std::string& f
     std::string name = task_id;
     if (!file_name.empty()) name = file_name; // 文件名为空则用taskid做为名字
 
-    auto analyzer = std::make_shared<MusicAnaly>(name); // 智能指针接管
+    auto analyzer = std::make_shared<MusicAnaly>(task_id); // 智能指针接管
     { // 上锁
         std::lock_guard<std::mutex> lock(mutex_);
-        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName()};
+        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName(), name + analyzer->getDownloadFileType()};
         // 加入到任务，并解锁
     }
 
@@ -93,7 +93,6 @@ void TaskManager::cleanupOldTasks(int max_age_seconds /*=10*/) {
                 // 检查文件是否存在
                 if (!std::filesystem::exists(file_path_name)) {
                     std::cout << "文件不存在: " << file_path_name << std::endl;
-                    return;
                 }
                 
                 // 删除文件

@@ -157,6 +157,17 @@ std::string urlEncodeUtf8(const std::string& utf8Str) { // 字符串转码utf8
     return escaped.str();
 }
 
+
+std::string linkCut(std::string& link) {
+    size_t start = link.find("http"); // 找到链接
+    if (start == std::string::npos) return "";
+    size_t end = link.find(" ", start);
+    if (end == std::string::npos) end = link.length();
+
+    return link.substr(start, end - start);
+}
+
+
 void HttpServer::handleRequest(int clientSocket) {
     HttpRequest request(clientSocket);
     if (!request.parse()) {
@@ -269,9 +280,8 @@ void HttpServer::handleRequest(int clientSocket) {
                     file.read(buffer.data(), fileSize);
                     file.close();
                 
-                    // 从文件路径提取文件名
-                    size_t pos = file_name_path.find_last_of("/\\");
-                    std::string filename = file_name_path.substr(pos + 1);
+                    // 获取文件名
+                    std::string filename = it->second.file_send_name;
 
                     // 发送文件
                     std::stringstream response;
@@ -288,7 +298,7 @@ void HttpServer::handleRequest(int clientSocket) {
                     // 然后发送文件内容
                     send(clientSocket, buffer.data(), buffer.size(), 0);
                 
-                    std::cout << "文件发送成功: " << urlEncodeUtf8(filename) << " (" << fileSize << " 字节)" << std::endl;
+                    std::cout << "文件发送成功: " << filename << " (" << fileSize << " 字节)" << std::endl;
                 
                     close(clientSocket);
                     return;
@@ -311,6 +321,8 @@ void HttpServer::handleRequest(int clientSocket) {
                 json j = json::parse(body);
                 if (j.contains("content") && j["content"].is_string()) {
                     rawContent = j["content"].get<std::string>();
+                    // 裁剪链接
+                    rawContent = linkCut(rawContent);
                     // 转换短链接为标准链接
                     content = resolveShortUrl(rawContent);
                     
