@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能音乐下载器</title>
+    <title>B站视频音乐提取器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
@@ -664,38 +664,31 @@
                 <div class="theme-color" data-theme="forest" style="background: linear-gradient(135deg, #11998e, #38ef7d);"></div>
                 <div class="theme-color" data-theme="purple" style="background: linear-gradient(135deg, #8E2DE2, #4A00E0);"></div>
             </div>
-            <h1><i class="fas fa-music"></i> 智能音乐下载器</h1>
-            <p>轻松下载您喜爱的音乐，支持多种格式和平台</p>
+            <h1><i class="fas fa-music"></i> B站视频音乐提取器</h1>
         </div>
         
         <div class="content">
             <!-- 输入区域 -->
             <div class="form-group">
                 <label for="urlInput">
-                    <i class="fas fa-link"></i> 音乐链接或描述
+                    <i class="fas fa-link"></i> 音乐链接
                 </label>
                 <textarea 
                     id="urlInput" 
-                    placeholder="输入链接或包含链接的描述，例如：《春风十里报新年》https://b23.tv/NV9Uhwf"
-                    autofocus
-                    rows="3">《春风十里报新年》https://b23.tv/NV9Uhwf</textarea>
-                <div class="input-hint">
-                    支持多种格式：直接链接、短链接，或包含链接的文本描述
-                </div>
+                    placeholder="输入B站视频链接"
+                    rows="3"
+                ></textarea>
             </div>
             
             <div class="form-group">
                 <label for="filenameInput">
-                    <i class="fas fa-file-alt"></i> 自定义文件名（可选）
+                    <i class="fas fa-file-alt"></i> 文件名
                 </label>
                 <input 
                     type="text" 
                     id="filenameInput" 
-                    placeholder="输入文件名，如：春风十里报新年"
+                    placeholder="输入要保存的文件名"
                 >
-                <div class="input-hint">
-                    留空将使用默认文件名，支持中文和特殊字符
-                </div>
             </div>
             
             <!-- 主按钮区域 -->
@@ -726,13 +719,6 @@
                 </div>
                 
                 <div class="status-grid">
-                    <div class="status-card">
-                        <div class="status-label">
-                            <i class="fas fa-fingerprint"></i> 任务ID
-                        </div>
-                        <div id="taskId" class="status-value">-</div>
-                    </div>
-                    
                     <div class="status-card">
                         <div class="status-label">
                             <i class="fas fa-database"></i> 已下载
@@ -878,7 +864,6 @@
             
             // 状态相关元素
             const statusLight = document.getElementById('statusLight');
-            const taskIdEl = document.getElementById('taskId');
             const downloadedBytesEl = document.getElementById('downloadedBytes');
             const downloadSpeedEl = document.getElementById('downloadSpeed');
             const taskStatusEl = document.getElementById('taskStatus');
@@ -1021,11 +1006,6 @@
             
             // 更新任务状态
             function updateTaskStatus(status) {
-                // 更新任务ID
-                if (status.task_id) {
-                    taskIdEl.textContent = status.task_id.substring(0, 8) + '...';
-                }
-                
                 // 处理错误状态
                 if (status.error) {
                     taskStatusEl.textContent = '错误: ' + status.error;
@@ -1116,7 +1096,6 @@
             
             // 重置任务状态显示
             function resetTaskStatus() {
-                taskIdEl.textContent = '-';
                 downloadedBytesEl.textContent = '0 B';
                 downloadSpeedEl.textContent = '0 B/s';
                 taskStatusEl.textContent = '等待中';
@@ -1185,7 +1164,6 @@
                     if (response.ok) {
                         // 保存任务ID
                         currentTaskId = data.task_id;
-                        taskIdEl.textContent = currentTaskId.substring(0, 8) + '...';
                         
                         showStatus('下载任务已创建，开始下载...', 'success');
                         
