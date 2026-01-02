@@ -4,6 +4,9 @@
 
 using json = nlohmann::json;
 
+extern std::string path;
+extern std::string ext;
+
 TaskManager& TaskManager::instance() { // 返回同一个对象
     static TaskManager manager;
     return manager;
@@ -22,7 +25,7 @@ std::string TaskManager::createTask(const std::string& url, const std::string& f
     std::string name = task_id;
     if (!file_name.empty()) name = file_name; // 文件名为空则用taskid做为名字
 
-    auto analyzer = std::make_shared<MusicAnaly>(task_id); // 智能指针接管
+    auto analyzer = std::make_shared<MusicAnaly>(task_id, ext, path); // 智能指针接管
     { // 上锁
         std::lock_guard<std::mutex> lock(mutex_);
         tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName(), name + analyzer->getDownloadFileType()};
@@ -87,7 +90,6 @@ void TaskManager::cleanupOldTasks(int max_age_seconds /*=10*/) {
         auto age = std::chrono::duration_cast<std::chrono::seconds>(
                        now - it->second.created_time);
         if (age.count() > max_age_seconds) {
-            std::cout << "erase task: " << it->second.task_id << std::endl;
             std::string file_path_name = it->second.file_path_name;
             try {
                 // 检查文件是否存在
@@ -99,13 +101,14 @@ void TaskManager::cleanupOldTasks(int max_age_seconds /*=10*/) {
                 bool success = std::filesystem::remove(file_path_name);
                 
                 if (success) {
-                    std::cout << "已删除: " << file_path_name << std::endl;
+                    std::cout << "\n文件已删除: " << file_path_name << std::endl;
                 } else {
-                    std::cerr << "删除失败: " << file_path_name << std::endl;
+                    std::cerr << "\n文件删除失败: " << file_path_name << std::endl;
                 }
             } catch (const std::exception& e) {
-                std::cerr << "删除异常: " << e.what() << " 文件: " << file_path_name << std::endl;
+                std::cerr << "\n文件删除异常: " << e.what() << " 文件: " << file_path_name << std::endl;
             }
+            std::cout << "任务已经清理：" << it->second.task_id << std::endl;
             it = tasks_.erase(it);
         } else {
             ++it;

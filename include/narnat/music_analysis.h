@@ -39,6 +39,8 @@ class MusicAnaly {
 
         explicit MusicAnaly(const std::string& filename = "", const std::string& filetype = ".m4a", const std::string& downloadpath = "./") 
         : downloadFilename_(filename), downloadFiletype_(filetype), downloadFilepath_(downloadpath) {
+            if (downloadFiletype_.empty()) downloadFiletype_ = ".m4a";
+            if (downloadFilepath_.empty()) downloadFilepath_ = "./";
         }
 
 };

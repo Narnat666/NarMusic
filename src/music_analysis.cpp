@@ -5,8 +5,10 @@
 #include <thread>
 #include <cstdlib>
 #include <sys/stat.h>
+#include <filesystem>
 
 using json = nlohmann::json;
+extern bool debug;
 
 const std::string BILIBILI_VIEW_API_BASE = "https://api.bilibili.com/x/web-interface/view?bvid=";
 const std::string BILIBILI_API_QUERY_PARM = "&qn=0&type=&otype=json&fnver=0&fnval=80";
@@ -66,7 +68,7 @@ std::string MusicAnaly::fetchJsonData(const std::string& url) {
         
         CURLcode res = curl_easy_perform(curl);
         if (res != CURLE_OK) {
-            std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
+            std::cerr << "curl函数执行失败：" << curl_easy_strerror(res) << std::endl;
         }
         
         curl_slist_free_all(headers);
@@ -120,7 +122,7 @@ std::string MusicAnaly::extractInfoFromJson(const std::string& jsonStr, const st
             }
         }
     } catch (const json::parse_error& e) {
-        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        std::cerr << "JSON 解析错误：" << e.what() << std::endl;
     }
     return "";
 }
@@ -175,7 +177,7 @@ std::string MusicAnaly::getAudioUrlFromJson(const std::string& jsonStr) {
         
         return findAudioUrl(j);
     } catch (const json::parse_error& e) {
-        std::cerr << "JSON parse error: " << e.what() << std::endl;
+        std::cerr << "JSON 解析错误：" << e.what() << std::endl;
     }
     return "";
 }
@@ -211,9 +213,28 @@ bool MusicAnaly::downloadIfSuccess(void) {
     return downloadSuccess;
 }
 
+// 创建必要目录函数
+bool prepareDownloadFile(const std::string& file_path_name) {
+    try {
+        std::filesystem::path file_path(file_path_name);
+        std::filesystem::create_directories(file_path.parent_path());
+        
+        // 检查目录是否创建成功
+        if (!std::filesystem::exists(file_path.parent_path())) {
+            std::cerr << "目录创建失败: " << file_path.parent_path() << std::endl;
+            return false;
+        }
+        
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "创建目录时出错: " << e.what() << std::endl;
+        return false;
+    }
+}
+
 bool MusicAnaly::download(const std::string& url) {
     std::string outputFilename = downloadFilename_;
-    std::cout << "handle url: " << url << std::endl;
+    if (debug) std::cout << "处理链接：" << url << std::endl;
 
     // 状态重置
     downloadedBytes = 0;
@@ -224,19 +245,19 @@ bool MusicAnaly::download(const std::string& url) {
     // 根据视频链接提取bvid
     std::string bvid = getBVID(url);
     if (bvid.empty()) {
-        std::cerr << "failed get bvid !" << std::endl;
+        std::cerr << "获取 bvid失败！" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
     }
-    std::cout << "get bvid: " << bvid << std::endl;
+    if(debug) std::cout << "获取 bvid: " << bvid << std::endl;
 
     // 获取视频信息
     std::string infoUrl = BILIBILI_VIEW_API_BASE + bvid;
     std::string info_json = fetchJsonData(infoUrl);
     
     if (info_json.empty()) {
-        std::cerr << "failed to get video info !" << std::endl;
+        std::cerr << "获取视频信息失败！" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
@@ -246,19 +267,19 @@ bool MusicAnaly::download(const std::string& url) {
     std::string aid = extractInfoFromJson(info_json, "aid");
     std::string cid = extractInfoFromJson(info_json, "cid");
     if (aid.empty() || cid.empty()) {
-        std::cerr << "failed to get key word !" << std::endl;
+        std::cerr << "获取关键字失败！" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
     }
-    std::cout << "get aid: " << aid << " get cid: " << cid << std::endl;
+    if (debug) std::cout << "获取 aid: " << aid << " 获取 cid: " << cid << std::endl;
 
     // 获取音频信息
     std::string audioUrl = BILIBILI_PLAYER_API_BASE + aid + BILIBILI_CID + cid + BILIBILI_API_QUERY_PARM;
     std::string audio_json = fetchJsonData(audioUrl);
     
     if (audio_json.empty()) {
-        std::cerr << "failed to get audio json !" << std::endl;
+        std::cerr << "获取音频json失败！" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
@@ -267,7 +288,7 @@ bool MusicAnaly::download(const std::string& url) {
     // 提取音频下载链接
     std::string audio_url = getAudioUrlFromJson(audio_json);
     if (audio_url.empty()) {
-        std::cerr << "failed to get audio url !" << std::endl;
+        std::cerr << "获取音频下载链接失败！" << std::endl;
         isDownloading = false;
         downloadFinished = true;
         return false;
@@ -284,7 +305,18 @@ bool MusicAnaly::download(const std::string& url) {
     }
 
     // 下载开始
-    std::cout << "begin down load: " << download_file_path_name << std::endl;
+    std::cout << "\n文件下载开始：" << download_file_path_name << std::endl;
+
+    if (prepareDownloadFile(download_file_path_name)) {
+        if (debug) std::cout << "文件下载目录创建成功" << std::endl;
+    }
+    else {
+        std::cerr << "文件下载目录创建失败：" << download_file_path_name << std::endl;
+        downloadSuccess = false;
+        isDownloading = false;
+        downloadFinished = true;
+        return false;
+    }
     
     std::thread download_thread([this, audio_url, download_file_path_name]() {
         CURL* curl = curl_easy_init();
@@ -325,6 +357,12 @@ bool MusicAnaly::download(const std::string& url) {
             isDownloading = false;
             downloadFinished = true;
         }
+
+        if (downloadSuccess) 
+            std::cout << "文件下载成功：" << download_file_path_name << std::endl;
+        else 
+            std::cout << " 文件下载失败：" << download_file_path_name << std::endl;
+
     });
 
     download_thread.detach();
