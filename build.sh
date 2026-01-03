@@ -170,13 +170,6 @@ main() {
             
             echo ""
             success "构建完成！"
-            echo ""
-            info "运行方法:"
-            echo "  cd build-aarch64"
-            echo "  ./http_server"
-            echo ""
-            info "部署到 ARM 设备:"
-            echo "  scp build-aarch64/http_server user@arm-device:/path/to/"
             ;;
         *)
             error "未知参数: $1"

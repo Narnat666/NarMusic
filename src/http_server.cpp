@@ -180,31 +180,62 @@ void HttpServer::handleRequest(int clientSocket) {
     }
 
 
-    // 处理静态文件请求（GET）
+    // GET操作
     if (request.getMethod() == "GET") {
-        std::string filepath = "web/index.html";
-        
-        // 如果请求的是根路径 "/"，返回 index.html
-        if (request.getPath() == "/") {
-            if (fileExists(filepath)) {
-                std::string content = readFile(filepath);
+
+        // 获取页面信息操作
+        std::string path = request.getPath();
+        // 如果请求的是根路径，返回 index.html
+        if (path == "/") {
+            path = "/index.html";
+        }
+        // 拼接文件路径（确保路径安全）
+        std::string filepath = "web" + path;
+        // 安全检查：防止目录遍历攻击
+        if (path.find("..") != std::string::npos) {
+            sendResponse(clientSocket, "403 Forbidden", "{\"error\": \"Invalid path\"}");
+            close(clientSocket);
+            return;
+        }
+        // 检查文件是否存在
+        if (fileExists(filepath)) {
+            // 读取文件内容
+            std::string content = readFile(filepath);
+            if (!content.empty()) {
+                // 根据文件扩展名设置正确的Content-Type
+                std::string contentType = "text/plain";
+                if (filepath.find(".html") != std::string::npos) {
+                    contentType = "text/html; charset=utf-8";
+                } else if (filepath.find(".css") != std::string::npos) {
+                    contentType = "text/css; charset=utf-8";
+                } else if (filepath.find(".js") != std::string::npos) {
+                    contentType = "application/javascript; charset=utf-8";
+                } else if (filepath.find(".json") != std::string::npos) {
+                    contentType = "application/json";
+                } else if (filepath.find(".png") != std::string::npos) {
+                    contentType = "image/png";
+                } else if (filepath.find(".jpg") != std::string::npos || filepath.find(".jpeg") != std::string::npos) {
+                    contentType = "image/jpeg";
+                }
+                
+                // 发送HTTP响应
                 std::stringstream response;
                 response << "HTTP/1.1 200 OK\r\n";
-                response << "Content-Type: text/html; charset=utf-8\r\n";
+                response << "Content-Type: " << contentType << "\r\n";
                 response << "Content-Length: " << content.length() << "\r\n";
+                response << "Cache-Control: max-age=3600\r\n"; // 静态文件缓存1小时
                 response << "\r\n";
                 response << content;
+                
                 send(clientSocket, response.str().c_str(), response.str().length(), 0);
                 close(clientSocket);
-                return;
-            } else {
-                sendResponse(clientSocket, "500 Internal Error", "Missing web/index.html");
-                close(clientSocket);
+                
+                if (debug) std::cout << "发送静态文件: " << filepath << " (" << content.length() << " 字节)" << std::endl;
                 return;
             }
-        }
+        }        
 
-        // status 请求
+        // 处理status 请求
         if (request.getPath() == "/api/download/status") {
             std::string query = request.getQueryString();
             std::string task_id;
