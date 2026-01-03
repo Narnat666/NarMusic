@@ -509,4 +509,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 自动聚焦到输入框
     urlInput.focus();
+    
+    // 全屏模式优化：防止键盘遮挡输入框
+    if ('visualViewport' in window) {
+        const onResize = () => {
+            const viewport = window.visualViewport;
+            if (viewport.height < window.innerHeight) {
+                document.body.style.height = viewport.height + 'px';
+            } else {
+                document.body.style.height = '100vh';
+            }
+        };
+        
+        window.visualViewport.addEventListener('resize', onResize);
+        window.visualViewport.addEventListener('scroll', onResize);
+    }
 });
