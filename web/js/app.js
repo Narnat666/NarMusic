@@ -6,6 +6,7 @@ let lastSpeedBytes = 0;
 let speedHistory = [];
 const MAX_SPEED_HISTORY = 3;
 let downloadStartTime = null;
+let isScrolling = false; // 添加滚动状态控制
 
 document.addEventListener('DOMContentLoaded', function() {
     // 主题管理
@@ -71,8 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const localDownloadBtn = document.getElementById('localDownloadBtn');
     const statusMessage = document.getElementById('statusMessage');
     const fileInfo = document.getElementById('fileInfo');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressBar = document.getElementById('progressBar');
     
     // 状态相关元素
     const statusLight = document.getElementById('statusLight');
@@ -84,9 +83,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const downloadTimeEl = document.getElementById('downloadTime');
     const downloadStatusEl = document.getElementById('downloadStatus');
     
-    // 更新状态灯
-    function updateStatusLight(status, isActive = false) {
-        statusLight.className = 'light';
+    function updateStatusLight(status) {
+        statusLight.className = 'light-small';
         
         switch(status) {
             case 'error':
@@ -98,19 +96,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusLight.classList.add('yellow');
                 taskStatusEl.textContent = '下载中';
                 downloadStatusEl.textContent = '进行中';
-                progressContainer.style.display = 'block';
                 break;
             case 'success':
                 statusLight.classList.add('green');
                 taskStatusEl.textContent = '下载完成';
                 downloadStatusEl.textContent = '已完成';
-                progressContainer.style.display = 'none';
                 break;
             case 'idle':
             default:
                 taskStatusEl.textContent = '等待中';
                 downloadStatusEl.textContent = '-';
-                progressContainer.style.display = 'none';
                 break;
         }
     }
@@ -228,14 +223,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 更新任务状态
         if (status.is_downloading) {
-            updateStatusLight('downloading', true);
+            updateStatusLight('downloading');
             localDownloadBtn.style.display = 'none';
             
-            // 更新进度条
-            if (status.total_bytes && status.downloaded_bytes) {
-                const percentage = (status.downloaded_bytes / status.total_bytes) * 100;
-                progressBar.style.width = `${percentage}%`;
-            }
         } else if (status.is_finished) {
             if (status.is_success) {
                 updateStatusLight('success');
@@ -313,7 +303,6 @@ document.addEventListener('DOMContentLoaded', function() {
         taskStatusEl.textContent = '等待中';
         downloadTimeEl.textContent = '-';
         fileInfo.style.display = 'none';
-        progressBar.style.width = '0%';
         
         updateStatusLight('idle');
         localDownloadBtn.style.display = 'none';
@@ -380,7 +369,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 showStatus('下载任务已创建，开始下载...', 'success');
                 
                 // 更新状态
-                updateStatusLight('downloading', true);
+                updateStatusLight('downloading');
                 
                 // 开始轮询下载状态
                 setTimeout(() => {
@@ -502,13 +491,96 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // 回到顶部功能
-    document.getElementById('scrollTop').addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    // 修复：确保页面滚动功能正常
+    function scrollToTop() {
+        console.log('开始滚动到顶部...');
+        
+        // 如果已经在滚动中，不要重复触发
+        if (isScrolling) return;
+        isScrolling = true;
+        
+        // 方法1：使用现代浏览器的平滑滚动
+        if ('scrollBehavior' in document.documentElement.style) {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+            
+            // 设置定时器重置滚动状态
+            setTimeout(() => {
+                isScrolling = false;
+                console.log('平滑滚动完成');
+            }, 500);
+        } 
+        // 方法2：回退方案 - 手动实现平滑滚动
+        else {
+            const duration = 600;
+            const start = window.pageYOffset;
+            const startTime = performance.now();
+            
+            function animateScroll(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // 使用缓动函数使滚动更平滑
+                const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+                const easedProgress = easeInOutCubic(progress);
+                
+                window.scrollTo(0, start * (1 - easedProgress));
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animateScroll);
+                } else {
+                    isScrolling = false;
+                    console.log('手动滚动完成');
+                }
+            }
+            
+            requestAnimationFrame(animateScroll);
+        }
+    }
     
-    // 自动聚焦到输入框
-    urlInput.focus();
+    // 修复：回到顶部功能 - 增强版本
+    const scrollTopBtn = document.getElementById('scrollTop');
+    
+    if (scrollTopBtn) {
+        console.log('找到回到顶部按钮:', scrollTopBtn);
+        
+        // 添加点击事件
+        scrollTopBtn.addEventListener('click', function(e) {
+            console.log('回到顶部按钮被点击');
+            e.preventDefault();
+            e.stopPropagation();
+            scrollToTop();
+        });
+        
+        // 添加触摸事件支持（移动端）
+        scrollTopBtn.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+        
+        scrollTopBtn.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            scrollToTop();
+        }, { passive: false });
+        
+        // 添加键盘支持（无障碍）
+        scrollTopBtn.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                scrollToTop();
+            }
+        });
+        
+        // 确保按钮可聚焦
+        scrollTopBtn.setAttribute('tabindex', '0');
+        scrollTopBtn.setAttribute('role', 'button');
+        scrollTopBtn.setAttribute('aria-label', '回到页面顶部');
+        
+        console.log('回到顶部按钮初始化完成');
+    } else {
+        console.error('未找到回到顶部按钮元素');
+    }
     
     // 全屏模式优化：防止键盘遮挡输入框
     if ('visualViewport' in window) {
@@ -524,4 +596,27 @@ document.addEventListener('DOMContentLoaded', function() {
         window.visualViewport.addEventListener('resize', onResize);
         window.visualViewport.addEventListener('scroll', onResize);
     }
+    
+    // 添加滚动监听，控制回到顶部按钮的显示
+    let lastScrollTop = 0;
+    window.addEventListener('scroll', function() {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollTopBtn = document.getElementById('scrollTop');
+        
+        if (scrollTopBtn) {
+            // 如果向下滚动超过200px，显示按钮
+            if (scrollTop > 200) {
+                scrollTopBtn.style.opacity = '1';
+                scrollTopBtn.style.visibility = 'visible';
+            } else {
+                scrollTopBtn.style.opacity = '0';
+                scrollTopBtn.style.visibility = 'hidden';
+            }
+        }
+        
+        lastScrollTop = scrollTop;
+    });
+    
+    // 自动聚焦到输入框
+    urlInput.focus();
 });

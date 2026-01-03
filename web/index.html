@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>B站视频音乐提取器</title>
+    
+    <!-- 修复 favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%23667eea'/%3E%3Cstop offset='100%25' style='stop-color:%23764ba2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23grad)'/%3E%3Cpath d='M30 35 Q30 25 40 25 Q50 25 50 35 L50 65 Q50 75 40 75 Q30 75 30 65 Z' fill='white'/%3E%3Cpath d='M50 35 L50 65 M50 35 Q65 30 70 35 Q75 40 75 50 Q75 60 70 65 Q65 70 60 70' stroke='white' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3Cpath d='M30 65 L30 40 M30 40 Q25 30 30 25' stroke='white' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+    <link rel="alternate icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAB0klEQVR4nO2Wv0oDQRDGf7OXnEIgWGhhYSFYxMIOwcpCG1tLCwtBREstLCwUwcJCG1tbwcJCG0FAJI2Fha1gYaGNINzBH4j5Zvb2LvZ4L7nkbnZn5r2d+Wb2zgQR/q8oJQ6AKXAHHIBacbbAOXAENg7ioNsB2gECTIAj4HWYl8ALMAM2TgsiHAJr4LQF1sAMuDBtCqyBqyA8AEMgCcI+sOmzUWAU1lEQvoGRL+pUCSw31EQV7KZCcFJDE2VopEKVwEoDTVRRp4xqYLUJNlGgTgONNFFH7WuCzyhR5xLYaIGNFNhIgY0U2EiBjRTYSIGNFCjUwDgJNpJgIwUGNTBOgo0k2EiBjRTYSIGNFNhIgY0UGNTAOAk2kmAjBQY1ME6CjSTYSIGNFNhIgY0UGNTAOAk2kmAjBTZSYCMFNlJgIwU2UmAjBTZSYCMFhjUwToKNJNhIgTENjJNgIwk2UmAjBTZSYCMFxjUwToKNJNjQwKAGxkmwkQQbKbCRAhspMKqBcRJsJMFGCmykwKgGxuk4YA4RuWN+4mtAE9xCr9VQoCA5d+IboB0IIUuAvgG8G2AHdOECF4IO4M6cG8GVQgPFLx3IIhPgZ8QUCVkofAZoIq1msgaAPjiIgUcEplvELCCTgFldg0dg7AH3wBfgATgHLoM+ALxhOwH7BbeAeAmc+4C4ATwLQTfMRB2KblRofG1lP8JExA2YQv8Yv4CrQnkV3wAAAABJRU5ErkJggg==">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -24,115 +29,111 @@
         </div>
         
         <div class="content">
-            <!-- 输入区域 -->
-            <div class="form-group">
-                <label for="urlInput">
-                    <i class="fas fa-link"></i> 音乐链接
-                </label>
-                <textarea 
-                    id="urlInput" 
-                    placeholder="输入B站视频链接"
-                    rows="3"
-                ></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="filenameInput">
-                    <i class="fas fa-file-alt"></i> 文件名
-                </label>
-                <input 
-                    type="text" 
-                    id="filenameInput" 
-                    placeholder="输入要保存的文件名"
-                >
-            </div>
-            
-            <!-- 主按钮区域 -->
-            <div class="btn-group">
-                <button class="btn" id="sendBtn">
-                    <i class="fas fa-download"></i> 开始下载
-                </button>
-                <button class="btn btn-secondary" id="clearBtn">
-                    <i class="fas fa-eraser"></i> 清空输入
-                </button>
-            </div>
-            
-            <!-- 本地下载按钮 -->
-            <button class="btn" id="localDownloadBtn" disabled>
-                <i class="fas fa-file-download"></i> 保存到本地
-            </button>
-            
-            <!-- 进度条 -->
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            
-            <!-- 状态显示区域 -->
-            <div class="status-section" id="statusSection">
-                <div class="status-header">
-                    <h3><i class="fas fa-chart-line"></i> 下载状态</h3>
-                    <div class="light" id="statusLight"></div>
-                </div>
-                
-                <div class="status-grid">
-                    <div class="status-card">
-                        <div class="status-label">
-                            <i class="fas fa-database"></i> 已下载
-                        </div>
-                        <div id="downloadedBytes" class="status-value">0 MB</div>
+            <div class="main-content">
+                <div class="form-section">
+                    <!-- 输入区域 -->
+                    <div class="form-group">
+                        <label for="urlInput">
+                            <i class="fas fa-link"></i> 音乐链接
+                        </label>
+                        <textarea 
+                            id="urlInput" 
+                            placeholder="输入B站视频链接"
+                            rows="3"
+                        ></textarea>
                     </div>
                     
-                    <div class="status-card">
-                        <div class="status-label">
-                            <i class="fas fa-tachometer-alt"></i> 下载速度
-                        </div>
-                        <div id="downloadSpeed" class="status-value">0 MB/s</div>
+                    <div class="form-group">
+                        <label for="filenameInput">
+                            <i class="fas fa-file-alt"></i> 文件名
+                        </label>
+                        <input 
+                            type="text" 
+                            id="filenameInput" 
+                            placeholder="输入要保存的文件名"
+                        >
                     </div>
                     
-                    <div class="status-card">
-                        <div class="status-label">
-                            <i class="fas fa-info-circle"></i> 任务状态
+                    <!-- 下载状态信息行 - 新增的紧凑状态显示 -->
+                    <div class="compact-status" id="compactStatus">
+                        <div class="status-item">
+                            <div class="status-label-small">
+                                <i class="fas fa-database"></i> 已下载
+                            </div>
+                            <div id="downloadedBytes" class="status-value-small">0 B</div>
                         </div>
-                        <div id="taskStatus" class="status-value">等待中</div>
+                        <div class="status-item">
+                            <div class="status-label-small">
+                                <i class="fas fa-tachometer-alt"></i> 下载速度
+                            </div>
+                            <div id="downloadSpeed" class="status-value-small">0 B/s</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label-small">
+                                <i class="fas fa-info-circle"></i> 任务状态
+                            </div>
+                            <div id="taskStatus" class="status-value-small">等待中</div>
+                        </div>
+                        <div class="status-item">
+                            <div class="status-label-small">
+                                <i class="fas fa-lightbulb"></i> 状态灯
+                            </div>
+                            <div class="light-small" id="statusLight"></div>
+                        </div>
                     </div>
+                    
+                    <!-- 主按钮区域 -->
+                    <div class="btn-group">
+                        <button class="btn" id="sendBtn">
+                            <i class="fas fa-download"></i> 开始下载
+                        </button>
+                        <button class="btn btn-secondary" id="clearBtn">
+                            <i class="fas fa-eraser"></i> 清空输入
+                        </button>
+                    </div>
+                    
+                    <!-- 本地下载按钮 -->
+                    <button class="btn" id="localDownloadBtn" disabled>
+                        <i class="fas fa-file-download"></i> 保存到本地
+                    </button>
+                    
+                    <!-- 文件信息区域 -->
+                    <div class="file-info" id="fileInfo">
+                        <div class="file-info-header">
+                            <i class="fas fa-file-audio"></i>
+                            <h4>文件信息</h4>
+                        </div>
+                        <div class="file-info-grid">
+                            <div class="file-info-item">
+                                <div class="file-info-label">
+                                    <i class="fas fa-file-signature"></i> 文件名
+                                </div>
+                                <div class="file-info-value" id="fileName">-</div>
+                            </div>
+                            <div class="file-info-item">
+                                <div class="file-info-label">
+                                    <i class="fas fa-weight-hanging"></i> 文件大小
+                                </div>
+                                <div class="file-info-value" id="fileSize">-</div>
+                            </div>
+                            <div class="file-info-item">
+                                <div class="file-info-label">
+                                    <i class="fas fa-clock"></i> 下载时间
+                                </div>
+                                <div class="file-info-value" id="downloadTime">-</div>
+                            </div>
+                            <div class="file-info-item">
+                                <div class="file-info-label">
+                                    <i class="fas fa-check-circle"></i> 下载状态
+                                </div>
+                                <div class="file-info-value" id="downloadStatus">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 状态消息 -->
+                    <div class="status-message" id="statusMessage"></div>
                 </div>
-                
-                <!-- 文件信息区域 -->
-                <div class="file-info" id="fileInfo">
-                    <div class="file-info-header">
-                        <i class="fas fa-file-audio"></i>
-                        <h4>文件信息</h4>
-                    </div>
-                    <div class="file-info-grid">
-                        <div class="file-info-item">
-                            <div class="file-info-label">
-                                <i class="fas fa-file-signature"></i> 文件名
-                            </div>
-                            <div class="file-info-value" id="fileName">-</div>
-                        </div>
-                        <div class="file-info-item">
-                            <div class="file-info-label">
-                                <i class="fas fa-weight-hanging"></i> 文件大小
-                            </div>
-                            <div class="file-info-value" id="fileSize">-</div>
-                        </div>
-                        <div class="file-info-item">
-                            <div class="file-info-label">
-                                <i class="fas fa-clock"></i> 下载时间
-                            </div>
-                            <div class="file-info-value" id="downloadTime">-</div>
-                        </div>
-                        <div class="file-info-item">
-                            <div class="file-info-label">
-                                <i class="fas fa-check-circle"></i> 下载状态
-                            </div>
-                            <div class="file-info-value" id="downloadStatus">-</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 状态消息 -->
-                <div class="status-message" id="statusMessage"></div>
             </div>
         </div>
     </div>

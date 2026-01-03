@@ -67,6 +67,7 @@ body {
     transition: var(--transition);
 }
 
+/* 容器设置 - 电脑端更窄 */
 .container {
     width: 100%;
     min-height: 100vh;
@@ -79,6 +80,7 @@ body {
     animation: slideUp 0.6s ease-out;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .header {
@@ -87,7 +89,7 @@ body {
     padding: 20px 20px;
     text-align: center;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
 }
 
@@ -125,7 +127,7 @@ body {
     right: 15px;
     display: flex;
     gap: 10px;
-    z-index: 10;
+    z-index: 1000;
 }
 
 .theme-btn {
@@ -142,11 +144,18 @@ body {
     transition: var(--transition);
     color: white;
     font-size: 16px;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
 }
 
 .theme-btn:hover {
     transform: scale(1.1);
     background: rgba(255,255,255,0.3);
+}
+
+.theme-btn:active {
+    background: rgba(255,255,255,0.15);
+    transform: scale(0.95);
 }
 
 .theme-selector {
@@ -162,6 +171,7 @@ body {
     width: 120px;
     backdrop-filter: blur(10px);
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    z-index: 2000;
 }
 
 .theme-selector.show {
@@ -191,8 +201,25 @@ body {
     padding: 20px;
     flex: 1;
     overflow-y: auto;
-    max-width: 1200px;
+    width: 100%;
+    /* 移除最大宽度限制，让内容在电脑端也能自适应 */
+    max-width: 100%;
     margin: 0 auto;
+}
+
+.main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.form-section {
+    background: color-mix(in srgb, var(--card-bg) 90%, var(--primary));
+    border-radius: 15px;
+    padding: 25px;
+    border-left: 4px solid var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     width: 100%;
 }
 
@@ -221,6 +248,8 @@ input, textarea {
     transition: var(--transition);
     background: var(--card-bg);
     color: var(--text-primary);
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
 }
 
 input:focus, textarea:focus {
@@ -236,6 +265,80 @@ textarea {
     font-family: inherit;
 }
 
+/* 紧凑状态显示 */
+.compact-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 15px 0;
+    padding: 12px 15px;
+    background: color-mix(in srgb, var(--card-bg) 90%, var(--primary));
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.status-item {
+    flex: 1;
+    min-width: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.status-label-small {
+    font-size: 12px !important;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.status-label-small i {
+    font-size: 11px;
+}
+
+.status-value-small {
+    font-family: 'SF Mono', 'Courier New', monospace;
+    font-size: 14px !important;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+/* 小尺寸状态灯 */
+.light-small {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: color-mix(in srgb, var(--card-bg) 80%, var(--text-secondary));
+    transition: var(--transition);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.light-small.red {
+    background: radial-gradient(circle at 30% 30%, #ff6b6b, #dc3545);
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.6);
+}
+
+.light-small.yellow {
+    background: radial-gradient(circle at 30% 30%, #ffd93d, #ffc107);
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.6);
+    animation: pulse 1.5s infinite;
+}
+
+.light-small.green {
+    background: radial-gradient(circle at 30% 30%, #51cf66, #28a745);
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.6);
+}
+
+/* 按钮区域 */
 .btn-group {
     display: grid;
     grid-template-columns: 2fr 1fr;
@@ -260,17 +363,8 @@ textarea {
     align-items: center;
     justify-content: center;
     gap: 10px;
-}
-
-.btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-    transition: left 0.5s;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
 }
 
 .btn:hover {
@@ -278,8 +372,8 @@ textarea {
     box-shadow: 0 15px 30px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
-.btn:hover::before {
-    left: 100%;
+.btn:active {
+    transform: translateY(0);
 }
 
 .btn:disabled {
@@ -287,10 +381,7 @@ textarea {
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
-}
-
-.btn:disabled::before {
-    display: none;
+    opacity: 0.6;
 }
 
 .btn-secondary {
@@ -304,96 +395,7 @@ textarea {
     animation: slideUp 0.5s ease-out;
 }
 
-/* 状态显示区域 */
-.status-section {
-    background: color-mix(in srgb, var(--card-bg) 90%, var(--primary));
-    border-radius: 15px;
-    padding: 20px;
-    border-left: 4px solid var(--primary);
-    margin-bottom: 20px;
-    display: block;
-    animation: fadeIn 0.5s ease;
-}
-
-.status-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.status-header h3 {
-    color: var(--text-primary);
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.light {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: color-mix(in srgb, var(--card-bg) 80%, var(--text-secondary));
-    transition: var(--transition);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    position: relative;
-}
-
-.light.red {
-    background: radial-gradient(circle at 30% 30%, #ff6b6b, #dc3545);
-    box-shadow: 0 0 20px rgba(220, 53, 69, 0.6);
-}
-
-.light.yellow {
-    background: radial-gradient(circle at 30% 30%, #ffd93d, #ffc107);
-    box-shadow: 0 0 20px rgba(255, 193, 7, 0.6);
-    animation: pulse 1.5s infinite;
-}
-
-.light.green {
-    background: radial-gradient(circle at 30% 30%, #51cf66, #28a745);
-    box-shadow: 0 0 20px rgba(40, 167, 69, 0.6);
-}
-
-.status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.status-card {
-    background: var(--card-bg);
-    border-radius: 10px;
-    padding: 18px;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
-    transition: var(--transition);
-}
-
-.status-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-}
-
-.status-label {
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.status-value {
-    font-family: 'SF Mono', 'Courier New', monospace;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text-primary);
-    line-height: 1.2;
-}
-
+/* 文件信息区域 */
 .file-info {
     background: color-mix(in srgb, var(--card-bg) 90%, var(--primary));
     border-radius: 12px;
@@ -452,6 +454,7 @@ textarea {
     word-break: break-all;
 }
 
+/* 状态消息 */
 .status-message {
     margin-top: 15px;
     padding: 15px 20px;
@@ -481,44 +484,14 @@ textarea {
     border: 1px solid #9fcdff;
 }
 
-.progress-container {
-    width: 100%;
-    background: color-mix(in srgb, var(--card-bg) 80%, var(--text-secondary));
-    border-radius: 10px;
-    overflow: hidden;
-    margin: 15px 0;
-    height: 8px;
-    display: none;
-}
-
-.progress-bar {
-    height: 100%;
-    background: var(--bg-gradient);
-    border-radius: 10px;
-    width: 0%;
-    transition: width 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.progress-bar::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-    animation: shimmer 2s infinite;
-}
-
-.floating-animation {
+/* 向上箭头按钮 */
+#scrollTop.floating-animation {
     position: fixed;
     bottom: 20px;
     right: 20px;
     font-size: 24px;
     animation: float 3s ease-in-out infinite;
-    z-index: 100;
+    z-index: 9999;
     background: var(--bg-gradient);
     width: 50px;
     height: 50px;
@@ -530,10 +503,29 @@ textarea {
     box-shadow: 0 10px 25px color-mix(in srgb, var(--primary) 40%, transparent);
     cursor: pointer;
     transition: var(--transition);
+    pointer-events: auto !important;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    outline: none;
+    user-select: none;
 }
 
-.floating-animation:hover {
+#scrollTop.floating-animation:hover {
     transform: scale(1.1);
+}
+
+#scrollTop.floating-animation:active {
+    transform: scale(0.95);
+    box-shadow: 0 5px 15px color-mix(in srgb, var(--primary) 40%, transparent);
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--primary) 90%, black), 
+        color-mix(in srgb, var(--primary-dark) 90%, black)
+    );
+}
+
+#scrollTop.floating-animation:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 /* 动画定义 */
@@ -579,10 +571,63 @@ textarea {
     100% { transform: rotate(45deg) translateX(100%); }
 }
 
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+/* ==============================================
+   电脑端响应式设计 - 更窄的宽度，更长的布局
+   ============================================== */
+
+/* 电脑端 - 最小宽度769px */
+@media (min-width: 769px) {
+    .container {
+        max-width: 800px; /* 减小最大宽度，使电脑端更窄 */
+        margin: 20px auto; /* 上下增加外边距，左右自动居中 */
+        border-radius: 20px; /* 恢复圆角 */
+        box-shadow: var(--shadow); /* 恢复阴影 */
+        min-height: auto; /* 允许内容决定高度 */
+        height: auto;
+    }
+    
+    .header {
+        border-radius: 20px 20px 0 0; /* 配合容器圆角 */
+    }
+    
+    .content {
+        padding: 30px; /* 增加内边距，使内容区域更长 */
+        max-width: 100%; /* 确保内容填充整个容器 */
+    }
+    
+    .main-content {
+        gap: 25px; /* 增加内容块之间的间距 */
+    }
+    
+    .form-section {
+        padding: 30px; /* 增加表单区域内边距 */
+    }
+    
+    .btn-group {
+        grid-template-columns: 2fr 1fr; /* 保持按钮布局不变 */
+    }
+    
+    .compact-status {
+        padding: 15px 20px; /* 增加状态区域内边距 */
+    }
+    
+    .status-item {
+        min-width: 140px; /* 稍微增加最小宽度 */
+    }
+    
+    .file-info-grid {
+        grid-template-columns: repeat(2, 1fr); /* 电脑端两列布局 */
+    }
+    
+    /* 调整回到顶部按钮位置 */
+    #scrollTop.floating-animation {
+        right: calc(50% - 450px); /* 根据容器宽度调整位置，使其在容器外侧 */
+    }
 }
+
+/* ==============================================
+   平板设备 - 保持现有样式
+   ============================================== */
 
 /* 平板设备 */
 @media (max-width: 768px) {
@@ -593,10 +638,19 @@ textarea {
     .container {
         border-radius: 0;
         min-height: 100vh;
+        margin: 0;
     }
     
     .content {
         padding: 15px;
+    }
+    
+    .main-content {
+        gap: 15px;
+    }
+    
+    .form-section {
+        padding: 20px;
     }
     
     .header {
@@ -605,28 +659,21 @@ textarea {
     
     .header h1 {
         font-size: 22px;
+        padding-top: 10px;
     }
     
-    .status-grid {
-        grid-template-columns: 1fr 1fr;
+    .compact-status {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px;
+    }
+    
+    .status-item {
+        min-width: calc(50% - 8px);
+        margin-bottom: 8px;
     }
     
     .file-info-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .floating-animation {
-        bottom: 15px;
-        right: 15px;
-        width: 45px;
-        height: 45px;
-        font-size: 20px;
-    }
-}
-
-/* 手机设备 */
-@media (max-width: 480px) {
-    .status-grid {
         grid-template-columns: 1fr;
     }
     
@@ -634,16 +681,60 @@ textarea {
         grid-template-columns: 1fr;
     }
     
+    #scrollTop.floating-animation {
+        bottom: 15px;
+        right: 15px;
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+        z-index: 9999;
+    }
+}
+
+/* ==============================================
+   手机设备
+   ============================================== */
+
+/* 手机设备 */
+@media (max-width: 480px) {
     .header h1 {
         font-size: 20px;
     }
     
-    .header p {
-        font-size: 12px;
-    }
-    
     .content {
         padding: 12px;
+    }
+    
+    .form-section {
+        padding: 18px;
+    }
+    
+    .compact-status {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 10px;
+    }
+    
+    .status-item {
+        min-width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .status-item:last-child {
+        border-bottom: none;
+    }
+    
+    .status-label-small {
+        margin-bottom: 0;
+        font-size: 13px !important;
+    }
+    
+    .status-value-small {
+        font-size: 13px !important;
     }
     
     input, textarea {
@@ -656,20 +747,8 @@ textarea {
         font-size: 15px;
     }
     
-    .status-card {
-        padding: 15px;
-    }
-    
-    .status-value {
-        font-size: 18px;
-    }
-}
-
-/* 超小屏幕优化 */
-@media (max-width: 360px) {
-    .header h1 {
-        font-size: 18px;
-        gap: 10px;
+    .file-info-item {
+        padding: 10px;
     }
     
     .theme-controls {
@@ -681,5 +760,48 @@ textarea {
         width: 32px;
         height: 32px;
         font-size: 14px;
+    }
+    
+    .theme-selector {
+        top: 50px;
+        right: 10px;
+        width: 110px;
+    }
+}
+
+/* ==============================================
+   超小屏幕优化
+   ============================================== */
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+    .header h1 {
+        font-size: 18px;
+        gap: 10px;
+    }
+    
+    .form-section {
+        padding: 15px;
+    }
+    
+    .status-label-small {
+        font-size: 11px !important;
+    }
+    
+    .status-value-small {
+        font-size: 12px !important;
+    }
+}
+
+/* ==============================================
+   iOS设备优化
+   ============================================== */
+
+/* 针对iOS设备的额外修复 */
+@supports (-webkit-touch-callout: none) {
+    .btn:active,
+    .theme-btn:active,
+    #scrollTop.floating-animation:active {
+        opacity: 0.8;
     }
 }
