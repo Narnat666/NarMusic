@@ -13,6 +13,7 @@ bool HttpRequest::parse() {
     
     buffer[bytes_read] = '\0';
     std::string request(buffer);
+    std::cout << "request:" << request << std::endl;
     
     // 解析请求行
     size_t end_line = request.find("\r\n");
@@ -39,6 +40,12 @@ bool HttpRequest::parse() {
     std::string headers_str = request.substr(end_line + 2, header_end - end_line - 2);
     std::istringstream header_stream(headers_str);
     std::string header;
+
+    // 获取range
+    size_t range_begin = request.find("Range: ");
+    if (range_begin != std::string::npos) {
+        range_string_ = request.substr(range_begin);
+    }
     
     while (std::getline(header_stream, header, '\n')) {
         size_t colon_pos = header.find(':');
@@ -78,3 +85,4 @@ std::string HttpRequest::getBody() const { return body_; }
 int HttpRequest::getBodyLength() const { return body_length_; }
 
 const std::string& HttpRequest::getQueryString() { return query_string_; }
+std::string HttpRequest::getRangeString() const {return range_string_; };

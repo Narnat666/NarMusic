@@ -12,6 +12,7 @@ public:
     std::string getPath() const;
     std::string getHeader(const std::string& key) const;
     std::string getBody() const;
+    std::string getRangeString() const;
     int getBodyLength() const;
     const std::string& getQueryString(); // 获取查询字符串
 
@@ -23,6 +24,7 @@ private:
     std::string body_;
     int body_length_;
     std::string query_string_;
+    std::string range_string_;
 
 };
 

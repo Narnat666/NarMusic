@@ -341,7 +341,16 @@ void HttpServer::handleRequest(int clientSocket) {
                 }
             }
     
-        }    
+        }
+        
+        // 流式播放
+        if (request.getPath() == "/api/download/stream") {
+            std::cout << "into /api/download/stream" << std::endl;
+            std::cout << "1:" << request.getBody() << std::endl;
+            std::cout << "3:" << request.getMethod() << std::endl;
+            std::cout << "4:" << request.getQueryString() << std::endl;
+            std::cout << "4:" << request.getRangeString() << std::endl;
+        }
     
     }
 

@@ -9,6 +9,9 @@ let downloadStartTime = null;
 let isScrolling = false; // 添加滚动状态控制
 
 document.addEventListener('DOMContentLoaded', function() {
+    // 获取音频播放器元素
+    const audioPlayer = document.getElementById('audioPlayer');
+    
     // 主题管理
     const themeToggle = document.getElementById('themeToggle');
     const paletteToggle = document.getElementById('paletteToggle');
@@ -68,7 +71,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlInput = document.getElementById('urlInput');
     const filenameInput = document.getElementById('filenameInput');
     const sendBtn = document.getElementById('sendBtn');
-    const clearBtn = document.getElementById('clearBtn');
     const localDownloadBtn = document.getElementById('localDownloadBtn');
     const statusMessage = document.getElementById('statusMessage');
     const fileInfo = document.getElementById('fileInfo');
@@ -234,6 +236,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 localDownloadBtn.style.display = 'block';
                 localDownloadBtn.disabled = false;
                 
+                // 设置音频播放器源
+                if (currentTaskId) {
+                    audioPlayer.src = `/api/download/stream?task_id=${currentTaskId}`;
+                }
+                
                 // 更新文件信息
                 if (status.file_info) {
                     fileNameEl.textContent = status.file_info.filename || '未命名文件';
@@ -303,6 +310,9 @@ document.addEventListener('DOMContentLoaded', function() {
         taskStatusEl.textContent = '等待中';
         downloadTimeEl.textContent = '-';
         fileInfo.style.display = 'none';
+        
+        // 重置音频播放器
+        audioPlayer.src = '';
         
         updateStatusLight('idle');
         localDownloadBtn.style.display = 'none';
@@ -386,18 +396,6 @@ document.addEventListener('DOMContentLoaded', function() {
             sendBtn.disabled = false;
             sendBtn.innerHTML = '<i class="fas fa-download"></i> 开始下载';
         }
-    });
-    
-    // 清空内容
-    clearBtn.addEventListener('click', function() {
-        urlInput.value = '';
-        filenameInput.value = '';
-        statusMessage.style.display = 'none';
-        urlInput.focus();
-        stopPolling();
-        resetTaskStatus();
-        currentTaskId = null;
-        showStatus('已清空所有输入和状态', 'info');
     });
     
     // 下载本地文件
