@@ -19,7 +19,7 @@
 
 using json = nlohmann::json;
 extern bool debug;
-const long long MAX_CHUNK_SIZE = (2 * 1024 * 1024);
+const long long MAX_CHUNK_SIZE = (288 * 1024);
 TaskManager& nt = TaskManager::instance();
 
 void sendResponse(int socket, const std::string& status, const std::string& body) {
@@ -348,14 +348,7 @@ void HttpServer::handleRequest(int clientSocket) {
         
         // 流式播放
         if (request.getPath() == "/api/download/stream") {
-
-            std::cout << "into /api/download/stream" << std::endl;
-            std::cout << "1:" << request.getBody() << std::endl;
-            std::cout << "3:" << request.getMethod() << std::endl;
-            std::cout << "4:" << request.getQueryString() << std::endl;
-            std::cout << "4:" << request.getRangeString() << std::endl;
-            std::cout << "流式播放" << std::endl;
-
+            
             // 解析range字符串找到task id
             std::string range_string = request.getRangeString();
             std::string query_string = request.getQueryString();
@@ -391,7 +384,7 @@ void HttpServer::handleRequest(int clientSocket) {
                         return;
                     }
 
-                    std::cout << "流式传输开始：" << file_name_path << std::endl;
+                    std::cout << "收到流式音频请求：" << file_name_path << std::endl;
                     StreamSend strm(file_name_path, MAX_CHUNK_SIZE);
                     bool status = strm.read_data_to_buffer(request.getRangeString());
                     
@@ -451,6 +444,7 @@ void HttpServer::handleRequest(int clientSocket) {
                     return;
 
                 } else {  // 文件被删除
+                    std::cerr << "文件被删除或还未被找到" << std::endl; 
                     sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");
                     close(clientSocket);
                     return;
@@ -555,8 +549,6 @@ void HttpServer::start() {
         close(serverSocket_);
         return;
     }
-
-    std::cout << "服务器启动到端口：" << port_ << std::endl;
 
     // 查看具体绑定到哪个ip
     std::cout << "服务器监听地址：" << std::endl;

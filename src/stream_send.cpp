@@ -1,5 +1,7 @@
 #include "stream_send.h"
 
+extern bool debug;
+
 StreamSend::StreamSend(const std::string& file_name, long long buff_size) 
 : file_name_(file_name), buff_size_(buff_size) {
     buffer_.resize(buff_size);
@@ -57,12 +59,12 @@ bool StreamSend::parse_range_header(const std::string& request) {
                     // end设置为文件末尾
                     file_buff_end_ = file_size_ - 1;
                 }
-                std::cout << "请求大小 " << request_size << " 超过限制，调整为：" << (file_buff_end_ - file_buff_start_ + 1) << std::endl;
+                if (debug) std::cout << "请求大小 " << request_size << " 超过限制，调整为：" << (file_buff_end_ - file_buff_start_ + 1) << std::endl;
             }
             
             //更新返还数据的大小
             request_size_ = file_buff_end_ - file_buff_start_ + 1;
-            std::cout << "start=" << file_buff_start_ << ",end=" << file_buff_end_
+            if (debug) std::cout << "start=" << file_buff_start_ << ",end=" << file_buff_end_
                 << ",request size=" << request_size_ << std::endl;
             
             return true;

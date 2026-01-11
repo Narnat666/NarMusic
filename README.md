@@ -27,3 +27,6 @@ make
 vmware-hgfsclient
 2.将windows下的文件挂载到ubantu
 vmhgfs-fuse .host:/tanran /mnt/hgfs/tanran/ -o allow_other,uid=$(id -u),gid=$(id -g)
+
+# 程序完全静默运行
+(./http_server -p ./download/ -e .m4a > http_server.log 2>&1 &)

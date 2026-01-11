@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 HttpRequest::HttpRequest(int socket) : socket_(socket), body_length_(0) {}
+extern bool debug;
 
 bool HttpRequest::parse() {
     char buffer[4096];
@@ -13,7 +14,7 @@ bool HttpRequest::parse() {
     
     buffer[bytes_read] = '\0';
     std::string request(buffer);
-    std::cout << "request:" << request << std::endl;
+    if (debug) std::cout << "request:" << request << std::endl;
     
     // 解析请求行
     size_t end_line = request.find("\r\n");

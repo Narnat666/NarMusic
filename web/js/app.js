@@ -515,7 +515,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // 设置音频播放器源
                 if (currentTaskId) {
-                    audioPlayer.src = `/api/download/stream?task_id=${currentTaskId}`;
+                    // 延迟500ms再设置音频源，给文件写入更多时间
+                    setTimeout(() => {
+                        const timestamp = Date.now();
+                        audioPlayer.src = `/api/download/stream?task_id=${currentTaskId}&t=${timestamp}`;
+                        console.log('延迟设置音频源，时间戳:', timestamp);
+                    }, 500);
                 }
                 
                 // 更新文件信息
