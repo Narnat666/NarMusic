@@ -11,6 +11,7 @@ add_executable(http_server
     src/http_request.cpp
     src/music_analysis.cpp
     src/task_manger.cpp
+    src/stream_send.cpp
 )
 
 target_include_directories(http_server PRIVATE

@@ -7,11 +7,288 @@ let speedHistory = [];
 const MAX_SPEED_HISTORY = 3;
 let downloadStartTime = null;
 let isScrolling = false; // 添加滚动状态控制
+const processedErrors = new Set(); // 使用Set记录已处理的任务错误
+
+// === 新增：安卓拖动进度条修复变量 ===
+let isSeeking = false; // 标记是否正在拖动进度条
+let audioPlaybackBufferTimer = null; // 缓冲定时器
 
 document.addEventListener('DOMContentLoaded', function() {
     // 获取音频播放器元素
     const audioPlayer = document.getElementById('audioPlayer');
+
+    // === 新增：安卓拖动进度条修复代码 - 开始 ===
+    // 监听开始拖动事件
+    audioPlayer.addEventListener('seeking', function() {
+        console.log('开始拖动进度条');
+        isSeeking = true;
+        
+        // 清除可能存在的缓冲定时器
+        if (audioPlaybackBufferTimer) {
+            clearTimeout(audioPlaybackBufferTimer);
+            audioPlaybackBufferTimer = null;
+        }
+    });
+
+    // 监听拖动完成事件
+    audioPlayer.addEventListener('seeked', function() {
+        console.log('拖动进度条完成');
+        
+        // 延迟一会儿，确保拖动完全完成
+        setTimeout(() => {
+            isSeeking = false;
+            
+            // 如果音频暂停了但还没结束，尝试恢复播放
+            if (audioPlayer.paused && !audioPlayer.ended) {
+                console.log('拖动后音频暂停，尝试恢复播放');
+                resumePlaybackAfterSeek();
+            }
+        }, 100);
+    });
+
+    // 处理音频卡顿事件
+    audioPlayer.addEventListener('stalled', function() {
+        console.log('音频数据卡顿，尝试恢复');
+        
+        if (!isSeeking) { // 如果不是在拖动期间
+            resumePlaybackAfterSeek();
+        }
+    });
+
+    // 处理音频等待事件
+    audioPlayer.addEventListener('waiting', function() {
+        console.log('音频等待数据加载...');
+        
+        // 如果不是在拖动期间，尝试恢复
+        if (!isSeeking) {
+            setTimeout(() => {
+                if (audioPlayer.paused && !audioPlayer.ended) {
+                    resumePlaybackAfterSeek();
+                }
+            }, 500);
+        }
+    });
+    // === 新增：安卓拖动进度条修复代码 - 结束 ===
+
+    // 添加错误事件监听
+    audioPlayer.addEventListener('error', async function(e) {
+        // === 新增：如果是拖动进度条导致的错误，先尝试恢复 ===
+        if (isSeeking) {
+            console.log('拖动进度条导致的错误，尝试恢复播放');
+            await handleSeekError();
+            return;
+        }
+        // === 新增结束 ===
+        
+        const taskKey = `error_${currentTaskId}_${audioPlayer.src}`;
+        
+        // 如果这个任务+URL组合已经处理过，直接跳过
+        if (processedErrors.has(taskKey)) {
+            console.log('已处理过此任务的错误，跳过:', currentTaskId);
+            return;
+        }
+        
+        console.error('音频加载错误:', e);
+        console.log('音频错误详细信息:', 
+                    audioPlayer.error, 
+                    audioPlayer.error ? audioPlayer.error.message : '');
+        
+        // 标记为已处理
+        processedErrors.add(taskKey);
+        
+        // 5分钟后清理这个标记，防止内存无限增长
+        setTimeout(() => {
+            processedErrors.delete(taskKey);
+        }, 5 * 60 * 1000);
+        
+        // 直接使用fetch请求流式接口，获取具体错误信息
+        if (currentTaskId) {
+            try {
+                // 这里使用同样的流式接口URL，但要确保是GET请求
+                const response = await fetch(`/api/download/stream?task_id=${currentTaskId}`, {
+                    method: 'GET',
+                    headers: {
+                        // 添加Range头，模拟正常的音频请求
+                        'Range': 'bytes=0-100',
+                        // 明确表示我们接受JSON错误
+                        'Accept': 'application/json, audio/mp4'
+                    },
+                    // 设置较短的超时，避免长时间等待
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                console.log('错误检查响应状态:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    // 尝试解析错误信息
+                    let errorMsg = '音频加载失败';
+                    let foundError = false;
+                    
+                    try {
+                        const errorData = await response.json();
+                        errorMsg = errorData.error || errorMsg;
+                        foundError = true;
+                        
+                        // 根据具体的错误信息显示不同的提示
+                        if (errorMsg.includes('missing_task_id')) {
+                            showStatus('❌ 任务ID缺失', 'error');
+                        } else if (errorMsg.includes('please wait task finish')) {
+                            showStatus('❌ 任务未完成，请等待下载完成', 'error');
+                        } else if (errorMsg.includes('file missing')) {
+                            showStatus('❌ 音频文件已被删除或不存在', 'error');
+                        } else {
+                            showStatus(`❌ ${errorMsg}`, 'error');
+                        }
+                    } catch (parseError) {
+                    }
+                    
+                    // 清空src防止重复错误
+                    audioPlayer.src = '';
+                    audioPlayer.removeAttribute('src');
+                    audioPlayer.load(); // 强制重新加载空源
+                    
+                    // 对于文件不存在的错误，完全移除音频元素的src
+                    if (foundError && errorMsg.includes('file missing')) {
+                        console.log('文件不存在，完全移除音频源');
+                    }
+                    
+                    stopPolling();
+                } else {
+                    // 如果响应正常，但音频还是出错，可能是格式问题
+                    audioPlayer.src = '';
+                    audioPlayer.removeAttribute('src');
+                    audioPlayer.load(); // 强制重新加载空源
+                    stopPolling();
+                }
+            } catch (fetchError) {
+                console.error('查询流式接口失败:', fetchError);
+                
+                // 检查是否是超时错误
+                if (fetchError.name === 'TimeoutError' || fetchError.name === 'AbortError') {
+                    showStatus('❌ 服务器响应超时，请检查网络连接', 'error');
+                } else if (fetchError.message.includes('Failed to fetch')) {
+                    showStatus('❌ 无法连接到服务器，请检查网络连接', 'error');
+                } else {
+                    showStatus('❌ 获取错误信息失败: ' + fetchError.message, 'error');
+                }
+                
+                audioPlayer.src = '';
+                audioPlayer.removeAttribute('src');
+                audioPlayer.load(); // 强制重新加载空源
+                stopPolling();
+            }
+        } else {
+            showStatus('❌ 音频加载失败，没有有效的任务ID', 'error');
+            stopPolling();
+        }
+    });
     
+    // === 新增：处理拖动错误函数 ===
+    async function handleSeekError() {
+        if (!currentTaskId) return;
+        
+        try {
+            // 获取当前播放时间
+            const currentTime = audioPlayer.currentTime;
+            
+            // 先暂停播放
+            audioPlayer.pause();
+            
+            // 创建一个新的音频源URL，添加时间戳避免缓存
+            const newSrc = `/api/download/stream?task_id=${currentTaskId}&t=${Date.now()}`;
+            
+            // 重新设置音频源
+            audioPlayer.src = newSrc;
+            
+            // 等待音频加载
+            await new Promise((resolve) => {
+                audioPlayer.addEventListener('loadedmetadata', resolve, { once: true });
+                audioPlayer.load();
+            });
+            
+            // 跳转到之前的时间点
+            audioPlayer.currentTime = currentTime;
+            
+            // 延迟一会儿再播放
+            setTimeout(() => {
+                if (!audioPlayer.paused) return;
+                audioPlayer.play().catch(err => {
+                    console.log('恢复播放失败:', err);
+                });
+            }, 300);
+            
+        } catch (error) {
+            console.error('处理拖动错误失败:', error);
+        } finally {
+            isSeeking = false;
+        }
+    }
+
+    // === 新增：恢复播放函数 ===
+    function resumePlaybackAfterSeek() {
+        if (audioPlaybackBufferTimer) {
+            clearTimeout(audioPlaybackBufferTimer);
+        }
+        
+        audioPlaybackBufferTimer = setTimeout(async () => {
+            if (audioPlayer.paused && !audioPlayer.ended) {
+                console.log('尝试恢复暂停的音频播放');
+                
+                try {
+                    // 先暂停并重置currentTime，强制重新加载
+                    audioPlayer.pause();
+                    const currentTime = audioPlayer.currentTime;
+                    audioPlayer.currentTime = currentTime;
+                    
+                    // 等待一下
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // 尝试播放
+                    const playPromise = audioPlayer.play();
+                    
+                    if (playPromise !== undefined) {
+                        playPromise.catch(err => {
+                            console.log('自动恢复播放失败:', err);
+                        });
+                    }
+                } catch (error) {
+                    console.error('恢复播放出错:', error);
+                }
+            }
+        }, 800);
+    }
+
+    // === 新增：重置音频源函数 ===
+    function resetAudioSource() {
+        if (!currentTaskId) return;
+        
+        const currentTime = audioPlayer.currentTime;
+        const wasPlaying = !audioPlayer.paused;
+        
+        // 创建新的音频源
+        audioPlayer.src = `/api/download/stream?task_id=${currentTaskId}&t=${Date.now()}`;
+        audioPlayer.load();
+        
+        // 加载完成后跳转到之前的时间
+        audioPlayer.addEventListener('canplay', function onCanPlay() {
+            audioPlayer.removeEventListener('canplay', onCanPlay);
+            
+            if (currentTime < audioPlayer.duration) {
+                audioPlayer.currentTime = currentTime;
+            }
+            
+            // 如果之前是播放状态，尝试恢复播放
+            if (wasPlaying) {
+                setTimeout(() => {
+                    audioPlayer.play().catch(err => {
+                        console.log('重置后播放失败:', err);
+                    });
+                }, 300);
+            }
+        }, { once: true });
+    }
+    // === 新增结束 ===
+
     // 主题管理
     const themeToggle = document.getElementById('themeToggle');
     const paletteToggle = document.getElementById('paletteToggle');

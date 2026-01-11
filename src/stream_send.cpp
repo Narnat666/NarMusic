@@ -60,8 +60,10 @@ bool StreamSend::parse_range_header(const std::string& request) {
                 std::cout << "请求大小 " << request_size << " 超过限制，调整为：" << (file_buff_end_ - file_buff_start_ + 1) << std::endl;
             }
             
+            //更新返还数据的大小
+            request_size_ = file_buff_end_ - file_buff_start_ + 1;
             std::cout << "start=" << file_buff_start_ << ",end=" << file_buff_end_
-                << ",size=" << (file_buff_end_ - file_buff_start_ + 1) << std::endl;
+                << ",request size=" << request_size_ << std::endl;
             
             return true;
 

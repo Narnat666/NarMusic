@@ -19,6 +19,7 @@ struct TaskInfo {
     std::chrono::system_clock::time_point created_time; // 时间
     std::string file_path_name; // 存储真实路径和名称
     std::string file_send_name; // 文件发送名称
+    bool ifusing; // 查看是否正在使用
 };
 
 class TaskManager { 

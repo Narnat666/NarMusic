@@ -28,7 +28,7 @@ std::string TaskManager::createTask(const std::string& url, const std::string& f
     auto analyzer = std::make_shared<MusicAnaly>(task_id, ext, path); // 智能指针接管
     { // 上锁
         std::lock_guard<std::mutex> lock(mutex_);
-        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName(), name + analyzer->getDownloadFileType()};
+        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName(), name + analyzer->getDownloadFileType(), false};
         // 加入到任务，并解锁
     }
 
@@ -81,7 +81,6 @@ std::string TaskManager::getTaskStatus(const std::string& task_id) // 状态获�
     return j.dump();
 }
 
-// 清理旧任务
 void TaskManager::cleanupOldTasks(int max_age_seconds /*=10*/) {
     std::lock_guard<std::mutex> lock(mutex_);
     const auto now = std::chrono::system_clock::now();
@@ -89,29 +88,47 @@ void TaskManager::cleanupOldTasks(int max_age_seconds /*=10*/) {
     for (auto it = tasks_.begin(); it != tasks_.end(); ) {
         auto age = std::chrono::duration_cast<std::chrono::seconds>(
                        now - it->second.created_time);
-        if (age.count() > max_age_seconds) {
-            std::string file_path_name = it->second.file_path_name;
-            try {
-                // 检查文件是否存在
-                if (!std::filesystem::exists(file_path_name)) {
-                    std::cout << "文件不存在: " << file_path_name << std::endl;
-                }
-                
-                // 删除文件
-                bool success = std::filesystem::remove(file_path_name);
-                
-                if (success) {
-                    std::cout << "\n文件已删除: " << file_path_name << std::endl;
-                } else {
-                    std::cerr << "\n文件删除失败: " << file_path_name << std::endl;
-                }
-            } catch (const std::exception& e) {
-                std::cerr << "\n文件删除异常: " << e.what() << " 文件: " << file_path_name << std::endl;
-            }
-            std::cout << "任务已经清理：" << it->second.task_id << std::endl;
-            it = tasks_.erase(it);
-        } else {
+        
+        // 任务还没到删除时间，跳过
+        if (age.count() <= max_age_seconds) {
             ++it;
+            continue;
         }
+        
+        // 获取当前任务的信息
+        std::string file_path_name = it->second.file_path_name;
+        std::string task_id = it->second.task_id;
+        
+        // 检查文件是否正在使用
+        if (it->second.ifusing) {
+            // 标记为下次删除
+            it->second.ifusing = false;
+            std::cout << "文件：" << file_path_name 
+                      << " (任务ID: " << task_id 
+                      << ") 正在使用中，标记为下次删除" << std::endl;
+            ++it;
+            continue;
+        }
+        
+        // 删除文件
+        try {
+            if (std::filesystem::exists(file_path_name)) {
+                bool success = std::filesystem::remove(file_path_name);
+                if (success) {
+                    std::cout << "文件已删除: " << file_path_name << std::endl;
+                } else {
+                    std::cerr << "文件删除失败: " << file_path_name << std::endl;
+                }
+            } else {
+                std::cout << "文件不存在，无需删除: " << file_path_name << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "文件删除异常: " << e.what() 
+                      << " 文件: " << file_path_name << std::endl;
+        }
+        
+        // 从任务列表中移除
+        std::cout << "任务已清理: " << task_id << std::endl;
+        it = tasks_.erase(it);
     }
 }
