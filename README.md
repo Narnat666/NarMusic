@@ -21,3 +21,9 @@ make
 11. 代码整合，更进一步理解c++面向对象编程核心 [待完成]
 
 ...
+
+# 共享文件夹挂载
+1.查看可挂载共享文件夹 
+vmware-hgfsclient
+2.将windows下的文件挂载到ubantu
+vmhgfs-fuse .host:/tanran /mnt/hgfs/tanran/ -o allow_other,uid=$(id -u),gid=$(id -g)
