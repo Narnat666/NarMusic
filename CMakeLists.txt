@@ -19,6 +19,7 @@ target_include_directories(http_server PRIVATE
     include/curl
     include/narnat
     include/nlohmann
+    include/threadpool
 )
 
 target_compile_options(http_server PRIVATE
