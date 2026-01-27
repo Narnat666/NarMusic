@@ -175,10 +175,10 @@ std::string linkCut(std::string& link) {
 
 
 void HttpServer::handleRequest(int clientSocket) {
+
     HttpRequest request(clientSocket);
     if (!request.parse()) {
-        sendResponse(clientSocket, "400 Bad Request", "{\"error\": \"Invalid request\"}");
-        close(clientSocket);
+        sendResponse(clientSocket, "400 Bad Request", "{\"error\": \"Invalid request\"}");        
         return;
     }
 
@@ -196,8 +196,7 @@ void HttpServer::handleRequest(int clientSocket) {
         std::string filepath = "web" + path;
         // 安全检查：防止目录遍历攻击
         if (path.find("..") != std::string::npos) {
-            sendResponse(clientSocket, "403 Forbidden", "{\"error\": \"Invalid path\"}");
-            close(clientSocket);
+            sendResponse(clientSocket, "403 Forbidden", "{\"error\": \"Invalid path\"}");     
             return;
         }
         // 检查文件是否存在
@@ -230,8 +229,7 @@ void HttpServer::handleRequest(int clientSocket) {
                 response << "\r\n";
                 response << content;
                 
-                send(clientSocket, response.str().c_str(), response.str().length(), 0);
-                close(clientSocket);
+                send(clientSocket, response.str().c_str(), response.str().length(), MSG_NOSIGNAL);
                 
                 if (debug) std::cout << "发送静态文件: " << filepath << " (" << content.length() << " 字节)" << std::endl;
                 return;
@@ -247,15 +245,13 @@ void HttpServer::handleRequest(int clientSocket) {
             
             if (task_id.empty()) {
                 std::cerr << "找不到任务id：" << task_id << std::endl;
-                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"missing_task_id\"}");
-                close(clientSocket);
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"missing_task_id\"}");                 
                 return;
             }
             
             // 获取任务状态
             std::string status = TaskManager::instance().getTaskStatus(task_id);
             sendResponse(clientSocket, "200 OK", status);
-            close(clientSocket);
             return;
         }
 
@@ -267,22 +263,21 @@ void HttpServer::handleRequest(int clientSocket) {
             
             if (task_id.empty()) {
                 std::cerr << "找不到任务id：" << task_id << std::endl;
-                sendResponse(clientSocket, "400 Missing Task Id", "{\"error\":\"missing_task_id\"}");
-                close(clientSocket);
+                sendResponse(clientSocket, "400 Missing Task Id", "{\"error\":\"missing_task_id\"}");                 
                 return;
             }
 
-            // 查看文件是否还在
-            auto it = nt.tasks_.find(task_id);
+
             { 
                 // 开始上锁防止下载时文件被删掉
                 std::lock_guard<std::mutex> lock(nt.mutex_);
+                // 查看文件是否还在
+                auto it = nt.tasks_.find(task_id);
                 if (it != nt.tasks_.end()) { // 找到文件准备发送
 
                     // 查看文件是否下载成功
                     if (!it->second.is_finished) {
-                        sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");
-                        close(clientSocket);
+                        sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");                         
                         return;
                     }
 
@@ -290,8 +285,7 @@ void HttpServer::handleRequest(int clientSocket) {
                     MusicAnaly analy;
                     std::string file_name_path = it->second.file_path_name;
                     if (file_name_path.empty() || !analy.fileExists(file_name_path)) {
-                        sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");
-                        close(clientSocket);
+                        sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");                         
                         return;
                     }
 
@@ -301,8 +295,7 @@ void HttpServer::handleRequest(int clientSocket) {
                     // 读取文件内容
                     std::ifstream file(file_name_path, std::ios::binary);
                     if (!file.is_open()) {
-                        sendResponse(clientSocket, "500 Internal Server Error", "{\"error\":\"cannot_open_file\"}");
-                        close(clientSocket);
+                        sendResponse(clientSocket, "500 Internal Server Error", "{\"error\":\"cannot_open_file\"}");                        
                         return;
                     }
                 
@@ -329,15 +322,14 @@ void HttpServer::handleRequest(int clientSocket) {
                 
                     // 先发送头部
                     std::string headers = response.str();
-                    send(clientSocket, headers.c_str(), headers.length(), 0);
+                    send(clientSocket, headers.c_str(), headers.length(), MSG_NOSIGNAL);
                 
                     // 然后发送文件内容
-                    send(clientSocket, buffer.data(), buffer.size(), 0);
+                    send(clientSocket, buffer.data(), buffer.size(), MSG_NOSIGNAL);
                 
                     std::cout << "文件发送成功: " << filename << " (" << fileSize << " 字节)" << std::endl;
                     
-                    it->second.ifusing = true; // 正在被使用
-                    close(clientSocket);
+                    it->second.ifusing = true; // 正在被使用                     
                     return;
 
         
@@ -355,8 +347,7 @@ void HttpServer::handleRequest(int clientSocket) {
             std::string task_id = getTaskIdByJson(query_string);
             if (task_id.empty()) {
                 std::cerr << "找不到任务id：" << task_id << std::endl;
-                sendResponse(clientSocket, "400 Missing Task Id", "{\"error\":\"missing_task_id\"}");
-                close(clientSocket);
+                sendResponse(clientSocket, "400 Missing Task Id", "{\"error\":\"missing_task_id\"}");                 
                 return;
             }
 
@@ -369,8 +360,7 @@ void HttpServer::handleRequest(int clientSocket) {
 
                     // 查看文件是否下载成功
                     if (!it->second.is_finished) {
-                        sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");
-                        close(clientSocket);
+                        sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");                         
                         return;
                     }
 
@@ -380,7 +370,6 @@ void HttpServer::handleRequest(int clientSocket) {
                     if (file_name_path.empty() || !analy.fileExists(file_name_path)) {
                         std::cerr << "流式传输音频失败，文件被删除" << std::endl;
                         sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");
-                        close(clientSocket);
                         return;
                     }
 
@@ -408,11 +397,10 @@ void HttpServer::handleRequest(int clientSocket) {
 
                     std::string header = response.str();
                     // 发送头部
-                    ssize_t sent = send(clientSocket, header.c_str(), header.length(), 0);
+                    ssize_t sent = send(clientSocket, header.c_str(), header.length(), MSG_NOSIGNAL);
                     if (sent != (ssize_t)header.length()) {
                         std::cerr << "发送头部失败，期望 " << header.length() 
-                                << "，实际 " << sent << std::endl;
-                        close(clientSocket);
+                                << "，实际 " << sent << std::endl;                        
                         return;
                     }
 
@@ -420,13 +408,13 @@ void HttpServer::handleRequest(int clientSocket) {
                     
                     // 发送数据
                     struct timeval tv;
-                    tv.tv_sec = 5;   // 5秒超时
+                    tv.tv_sec = 30;   // 5秒超时
                     tv.tv_usec = 0;
                     if (setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO, 
                                 (const char*)&tv, sizeof(tv)) < 0) {
                         std::cerr << "设置发送超时失败: " << strerror(errno) << std::endl;
                     }
-                    sent = send(clientSocket, strm.buffer_.data(), strm.request_size_, 0);
+                    sent = send(clientSocket, strm.buffer_.data(), strm.request_size_, MSG_NOSIGNAL);
                     if (sent < 0) {
                         if (errno == EAGAIN || errno == EWOULDBLOCK) {
                             std::cerr << "发送超时，数据未完全发送" << std::endl;
@@ -439,14 +427,12 @@ void HttpServer::handleRequest(int clientSocket) {
                     } else {
                         std::cout << "音频数据发送完成: " << sent << " 字节" << std::endl;
                     }
-
-                    close(clientSocket);
+                    
                     return;
 
                 } else {  // 文件被删除
                     std::cerr << "文件被删除或还未被找到" << std::endl; 
-                    sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");
-                    close(clientSocket);
+                    sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");                    
                     return;
                 }
             }
@@ -473,13 +459,11 @@ void HttpServer::handleRequest(int clientSocket) {
                    if (debug) std::cout << "原始URL: " << rawContent << std::endl;
                    if (debug) std::cout << "转换后URL: " << content << std::endl;
                 } else {
-                    sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Missing or invalid content field\"}");
-                    close(clientSocket);
+                    sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Missing or invalid content field\"}");                     
                     return;
                 }
             } catch (const json::parse_error& e) {
-                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
-                close(clientSocket);
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");                 
                 return;
             }
 
@@ -498,8 +482,7 @@ void HttpServer::handleRequest(int clientSocket) {
                 }
                 
             } catch (const json::parse_error& e) {
-                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");
-                close(clientSocket);
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");                 
                 return;
             }
             
@@ -514,14 +497,12 @@ void HttpServer::handleRequest(int clientSocket) {
             
             if(debug) std::cout << "创建任务id：" << task_id << " 链接：" << content << std::endl;
             
-            sendResponse(clientSocket, "200 OK", responseJson.dump());
-            close(clientSocket);
+            sendResponse(clientSocket, "200 OK", responseJson.dump());             
 
         } else {
             sendResponse(clientSocket, "404 Not Found", "{\"error\": \"Not found\"}");
         }
-        
-        close(clientSocket);
+                 
 }
 
 HttpServer::HttpServer(int port) : port_(port), serverSocket_(-1) {}
@@ -569,13 +550,13 @@ void HttpServer::start() {
         freeifaddrs(ifaddr);
     }
 
-    // 定时清理map表
-    std::thread([&]() {  // 只捕获不拷贝
-        while (true) { 
+    // 定时清理map表 - 保存线程对象避免泄漏
+    pool_.detach_task([this]() {
+        while (running_) { 
             TaskManager::instance().cleanupOldTasks(60);
-            std::this_thread::sleep_for(std::chrono::seconds(60)); // 睡眠
+            std::this_thread::sleep_for(std::chrono::seconds(60));
         }
-    }).detach();
+    });
     
     while (true) {
         sockaddr_in clientAddress;
@@ -587,6 +568,20 @@ void HttpServer::start() {
             continue;
         }
         
-        handleRequest(clientSocket);
+        pool_.detach_task([this, clientSocket]() {
+            handleRequest(clientSocket);
+            close(clientSocket);
+        });
+
+    }
+}
+
+HttpServer::~HttpServer() {
+    
+    running_ = false;  // 通知线程退出
+
+    if (serverSocket_ >= 0) {
+        close(serverSocket_);
+        std::cout << "服务器已关闭" << std::endl;
     }
 }

@@ -55,16 +55,6 @@ document.addEventListener('DOMContentLoaded', function() {
             isSeeking = false;
             
             // 如果音频暂停但未结束，尝试恢复
-            if (audioPlayer.paused && !audioPlayer.ended && audioPlayer.readyState >= 2) {
-                console.log('拖动后恢复播放');
-                // 使用更温和的恢复方式
-                const playPromise = audioPlayer.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(err => {
-                        console.log('拖动后恢复播放失败（可接受）:', err);
-                    });
-                }
-            }
         }, 150);
     });
 
@@ -72,28 +62,11 @@ document.addEventListener('DOMContentLoaded', function() {
     audioPlayer.addEventListener('stalled', function() {
         console.log('音频数据卡顿');
         // 不立即干预，给浏览器2秒自行恢复
-        if (!isSeeking && audioPlayer.paused) {
-            audioPlaybackBufferTimer = setTimeout(() => {
-                if (audioPlayer.paused && !audioPlayer.ended) {
-                    console.log('卡顿后尝试恢复播放');
-                    audioPlayer.play().catch(e => console.log('恢复失败:', e));
-                }
-            }, 2000);
-        }
     });
 
     audioPlayer.addEventListener('waiting', function() {
         console.log('音频等待数据加载...');
         // 仅在非拖动状态下处理
-        if (!isSeeking) {
-            // 不立即尝试播放，等待浏览器缓冲完成
-            audioPlaybackBufferTimer = setTimeout(() => {
-                if (audioPlayer.paused && !audioPlayer.ended && audioPlayer.readyState >= 3) {
-                    console.log('缓冲充足后恢复播放');
-                    audioPlayer.play().catch(e => console.log('恢复失败:', e));
-                }
-            }, 1000);
-        }
     });
 
     // === 核心修复5：增强错误处理，避免过度反应 ===
@@ -110,74 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 独立的错误处理函数
     async function handleAudioError() {
-        const taskKey = `error_${currentTaskId}_${audioPlayer.src}`;
-        
-        if (processedErrors.has(taskKey)) {
-            console.log('错误已处理过，跳过');
-            return;
-        }
-        
-        processedErrors.add(taskKey);
-        setTimeout(() => processedErrors.delete(taskKey), 5 * 60 * 1000);
-        
         console.error('音频错误详情:', audioPlayer.error);
-        
-        if (!currentTaskId) {
-            showStatus('❌ 音频加载失败：无效任务ID', 'error');
-            stopPolling();
-            return;
-        }
-        
-        try {
-            // 使用HEAD请求检查文件是否存在
-            const checkResponse = await fetch(`/api/download/stream?task_id=${currentTaskId}`, {
-                method: 'HEAD',
-                signal: AbortSignal.timeout(5000)
-            });
-            
-            if (!checkResponse.ok) {
-                throw new Error(`文件检查失败: ${checkResponse.status}`);
-            }
-            
-            // 文件存在，重新加载音频源（温和方式）
-            console.log('文件存在，重新加载音频源');
-            const currentTime = audioPlayer.currentTime;
-            const wasPlaying = !audioPlayer.paused;
-            
-            // 更新时间戳避免缓存
-            audioPlayer.src = `/api/download/stream?task_id=${currentTaskId}&t=${Date.now()}`;
-            
-            // 设置加载超时保护
-            audioLoadTimer = setTimeout(() => {
-                console.warn('音频加载超时');
-                if (audioPlayer.networkState === 2) { // NETWORK_LOADING
-                    audioPlayer.load(); // 强制重新加载
-                }
-            }, AUDIO_LOAD_TIMEOUT);
-            
-            // 恢复播放位置
-            audioPlayer.addEventListener('canplay', function onCanPlay() {
-                audioPlayer.removeEventListener('canplay', onCanPlay);
-                
-                if (currentTime < audioPlayer.duration) {
-                    audioPlayer.currentTime = currentTime;
-                }
-                
-                if (wasPlaying) {
-                    setTimeout(() => {
-                        audioPlayer.play().catch(err => {
-                            console.log('重置后播放失败:', err);
-                        });
-                    }, 500); // 增加延迟确保加载完成
-                }
-            }, { once: true });
-            
-            audioPlayer.load(); // 显式触发加载
-            
-        } catch (error) {
-            console.error('音频错误处理失败:', error);
-            showStatus('❌ 音频加载失败，请重试', 'error');
-        }
     }
 
     // === 新增：监听播放结束 ===
@@ -394,25 +300,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 localDownloadBtn.disabled = false;
                 
                 // === 核心修复6：优化音频源设置时机和方式 ===
-                if (currentTaskId) {
+                if (currentTaskId && !window.audioLoadedFlag) {
+                    window.audioLoadedFlag = true;  // 全局标志，防止重复
+                    
                     setTimeout(() => {
-                        // 设置音频源（带唯一时间戳防止缓存）
-                        const timestamp = Date.now();
-                        audioPlayer.src = `/api/download/stream?task_id=${currentTaskId}&t=${timestamp}`;
+                        audioPlayer.src = `/api/download/stream?task_id=${currentTaskId}&t=${Date.now()}`;
+                        audioPlayer.load();  // 第 1 次加载
                         
-                        // 显式调用load()触发加载
-                        audioPlayer.load();
-                        
-                        // 设置加载超时保护
+                        // 超时保护，只超时再加载一次
                         audioLoadTimer = setTimeout(() => {
-                            console.warn('音频初始加载超时');
                             if (audioPlayer.networkState === 2) {
-                                audioPlayer.load();
+                                audioPlayer.load();  // 第 2 次加载（仅超时）
                             }
                         }, AUDIO_LOAD_TIMEOUT);
-                        
-                        console.log('延迟设置音频源并显式加载，时间戳:', timestamp);
-                    }, 1000); // 增加到1秒，给后端更多准备时间
+                    }, 1000);
                 }
                 
                 if (status.file_info) {
@@ -502,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
         lastSpeedUpdateTime = Date.now();
         speedHistory = [];
         downloadStartTime = null;
+        window.audioLoadedFlag = false;
     }
     
     sendBtn.addEventListener('click', async function() {

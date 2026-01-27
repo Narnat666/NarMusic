@@ -318,7 +318,7 @@ bool MusicAnaly::download(const std::string& url) {
         return false;
     }
     
-    std::thread download_thread([this, audio_url, download_file_path_name]() {
+    pool_.detach_task([this, audio_url, download_file_path_name]() {
         CURL* curl = curl_easy_init();
         FILE* file = fopen(download_file_path_name.c_str(), "wb");
         
@@ -364,8 +364,6 @@ bool MusicAnaly::download(const std::string& url) {
             std::cout << " 文件下载失败：" << download_file_path_name << std::endl;
 
     });
-
-    download_thread.detach();
 
     return true;
 }

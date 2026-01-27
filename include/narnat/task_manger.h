@@ -9,6 +9,7 @@
 #include <memory>
 #include <thread>
 #include "music_analysis.h"
+#include "BS_thread_pool.hpp"
 
 // 下载任务结构体
 struct TaskInfo { 
@@ -33,6 +34,7 @@ class TaskManager {
         
     private:
         std::string generateTaskId(); // 创建taskid
+        BS::thread_pool<BS::tp::priority> pool_{5};
 };
 
 

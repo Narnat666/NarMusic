@@ -6,7 +6,7 @@
 #include <thread>
 #include <atomic>
 #include <cstring>
-
+#include "BS_thread_pool.hpp"
 
 // 创建音乐解析类
 class MusicAnaly {
@@ -26,6 +26,7 @@ class MusicAnaly {
         std::string fetchJsonData(const std::string& url);
         std::string extractInfoFromJson(const std::string& jsonStr, const std::string& key);
         std::string getAudioUrlFromJson(const std::string& jsonStr);
+        BS::thread_pool<BS::tp::priority> pool_{5};
         
     public:
         bool download(const std::string& url); // 下载操作函数
