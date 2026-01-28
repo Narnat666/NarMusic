@@ -165,7 +165,7 @@ bool LyricsEncapsulator::getLyricsFromNetease(MusicData& data) {
     return false;
 }
 
-bool LyricsEncapsulator::searchSongFromKugou(const std::string& keyword, MusicData& data) {
+bool LyricsEncapsulator:: searchSongFromKugou(const std::string& keyword, MusicData& data) {
     std::string url = "http://mobilecdn.kugou.com/api/v3/search/song?format=json&keyword=" +
                      encodeUrl(keyword) + "&page=1&pagesize=5&showtype=1";
     
@@ -294,7 +294,7 @@ std::string LyricsEncapsulator::generateRandomMid() {
     return mid;
 }
 
-bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data) {
+bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data, int offsetMs) {
     if (data.songId.empty() && data.songName.empty()) {
         return false;
     }
@@ -343,7 +343,8 @@ bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data) {
                     // - 如果歌词仍然比音乐快 → 增大数值（如 1000 或 1200）
                     // - 如果歌词比音乐慢了 → 减小数值（如 500 或 300）
                     if (!data.lyrics.empty()) {
-                        data.lyrics = adjustLyricsTiming(data.lyrics, 2000);
+                        std::cout << "offsetMs: " << offsetMs << std::endl;
+                        data.lyrics = adjustLyricsTiming(data.lyrics, offsetMs);
                     }
                     
                     data.hasLyrics = !data.lyrics.empty();
@@ -815,10 +816,12 @@ bool LyricsEncapsulator::writeToM4AFile(const std::string& filepath, const Music
 }
 
 // 选择最佳的歌词（优先酷狗）
-std::pair<std::string, bool> LyricsEncapsulator::getBestLyrics(const std::vector<std::unique_ptr<MusicData>>& allData) {
+std::pair<std::string, bool> LyricsEncapsulator::getBestLyrics(const std::vector<std::unique_ptr<MusicData>>& allData, const std::string platform) {
     // 按优先级搜索：酷狗 > 网易云 > QQ音乐
     std::vector<std::string> priority = {"酷狗音乐", "网易云音乐", "QQ音乐"};
-    
+    // 如果指定了平台
+    if (!platform.empty()) priority[0] = platform;
+
     for (const auto& source : priority) {
         for (const auto& data : allData) {
             if (data->source == source && data->hasLyrics && !data->lyrics.empty()) {
@@ -840,7 +843,9 @@ std::pair<std::string, bool> LyricsEncapsulator::getBestLyrics(const std::vector
     return {"", false};
 }
 
-bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const std::string& m4aFilePath) {
+bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const std::string& m4aFilePath,
+                                             const std::string& platform, const int offsetMs 
+                                                ) {
     std::cout << "========================================" << std::endl;
     std::cout << "开始处理: " << songName << std::endl;
     std::cout << "文件路径: " << m4aFilePath << std::endl;
@@ -871,12 +876,12 @@ bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const 
     }));
     
     // 酷狗
-    futures.push_back(std::async(std::launch::async, [this, songName]() {
+    futures.push_back(std::async(std::launch::async, [this, songName, offsetMs]() {
         auto data = std::make_unique<MusicData>();
         if (this->searchSongFromKugou(songName, *data)) {
             data->source = "酷狗音乐";
             // 获取歌词（优先）
-            if (!this->getLyricsFromKugou(*data)) {
+            if (!this->getLyricsFromKugou(*data, offsetMs)) {
                 data->hasLyrics = false;
             }
             return data;
@@ -915,7 +920,9 @@ bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const 
     // 选择最佳的数据源（用于基本信息）
     const MusicData* selectedData = nullptr;
     std::vector<std::string> priority = {"酷狗音乐", "网易云音乐", "QQ音乐"};
-    
+    // 如果指定了平台，则用指定平台
+    if (!platform.empty()) priority[0] = platform;
+
     for (const auto& source : priority) {
         for (const auto& data : allData) {
             if (data->source == source) {
@@ -935,7 +942,7 @@ bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const 
     auto bestCover = getBestCoverFromAllPlatforms(allData);
     
     // 获取最佳歌词（优先酷狗）
-    auto lyricsResult = getBestLyrics(allData);
+    auto lyricsResult = getBestLyrics(allData, platform);
     std::string bestLyrics = lyricsResult.first;
     bool hasLyrics = lyricsResult.second;
     

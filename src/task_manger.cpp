@@ -19,7 +19,8 @@ std::string TaskManager::generateTaskId() {
     return ss;
 }
 
-std::string TaskManager::createTask(const std::string& url, const std::string& file_name) { // 创建线程任务函数
+std::string TaskManager::createTask(const std::string& url, const std::string& file_name, 
+                                    const std::string& platform, int offsetMs) { // 创建线程任务函数
     // 创建任务id
     std::string task_id = generateTaskId();
     std::string name = task_id;
@@ -33,8 +34,8 @@ std::string TaskManager::createTask(const std::string& url, const std::string& f
     }
 
     // 启动下载线程
-    pool_.detach_task([this, task_id, analyzer, url, file_name](){
-        analyzer->download(url, file_name);
+    pool_.detach_task([this, task_id, analyzer, url, file_name, platform, offsetMs](){
+        analyzer->download(url, file_name, platform, offsetMs);
 
         // 等待下载完成
         while (!analyzer->downloadIfFinished()) {

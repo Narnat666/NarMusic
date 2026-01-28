@@ -26,7 +26,8 @@ struct TaskInfo {
 class TaskManager { 
     public:
         static TaskManager& instance(); // 全局返还全局变量manager
-        std::string createTask(const std::string& url, const std::string& file_name); // 创建任务函数
+        std::string createTask(const std::string& url, const std::string& file_name, 
+                                const std::string& platform, int offsetMs); // 创建任务函数
         std::string getTaskStatus(const std::string& task_id); // 获取任务状态
         void cleanupOldTasks(int max_age_seconds = 10); // 清理函数
         std::map<std::string, TaskInfo> tasks_; // map

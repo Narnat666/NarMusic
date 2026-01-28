@@ -54,11 +54,11 @@ class LyricsEncapsulator {
         std::string adjustLyricsTiming(const std::string& lyrics, int offsetMs); // 延迟设置
         bool getLyricsFromNetease(MusicData& data);
         bool searchSongFromKugou(const std::string& keyword, MusicData& data);
-        bool getLyricsFromKugou(MusicData& data);
+        bool getLyricsFromKugou(MusicData& data, int offsetMs);
         bool searchSongFromQQMusic(const std::string& keyword, MusicData& data);
         bool getLyricsFromQQMusic(MusicData& data);
         std::vector<uint8_t> getBestCoverFromAllPlatforms(const std::vector<std::unique_ptr<MusicData>>& allData);
-        std::pair<std::string, bool> getBestLyrics(const std::vector<std::unique_ptr<MusicData>>& allData);
+        std::pair<std::string, bool> getBestLyrics(const std::vector<std::unique_ptr<MusicData>>& allData, const std::string platform);
         bool writeToM4AFile(const std::string& filepath, const MusicData& data);
         std::string encodeUrl(const std::string& value);
         bool setMP4CoverArt(TagLib::MP4::File& file, const std::vector<uint8_t>& coverData);
@@ -73,7 +73,7 @@ class LyricsEncapsulator {
     public:
         LyricsEncapsulator();
         ~LyricsEncapsulator();
-        bool updateMusicMetadata(const std::string& songName, const std::string& m4aFilePath);
+        bool updateMusicMetadata(const std::string& songName, const std::string& m4aFilePath, const std::string& platform, const int offsetMs);
 };
 
 #endif

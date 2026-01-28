@@ -486,8 +486,10 @@ void HttpServer::handleRequest(int clientSocket) {
                 return;
             }
             
-            // 创建下载任务
-            std::string task_id = TaskManager::instance().createTask(content, file_name);
+            // 创建下载任务 TODO
+            std::string platform = "酷狗音乐";
+            int offsetMs = 6000;
+            std::string task_id = TaskManager::instance().createTask(content, file_name, platform, offsetMs);
             
             // 使用nlohmann/json创建JSON响应
             json responseJson;

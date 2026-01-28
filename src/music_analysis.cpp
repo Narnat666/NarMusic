@@ -234,7 +234,8 @@ bool prepareDownloadFile(const std::string& file_path_name) {
     }
 }
 
-bool MusicAnaly::download(const std::string& url, const std::string& filename) {
+bool MusicAnaly::download(const std::string& url, const std::string& filename,
+                                    const std::string& platform, int offsetMs) {
     std::string outputFilename = downloadFilename_;
     if (debug) std::cout << "处理链接：" << url << std::endl;
 
@@ -320,7 +321,7 @@ bool MusicAnaly::download(const std::string& url, const std::string& filename) {
         return false;
     }
     
-    pool_.detach_task([this, audio_url, download_file_path_name, filename]() {
+    pool_.detach_task([this, audio_url, download_file_path_name, filename, platform, offsetMs]() {
         CURL* curl = curl_easy_init();
         FILE* file = fopen(download_file_path_name.c_str(), "wb");
         
@@ -347,7 +348,7 @@ bool MusicAnaly::download(const std::string& url, const std::string& filename) {
             curl_easy_cleanup(curl);
 
             // 下载音乐封面和专辑 TODO
-            updater.updateMusicMetadata(filename, download_file_path_name);
+            updater.updateMusicMetadata(filename, download_file_path_name, platform, offsetMs);
             
             downloadSuccess = (res == CURLE_OK);
             isDownloading = false;
