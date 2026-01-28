@@ -52,11 +52,11 @@ class LyricsEncapsulator {
             const std::string& postData = "",
             long timeout = 15); // http请求函数 
         std::string adjustLyricsTiming(const std::string& lyrics, int offsetMs); // 延迟设置
-        bool getLyricsFromNetease(MusicData& data);
         bool searchSongFromKugou(const std::string& keyword, MusicData& data);
-        bool getLyricsFromKugou(MusicData& data, int offsetMs);
         bool searchSongFromQQMusic(const std::string& keyword, MusicData& data);
-        bool getLyricsFromQQMusic(MusicData& data);
+        bool getLyricsFromKugou(MusicData& data, int offsetMs);
+        bool getLyricsFromQQMusic(MusicData& data, int offsetMs);
+        bool getLyricsFromNetease(MusicData& data, int offsetMs);
         std::vector<uint8_t> getBestCoverFromAllPlatforms(const std::vector<std::unique_ptr<MusicData>>& allData);
         std::pair<std::string, bool> getBestLyrics(const std::vector<std::unique_ptr<MusicData>>& allData, const std::string platform);
         bool writeToM4AFile(const std::string& filepath, const MusicData& data);
