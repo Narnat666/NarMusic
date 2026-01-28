@@ -311,6 +311,12 @@ void HttpServer::handleRequest(int clientSocket) {
                 
                     // 获取文件名
                     std::string filename = it->second.file_send_name;
+                    // 如果是 文件名 - 作者 的形式则将作者去掉
+                    size_t pos = filename.find(" - ");
+                    if (pos != std::string::npos) {
+                        filename = filename.substr(0, pos);
+                        filename += it->second.analyzer->getDownloadFileType();
+                    }
 
                     // 发送文件
                     std::stringstream response;

@@ -852,34 +852,49 @@ bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const 
 bool LyricsEncapsulator::getLyricsFromNetease(MusicData& data, int offsetMs) {
     std::string url = "http://music.163.com/api/song/lyric?id=" + data.songId + "&lv=-1&kv=-1&tv=-1";
     std::string response;
-    
+
     std::vector<std::string> headers = {
         "Referer: http://music.163.com",
         "Origin: http://music.163.com"
     };
-    
+
     if (!performHttpRequest(url, response, headers)) {
         return false;
     }
-    
+
     try {
         json j = json::parse(response);
         if (j.contains("lrc") && j["lrc"].contains("lyric") && !j["lrc"]["lyric"].get<std::string>().empty()) {
             data.lyrics = j["lrc"]["lyric"].get<std::string>();
-            
-            // 应用时间偏移调整
+
+            // --- 新增逻辑：尝试获取翻译歌词 ---
+            if (j.contains("tlyric") && j["tlyric"].contains("lyric")) {
+                // 注意：有时候字段存在但是是 null
+                auto& tlyricJson = j["tlyric"]["lyric"];
+                if (!tlyricJson.is_null()) {
+                    std::string transLyric = tlyricJson.get<std::string>();
+                    if (!transLyric.empty()) {
+                        // 将翻译歌词拼接到原歌词后面
+                        // 大多数 LRC 解析器会根据时间戳自动排序，从而实现双语对照
+                        data.lyrics += "\n" + transLyric;
+                    }
+                }
+            }
+            // --------------------------------
+
+            // 应用时间偏移调整 (对合并后的歌词整体调整)
             if (offsetMs != 0 && !data.lyrics.empty()) {
                 std::cout << "wy offsetMs: " << offsetMs << std::endl;
                 data.lyrics = adjustLyricsTiming(data.lyrics, offsetMs);
             }
-            
+
             data.hasLyrics = true;
             return true;
         }
     } catch (const json::exception& e) {
         std::cerr << "网易云歌词JSON解析错误: " << e.what() << std::endl;
     }
-    
+
     return false;
 }
 
@@ -887,18 +902,18 @@ bool LyricsEncapsulator::getLyricsFromNetease(MusicData& data, int offsetMs) {
 
 bool LyricsEncapsulator::getLyricsFromQQMusic(MusicData& data, int offsetMs) {
     std::string url = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?format=json&songmid=" +
-                     data.songId + "&g_tk=5381";
-    
+        data.songId + "&g_tk=5381";
+
     std::string response;
     std::vector<std::string> headers = {
         "Referer: https://y.qq.com",
         "Origin: https://y.qq.com"
     };
-    
+
     if (!performHttpRequest(url, response, headers)) {
         return false;
     }
-    
+
     if (response.find("MusicJsonCallback(") == 0) {
         size_t start = response.find('(');
         size_t end = response.rfind(')');
@@ -906,26 +921,39 @@ bool LyricsEncapsulator::getLyricsFromQQMusic(MusicData& data, int offsetMs) {
             response = response.substr(start + 1, end - start - 1);
         }
     }
-    
+
     try {
         json j = json::parse(response);
         if (j.contains("lyric")) {
             std::string base64Lyric = j["lyric"].get<std::string>();
             data.lyrics = base64Decode(base64Lyric);
-            
+
+            // --- 新增逻辑：尝试获取翻译歌词 ---
+            if (j.contains("trans")) {
+                std::string base64Trans = j["trans"].get<std::string>();
+                if (!base64Trans.empty()) {
+                    std::string transLyric = base64Decode(base64Trans);
+                    if (!transLyric.empty()) {
+                        // 拼接到原歌词后
+                        data.lyrics += "\n" + transLyric;
+                    }
+                }
+            }
+            // --------------------------------
+
             // 应用时间偏移调整
             if (offsetMs != 0 && !data.lyrics.empty()) {
                 std::cout << "qq offsetMs: " << offsetMs << std::endl;
                 data.lyrics = adjustLyricsTiming(data.lyrics, offsetMs);
             }
-            
+
             data.hasLyrics = !data.lyrics.empty();
             return data.hasLyrics;
         }
     } catch (const json::exception& e) {
         std::cerr << "QQ音乐歌词JSON解析错误: " << e.what() << std::endl;
     }
-    
+
     return false;
 }
 
@@ -934,7 +962,7 @@ bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data, int offsetMs) {
     if (data.songId.empty() && data.songName.empty()) {
         return false;
     }
-    
+
     std::string searchKeyword;
     if (!data.artist.empty() && !data.songName.empty()) {
         searchKeyword = data.artist + " - " + data.songName;
@@ -943,46 +971,56 @@ bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data, int offsetMs) {
     } else {
         searchKeyword = data.songId;
     }
-    
-    std::string url = "http://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=" + 
-                     encodeUrl(searchKeyword) + "&duration=200000&hash=" + encodeUrl(data.songId);
-    
+
+    std::string url = "http://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=" +
+        encodeUrl(searchKeyword) + "&duration=200000&hash=" + encodeUrl(data.songId);
+
     std::string response;
     std::vector<std::string> headers = {
         "Referer: http://www.kugou.com",
         "Cookie: kg_mid=" + generateRandomMid()
     };
-    
+
     if (!performHttpRequest(url, response, headers)) {
         return false;
     }
-    
+
     try {
         json j = json::parse(response);
         if (j.contains("candidates") && !j["candidates"].empty()) {
             auto& candidate = j["candidates"][0];
             std::string id = candidate["id"].get<std::string>();
             std::string accesskey = candidate["accesskey"].get<std::string>();
-            
+
             std::string downloadUrl = "http://lyrics.kugou.com/download?ver=1&client=pc&id=" +
-                                    id + "&accesskey=" + accesskey + "&fmt=lrc&charset=utf8";
-            
+                id + "&accesskey=" + accesskey + "&fmt=lrc&charset=utf8";
+
             std::string lyricResponse;
             if (performHttpRequest(downloadUrl, lyricResponse, headers)) {
                 json lyricData = json::parse(lyricResponse);
                 if (lyricData.contains("content")) {
                     std::string base64Content = lyricData["content"].get<std::string>();
                     data.lyrics = base64Decode(base64Content);
-                    
-                    // 酷狗歌词通常比实际音乐快 0.8-1.2 秒，这里添加 800ms 延迟
-                    // 调整建议：
-                    // - 如果歌词仍然比音乐快 → 增大数值（如 1000 或 1200）
-                    // - 如果歌词比音乐慢了 → 减小数值（如 500 或 300）
+
+                    // --- 新增逻辑：尝试获取翻译歌词 ---
+                    // 酷狗某些接口返回 trans 字段，格式同 content
+                    if (lyricData.contains("trans")) {
+                         std::string base64Trans = lyricData["trans"].get<std::string>();
+                         if (!base64Trans.empty()) {
+                             std::string transLyric = base64Decode(base64Trans);
+                             if (!transLyric.empty()) {
+                                 data.lyrics += "\n" + transLyric;
+                             }
+                         }
+                    }
+                    // --------------------------------
+
+                    // 酷狗歌词偏移调整
                     if (!data.lyrics.empty()) {
                         std::cout << "kg offsetMs: " << offsetMs << std::endl;
                         data.lyrics = adjustLyricsTiming(data.lyrics, offsetMs);
                     }
-                    
+
                     data.hasLyrics = !data.lyrics.empty();
                     return data.hasLyrics;
                 }
@@ -991,6 +1029,6 @@ bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data, int offsetMs) {
     } catch (const json::exception& e) {
         std::cerr << "酷狗歌词JSON解析错误: " << e.what() << std::endl;
     }
-    
+
     return false;
 }
