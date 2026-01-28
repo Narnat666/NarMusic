@@ -847,6 +847,104 @@ bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const 
 
 /* 歌词获取函数 */
 
+// 辅助函数：合并双语歌词，椒盐音乐格式（双时间戳）
+std::string mergeBilingualLyrics(const std::string& original, const std::string& translation) {
+    if (translation.empty()) return original;
+    
+    // key: 时间戳(毫秒)，value: pair<原文, 译文>
+    std::map<int, std::pair<std::string, std::string>> merged;
+    std::vector<std::string> metaData;
+    
+    // 正则匹配 LRC 时间戳行 [mm:ss.xx] 或 [mm:ss.xxx]
+    std::regex lrcLineRegex(R"(^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$)");
+    std::smatch match;
+    
+    // 解析原文和译文的逻辑保持不变...
+    std::istringstream origStream(original);
+    std::string line;
+    while (std::getline(origStream, line)) {
+        line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+        
+        if (std::regex_match(line, match, lrcLineRegex)) {
+            int mm = std::stoi(match[1].str());
+            int ss = std::stoi(match[2].str());
+            std::string msStr = match[3].str();
+            int ms = std::stoi(msStr);
+            if (msStr.length() == 2) ms *= 10;
+            int timestamp = mm * 60000 + ss * 1000 + ms;
+            
+            std::string content = match[4].str();
+            size_t start = content.find_first_not_of(" \t");
+            if (start != std::string::npos) {
+                size_t end = content.find_last_not_of(" \t");
+                content = content.substr(start, end - start + 1);
+            } else {
+                content = "";
+            }
+            
+            merged[timestamp].first = content;
+        } else if (!line.empty() && line[0] == '[') {
+            metaData.push_back(line);
+        }
+    }
+    
+    // 解析译文
+    std::istringstream transStream(translation);
+    while (std::getline(transStream, line)) {
+        line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
+        
+        if (std::regex_match(line, match, lrcLineRegex)) {
+            int mm = std::stoi(match[1].str());
+            int ss = std::stoi(match[2].str());
+            std::string msStr = match[3].str();
+            int ms = std::stoi(msStr);
+            if (msStr.length() == 2) ms *= 10;
+            int timestamp = mm * 60000 + ss * 1000 + ms;
+            
+            std::string content = match[4].str();
+            size_t start = content.find_first_not_of(" \t");
+            if (start != std::string::npos) {
+                size_t end = content.find_last_not_of(" \t");
+                content = content.substr(start, end - start + 1);
+            } else {
+                content = "";
+            }
+            
+            merged[timestamp].second = content;
+        }
+    }
+    
+    // 构建结果 - 双时间戳格式（椒盐音乐标准格式）
+    std::stringstream result;
+    
+    // 先输出元数据
+    for (const auto& meta : metaData) {
+        result << meta << "\n";
+    }
+    
+    // 按时间戳排序输出
+    for (const auto& pair : merged) {
+        int ts = pair.first;
+        int mm = ts / 60000;
+        int ss = (ts % 60000) / 1000;
+        int xx = (ts % 1000) / 10;
+        
+        char tsStr[32];
+        std::snprintf(tsStr, sizeof(tsStr), "[%02d:%02d.%02d]", mm, ss, xx);
+        
+        // 输出原文（带时间戳）
+        if (!pair.second.first.empty()) {
+            result << tsStr << pair.second.first << "\n";
+        }
+        
+        // 输出译文（也带相同时间戳 - 这是关键！）
+        if (!pair.second.second.empty() && pair.second.second != pair.second.first) {
+            result << tsStr << pair.second.second << "\n";  // 关键修改：加上时间戳
+        }
+    }
+    
+    return result.str();
+}
 
 // 网易云获取歌词
 bool LyricsEncapsulator::getLyricsFromNetease(MusicData& data, int offsetMs) {
@@ -865,24 +963,28 @@ bool LyricsEncapsulator::getLyricsFromNetease(MusicData& data, int offsetMs) {
     try {
         json j = json::parse(response);
         if (j.contains("lrc") && j["lrc"].contains("lyric") && !j["lrc"]["lyric"].get<std::string>().empty()) {
-            data.lyrics = j["lrc"]["lyric"].get<std::string>();
+            std::string originalLyrics = j["lrc"]["lyric"].get<std::string>();
 
-            // --- 新增逻辑：尝试获取翻译歌词 ---
+            // --- 修改逻辑：按时间戳合并双语歌词（椒盐音乐格式） ---
             if (j.contains("tlyric") && j["tlyric"].contains("lyric")) {
-                // 注意：有时候字段存在但是是 null
                 auto& tlyricJson = j["tlyric"]["lyric"];
                 if (!tlyricJson.is_null()) {
                     std::string transLyric = tlyricJson.get<std::string>();
                     if (!transLyric.empty()) {
-                        // 将翻译歌词拼接到原歌词后面
-                        // 大多数 LRC 解析器会根据时间戳自动排序，从而实现双语对照
-                        data.lyrics += "\n" + transLyric;
+                        std::cout << "获取到网易云双语歌词，正在合并..." << std::endl;
+                        data.lyrics = mergeBilingualLyrics(originalLyrics, transLyric);
+                    } else {
+                        data.lyrics = originalLyrics;
                     }
+                } else {
+                    data.lyrics = originalLyrics;
                 }
+            } else {
+                data.lyrics = originalLyrics;
             }
             // --------------------------------
 
-            // 应用时间偏移调整 (对合并后的歌词整体调整)
+            // 应用时间偏移调整
             if (offsetMs != 0 && !data.lyrics.empty()) {
                 std::cout << "wy offsetMs: " << offsetMs << std::endl;
                 data.lyrics = adjustLyricsTiming(data.lyrics, offsetMs);
@@ -898,8 +1000,7 @@ bool LyricsEncapsulator::getLyricsFromNetease(MusicData& data, int offsetMs) {
     return false;
 }
 
-// qq音乐获取歌词
-
+// QQ音乐获取歌词
 bool LyricsEncapsulator::getLyricsFromQQMusic(MusicData& data, int offsetMs) {
     std::string url = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?format=json&songmid=" +
         data.songId + "&g_tk=5381";
@@ -926,19 +1027,21 @@ bool LyricsEncapsulator::getLyricsFromQQMusic(MusicData& data, int offsetMs) {
         json j = json::parse(response);
         if (j.contains("lyric")) {
             std::string base64Lyric = j["lyric"].get<std::string>();
-            data.lyrics = base64Decode(base64Lyric);
+            std::string originalLyrics = base64Decode(base64Lyric);
 
-            // --- 新增逻辑：尝试获取翻译歌词 ---
+            // --- 修改逻辑：按时间戳合并双语歌词（椒盐音乐格式） ---
             if (j.contains("trans")) {
                 std::string base64Trans = j["trans"].get<std::string>();
                 if (!base64Trans.empty()) {
                     std::string transLyric = base64Decode(base64Trans);
                     if (!transLyric.empty()) {
-                        // 拼接到原歌词后
-                        data.lyrics += "\n" + transLyric;
+                        std::cout << "获取到QQ音乐双语歌词，正在合并..." << std::endl;
+                        originalLyrics = mergeBilingualLyrics(originalLyrics, transLyric);
                     }
                 }
             }
+            
+            data.lyrics = originalLyrics;
             // --------------------------------
 
             // 应用时间偏移调整
@@ -1000,19 +1103,21 @@ bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data, int offsetMs) {
                 json lyricData = json::parse(lyricResponse);
                 if (lyricData.contains("content")) {
                     std::string base64Content = lyricData["content"].get<std::string>();
-                    data.lyrics = base64Decode(base64Content);
+                    std::string originalLyrics = base64Decode(base64Content);
 
-                    // --- 新增逻辑：尝试获取翻译歌词 ---
-                    // 酷狗某些接口返回 trans 字段，格式同 content
+                    // --- 修改逻辑：按时间戳合并双语歌词（椒盐音乐格式） ---
                     if (lyricData.contains("trans")) {
-                         std::string base64Trans = lyricData["trans"].get<std::string>();
-                         if (!base64Trans.empty()) {
-                             std::string transLyric = base64Decode(base64Trans);
-                             if (!transLyric.empty()) {
-                                 data.lyrics += "\n" + transLyric;
-                             }
-                         }
+                        std::string base64Trans = lyricData["trans"].get<std::string>();
+                        if (!base64Trans.empty()) {
+                            std::string transLyric = base64Decode(base64Trans);
+                            if (!transLyric.empty()) {
+                                std::cout << "获取到酷狗双语歌词，正在合并..." << std::endl;
+                                originalLyrics = mergeBilingualLyrics(originalLyrics, transLyric);
+                            }
+                        }
                     }
+                    
+                    data.lyrics = originalLyrics;
                     // --------------------------------
 
                     // 酷狗歌词偏移调整
