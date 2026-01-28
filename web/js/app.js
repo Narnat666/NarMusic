@@ -422,6 +422,29 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // ====== 新增：获取音乐平台和delay参数（优化版） ======
+        const platformSelect = document.getElementById('platformSelect');
+        const platform = platformSelect ? platformSelect.value : "酷狗音乐"; // 默认值
+        
+        const delayInput = document.getElementById('delayInput');
+        let delayValue = 0; // 默认值
+    
+        if (delayInput) {
+            const delayText = delayInput.value.trim();
+            if (delayText !== '') {
+                const parsedDelay = parseInt(delayText);
+                if (isNaN(parsedDelay)) {
+                    showStatus('Delay参数必须是整数！', 'error');
+                    delayInput.focus();
+                    delayInput.select();
+                    return;
+                }
+                delayValue = parsedDelay;
+            }
+            // 如果为空字符串，保持默认值0
+        }
+        // ====== 新增结束 ======
+        
         resetTaskStatus();
         showStatus('正在创建下载任务...', 'info');
         
@@ -431,13 +454,20 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const requestData = {
                 content: inputText,
-                url: url
+                url: url,
+                // ====== 新增：发送音乐平台和delay参数 ======
+                platform: platform,
+                offsetMs: delayValue
+                // ====== 新增结束 ======
             };
             
             const filename = filenameInput.value.trim();
             if (filename) {
                 requestData.filename = filename;
             }
+            
+            // 调试信息：查看发送的数据
+            console.log('发送到后端的数据:', requestData);
             
             const response = await fetch('/api/message', {
                 method: 'POST',

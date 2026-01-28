@@ -82,6 +82,31 @@
                         </div>
                     </div>
                     
+                    <!-- 新增：参数配置区域 -->
+                    <div class="form-group-row">
+                        <div class="form-group-half">
+                            <label for="platformSelect">
+                                <i class="fas fa-music"></i> 音乐平台
+                            </label>
+                            <select id="platformSelect">
+                                <option value="酷狗音乐">酷狗音乐</option>
+                                <option value="QQ音乐">QQ音乐</option>
+                                <option value="网易云音乐">网易云音乐</option>
+                            </select>
+                        </div>
+                        <div class="form-group-half">
+                            <label for="delayInput">
+                                <i class="fas fa-clock"></i> Delay参数
+                            </label>
+                            <input 
+                                type="text" 
+                                id="delayInput" 
+                                placeholder="输入delay参数（ms）"
+                                value="0"
+                            >
+                        </div>
+                    </div>
+                    
                     <!-- 主按钮区域 -->
                     <div class="btn-group">
                         <button class="btn" id="sendBtn">

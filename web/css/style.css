@@ -228,6 +228,21 @@ body {
     animation: fadeInUp 0.6s ease;
 }
 
+/* 新增：并排表单组样式 */
+.form-group-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+    animation: fadeInUp 0.6s ease;
+}
+
+.form-group-half {
+    flex: 1;
+    min-width: 200px;
+    margin-bottom: 0;
+}
+
 label {
     display: block;
     margin-bottom: 10px;
@@ -239,7 +254,7 @@ label {
     font-size: 16px;
 }
 
-input, textarea {
+input, textarea, select {
     width: 100%;
     padding: 14px 16px;
     border: 2px solid var(--border-color);
@@ -252,7 +267,7 @@ input, textarea {
     outline: none;
 }
 
-input:focus, textarea:focus {
+input:focus, textarea:focus, select:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
@@ -263,6 +278,79 @@ textarea {
     resize: vertical;
     min-height: 100px;
     font-family: inherit;
+}
+
+/* 增强所有设备的选择框样式 */
+select {
+    font-size: 16px; /* 确保字体大小一致 */
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    background-color: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 14px 16px;
+    width: 100%;
+    color: var(--text-primary);
+    font-family: inherit;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23667eea' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 16px;
+    padding-right: 50px; /* 为箭头留出更多空间 */
+}
+
+/* 为选择框添加悬停效果 */
+select:hover {
+    border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+}
+
+/* 修复选择框在深色主题下的箭头颜色 */
+[data-theme="dark"] select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* 修复其他主题下的箭头颜色 */
+[data-theme="sunset"] select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23fd746c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="forest"] select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2311998e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="purple"] select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%238E2DE2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* 确保选择框内的选项有正确的样式 */
+option {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    padding: 10px;
+    font-size: 16px;
+}
+
+/* 针对不同浏览器进行微调 */
+@supports (-webkit-appearance: none) {
+    select {
+        /* Safari和Chrome的额外调整 */
+        -webkit-appearance: none;
+        appearance: none;
+    }
+}
+
+@supports (-moz-appearance: none) {
+    select {
+        /* Firefox的额外调整 */
+        -moz-appearance: none;
+        appearance: none;
+        text-indent: 0.01px;
+        text-overflow: '';
+    }
 }
 
 /* 紧凑状态显示 - 单行布局 */
@@ -655,6 +743,14 @@ textarea {
         min-width: 140px; /* 稍微增加最小宽度 */
     }
     
+    .form-group-row {
+        gap: 20px; /* 电脑端增加间距 */
+    }
+    
+    .form-group-half {
+        min-width: 220px; /* 电脑端增加最小宽度 */
+    }
+    
     .file-info-grid {
         grid-template-columns: repeat(2, 1fr); /* 电脑端两列布局 */
     }
@@ -662,6 +758,25 @@ textarea {
     /* 调整回到顶部按钮位置 */
     #scrollTop.floating-animation {
         right: calc(50% - 450px); /* 根据容器宽度调整位置，使其在容器外侧 */
+    }
+
+    select {
+        font-size: 16px; /* 确保字体大小与输入框一致 */
+        height: 52px; /* 显式设置高度，与输入框匹配 */
+        line-height: 1.5; /* 确保文本垂直居中 */
+        background-size: 18px; /* 增大下拉箭头 */
+        background-position: right 18px center; /* 调整箭头位置 */
+    }
+    
+    /* 确保选择框与输入框有相同的视觉高度 */
+    input, select, textarea {
+        min-height: 52px; /* 统一最小高度 */
+    }
+    
+    /* 针对选择框的焦点状态进行优化 */
+    select:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
     }
 }
 
@@ -700,6 +815,14 @@ textarea {
     .header h1 {
         font-size: 22px;
         padding-top: 10px;
+    }
+    
+    .form-group-row {
+        gap: 12px; /* 平板设备减少间距 */
+    }
+    
+    .form-group-half {
+        min-width: calc(50% - 6px); /* 平分宽度 */
     }
     
     .compact-status {
@@ -766,6 +889,15 @@ textarea {
         padding: 18px;
     }
     
+    .form-group-row {
+        flex-direction: column; /* 手机端垂直排列 */
+        gap: 15px;
+    }
+    
+    .form-group-half {
+        min-width: 100%; /* 手机端占满宽度 */
+    }
+    
     .compact-status {
         flex-direction: row;
         flex-wrap: wrap;
@@ -814,7 +946,7 @@ textarea {
         margin-left: 0;
     }
     
-    input, textarea {
+    input, textarea, select {
         padding: 12px 14px;
         font-size: 16px;
     }
@@ -843,6 +975,19 @@ textarea {
         top: 50px;
         right: 10px;
         width: 110px;
+    }
+    select {
+        font-size: 16px;
+        height: auto; /* 手机端使用自动高度 */
+        min-height: 48px; /* 设置最小高度确保触摸友好 */
+        background-size: 16px;
+        background-position: right 14px center;
+        padding: 12px 14px;
+        padding-right: 44px;
+    }
+    
+    input, select, textarea {
+        min-height: 48px; /* 手机端统一最小高度 */
     }
 }
 

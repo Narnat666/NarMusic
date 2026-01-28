@@ -471,7 +471,7 @@ void HttpServer::handleRequest(int clientSocket) {
             std::string file_name = ""; // 默认文件名
         
             try {
-                json j = json::parse(body);      
+                json j = json::parse(body);
                 
                 // 提取filename字段
                 if (j.contains("filename") && j["filename"].is_string()) {
@@ -488,7 +488,36 @@ void HttpServer::handleRequest(int clientSocket) {
             
             // 创建下载任务 TODO
             std::string platform = "酷狗音乐";
-            int offsetMs = 6000;
+            int offsetMs = 0;
+
+            try {
+                json j = json::parse(body);
+                if (j.contains("platform") && j["platform"].is_string()) {
+                    platform = j["platform"].get<std::string>();
+                    if (debug) std::cout << "音乐平台: " << platform << std::endl;
+                } else {
+                    // 如果前端未发送，保持默认值
+                    platform = "酷狗音乐";
+                    if (debug) std::cout << "使用默认音乐平台: " << platform << std::endl;
+                }
+                
+                // 解析offsetMs（delay参数）
+                if (j.contains("offsetMs") && j["offsetMs"].is_number_integer()) {
+                    offsetMs = j["offsetMs"].get<int>();
+                    if (debug) std::cout << "Delay参数: " << offsetMs << "ms" << std::endl;
+                } else {
+                    // 如果前端未发送，保持默认值
+                    offsetMs = 0;
+                    if (debug) std::cout << "使用默认Delay参数: " << offsetMs << "ms" << std::endl;
+                }
+            }
+            catch(const std::exception& e)
+            {
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"Invalid JSON format\"}");                 
+                return;
+            }
+            
+
             std::string task_id = TaskManager::instance().createTask(content, file_name, platform, offsetMs);
             
             // 使用nlohmann/json创建JSON响应
