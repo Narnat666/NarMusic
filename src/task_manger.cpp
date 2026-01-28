@@ -33,8 +33,8 @@ std::string TaskManager::createTask(const std::string& url, const std::string& f
     }
 
     // 启动下载线程
-    pool_.detach_task([this, task_id, analyzer, url](){
-        analyzer->download(url);
+    pool_.detach_task([this, task_id, analyzer, url, file_name](){
+        analyzer->download(url, file_name);
 
         // 等待下载完成
         while (!analyzer->downloadIfFinished()) {

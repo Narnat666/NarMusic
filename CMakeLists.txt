@@ -12,6 +12,7 @@ add_executable(http_server
     src/music_analysis.cpp
     src/task_manger.cpp
     src/stream_send.cpp
+    src/lyrics_encapsulator.cpp
 )
 
 target_include_directories(http_server PRIVATE
@@ -20,6 +21,8 @@ target_include_directories(http_server PRIVATE
     include/narnat
     include/nlohmann
     include/threadpool
+    include/taglib
+    include/taglib/toolkit
 )
 
 target_compile_options(http_server PRIVATE
@@ -34,6 +37,6 @@ target_link_libraries(http_server
     ${CMAKE_SOURCE_DIR}/lib/libcrypto.so
     ${CMAKE_SOURCE_DIR}/lib/libz.so
     ${CMAKE_SOURCE_DIR}/lib/libgsasl.so.7
-    
+    ${CMAKE_SOURCE_DIR}/lib/libtag.so.2.1.1
     pthread
 )
