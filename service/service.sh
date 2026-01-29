@@ -29,18 +29,16 @@ create_log_dir() {
 
 # 备份日志文件
 backup_logs() {
-    local timestamp=$(date '+%Y%m%d_%H%M%S')
-    
     # 备份http_server.log（如果存在）
     if [ -f "$HTTP_SERVER_LOG" ]; then
-        mv "$HTTP_SERVER_LOG" "${HTTP_SERVER_LOG}.bak_${timestamp}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 已备份http_server日志: ${HTTP_SERVER_LOG}.bak_${timestamp}" >> "$SERVICE_LOG"
+        mv "$HTTP_SERVER_LOG" "${HTTP_SERVER_LOG}.bak"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 已备份http_server日志: ${HTTP_SERVER_LOG}.bak" >> "$SERVICE_LOG"
     fi
     
     # 备份service.log（如果存在且非空）
     if [ -f "$SERVICE_LOG" ] && [ -s "$SERVICE_LOG" ]; then
-        mv "$SERVICE_LOG" "${SERVICE_LOG}.bak_${timestamp}"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 已备份service日志: ${SERVICE_LOG}.bak_${timestamp}" > "$SERVICE_LOG"
+        mv "$SERVICE_LOG" "${SERVICE_LOG}.bak"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - 已备份service日志: ${SERVICE_LOG}.bak" > "$SERVICE_LOG"
     fi
 }
 
@@ -106,8 +104,8 @@ check_process_alive() {
 
 # 守护进程函数 - 监控http_server进程
 monitor_http_server() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - 启动守护进程监控，PID: $$" >> "$SERVICE_LOG"
-    echo $$ > "$DAEMON_PID_FILE"
+    # 注意：不再在这里写入PID文件，改为在start_service中用$!获取正确PID
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - 启动守护进程监控，PID: $BASHPID" >> "$SERVICE_LOG"
     
     local restart_count=0
     local last_pid=""
@@ -171,19 +169,37 @@ start_service() {
     # 备份日志
     backup_logs
     
-    # 检查是否已经在运行
-    if [ -f "$DAEMON_PID_FILE" ] && check_process_alive $(cat "$DAEMON_PID_FILE" 2>/dev/null); then
-        echo "服务已经在运行中，守护进程PID: $(cat "$DAEMON_PID_FILE")"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - 尝试重复启动服务，当前守护进程PID: $(cat "$DAEMON_PID_FILE")" >> "$SERVICE_LOG"
-        exit 1
+    # 检查并清理残留的守护进程（如果存在）
+    if [ -f "$DAEMON_PID_FILE" ]; then
+        local old_daemon_pid=$(cat "$DAEMON_PID_FILE" 2>/dev/null)
+        if [ -n "$old_daemon_pid" ] && check_process_alive "$old_daemon_pid"; then
+            echo "发现残留守护进程(PID: $old_daemon_pid)，正在停止..."
+            kill -9 "$old_daemon_pid" 2>/dev/null
+            sleep 2
+        fi
+        rm -f "$DAEMON_PID_FILE" 2>/dev/null
     fi
     
-    # 清理旧的PID文件
+    # 检查并清理残留的http_server进程（如果存在）
+    if [ -f "$HTTP_SERVER_PID_FILE" ]; then
+        local old_http_pid=$(cat "$HTTP_SERVER_PID_FILE" 2>/dev/null)
+        if [ -n "$old_http_pid" ] && check_process_alive "$old_http_pid"; then
+            echo "发现残留http_server进程(PID: $old_http_pid)，正在停止..."
+            kill -9 "$old_http_pid" 2>/dev/null
+            sleep 2
+        fi
+        rm -f "$HTTP_SERVER_PID_FILE" 2>/dev/null
+    fi
+    
+    # 清理旧的PID文件（确保万无一失）
     rm -f "$HTTP_SERVER_PID_FILE" "$DAEMON_PID_FILE" 2>/dev/null
     
     # 启动守护进程（在后台运行）
     monitor_http_server &
     local daemon_pid=$!
+    
+    # 关键修复：使用$!获取正确的后台进程PID并写入文件
+    echo $daemon_pid > "$DAEMON_PID_FILE"
     
     # 等待守护进程启动
     sleep 2
@@ -195,7 +211,7 @@ start_service() {
     echo "  - 服务日志: $SERVICE_LOG"
     echo "工作目录: $HTTP_SERVER_DIR"
     
-    # 等待守护进程写入PID文件
+    # 等待守护进程写入PID文件（实际上已经写入，这里保留原逻辑但显示的是正确的PID）
     sleep 1
     if [ -f "$DAEMON_PID_FILE" ]; then
         echo "守护进程PID（从文件）: $(cat "$DAEMON_PID_FILE")"
@@ -206,7 +222,7 @@ start_service() {
 stop_service() {
     echo "停止服务..."
     
-    # 停止守护进程
+    # 先停止守护进程（防止它在停止http_server时重启它）
     if [ -f "$DAEMON_PID_FILE" ]; then
         local daemon_pid=$(cat "$DAEMON_PID_FILE" 2>/dev/null)
         
@@ -217,20 +233,26 @@ stop_service() {
             # 等待进程结束
             sleep 2
             
-            # 检查是否成功停止
+            # 检查是否成功停止，若未停止则强制杀死
             if check_process_alive "$daemon_pid"; then
                 echo "强制停止守护进程..."
                 kill -9 "$daemon_pid" 2>/dev/null
             fi
             
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - 守护进程已停止，PID: $daemon_pid" >> "$SERVICE_LOG"
+            # 再次确认守护进程已死（防止race condition）
+            sleep 1
+            if check_process_alive "$daemon_pid"; then
+                echo "警告: 守护进程未能停止(PID: $daemon_pid)"
+            else
+                echo "$(date '+%Y-%m-%d %H:%M:%S') - 守护进程已停止，PID: $daemon_pid" >> "$SERVICE_LOG"
+            fi
         fi
         
         # 删除PID文件
         rm -f "$DAEMON_PID_FILE" 2>/dev/null
     fi
     
-    # 停止http_server进程
+    # 停止http_server进程（此时守护进程已死，不会重启）
     if [ -f "$HTTP_SERVER_PID_FILE" ]; then
         local http_pid=$(cat "$HTTP_SERVER_PID_FILE" 2>/dev/null)
         
