@@ -427,55 +427,6 @@ std::vector<uint8_t> LyricsEncapsulator::downloadImageFromUrl(const std::string&
 }
 
 
-std::vector<uint8_t> LyricsEncapsulator::getBestCoverFromAllPlatforms(const std::vector<std::unique_ptr<MusicData>>& allData) {
-    std::vector<std::future<std::pair<std::string, std::vector<uint8_t>>>> coverFutures;
-    
-    std::cout << "\n开始从各平台下载封面..." << std::endl;
-    
-    // 为每个平台启动封面下载任务
-    for (const auto& data : allData) {
-        if (!data->coverUrl.empty()) {
-            coverFutures.push_back(std::async(std::launch::async, [this, data = data.get()]() {
-                std::cout << "正在从" << data->source << "下载封面..." << std::endl;
-                auto coverData = downloadImageFromUrl(data->coverUrl);
-                if (!coverData.empty()) {
-                    std::cout << data->source << "封面下载成功: " << coverData.size() << " 字节" << std::endl;
-                    return std::make_pair(data->source, coverData);
-                } else {
-                    std::cout << data->source << "封面下载失败" << std::endl;
-                    return std::make_pair(std::string(), std::vector<uint8_t>());
-                }
-            }));
-        }
-    }
-    
-    // 收集所有封面数据
-    std::vector<std::pair<std::string, std::vector<uint8_t>>> allCovers;
-    for (auto& future : coverFutures) {
-        auto result = future.get();
-        if (!result.first.empty() && !result.second.empty()) {
-            allCovers.push_back(result);
-        }
-    }
-    
-    if (allCovers.empty()) {
-        std::cout << "所有平台封面下载失败" << std::endl;
-        return {};
-    }
-    
-    // 选择最大的封面
-    auto bestCover = std::max_element(allCovers.begin(), allCovers.end(),
-        [](const auto& a, const auto& b) {
-            return a.second.size() < b.second.size();
-        });
-    
-    std::cout << "选择最大封面: " << bestCover->first 
-              << " (" << bestCover->second.size() << " 字节)" << std::endl;
-    
-    return bestCover->second;
-}
-
-
 bool LyricsEncapsulator::setMP4CoverArt(TagLib::MP4::File& file, const std::vector<uint8_t>& coverData) {
     try {
         TagLib::MP4::CoverArt::Format format = TagLib::MP4::CoverArt::JPEG;
@@ -808,7 +759,7 @@ bool LyricsEncapsulator::updateMusicMetadata(const std::string& songName, const 
     }
     
     // 获取最佳封面（从所有平台下载并选择最大的）
-    auto bestCover = getBestCoverFromAllPlatforms(allData);
+    auto bestCover = getBestCoverFromAllPlatforms(allData, platform);
     
     // 获取最佳歌词（优先酷狗）
     auto lyricsResult = getBestLyrics(allData, platform);
@@ -1136,4 +1087,131 @@ bool LyricsEncapsulator::getLyricsFromKugou(MusicData& data, int offsetMs) {
     }
 
     return false;
+}
+
+
+// 封面选取
+
+std::vector<uint8_t> LyricsEncapsulator::getBestCoverFromAllPlatforms(
+    const std::vector<std::unique_ptr<MusicData>>& allData,
+    const std::string& specifiedSource) {
+    
+    std::vector<std::future<std::pair<std::string, std::vector<uint8_t>>>> coverFutures;
+    
+    std::cout << "\n开始从各平台下载封面..." << std::endl;
+    std::cout << "指定数据源: " << specifiedSource << std::endl;
+    
+    // 为每个平台启动封面下载任务
+    for (const auto& data : allData) {
+        if (!data->coverUrl.empty()) {
+            coverFutures.push_back(std::async(std::launch::async, [this, data = data.get()]() {
+                std::cout << "正在从" << data->source << "下载封面..." << std::endl;
+                auto coverData = downloadImageFromUrl(data->coverUrl);
+                if (!coverData.empty()) {
+                    std::cout << data->source << "封面下载成功: " << coverData.size() << " 字节" << std::endl;
+                    return std::make_pair(data->source, coverData);
+                } else {
+                    std::cout << data->source << "封面下载失败" << std::endl;
+                    return std::make_pair(std::string(), std::vector<uint8_t>());
+                }
+            }));
+        }
+    }
+    
+    // 收集所有封面数据
+    std::vector<std::pair<std::string, std::vector<uint8_t>>> allCovers;
+    for (auto& future : coverFutures) {
+        auto result = future.get();
+        if (!result.first.empty() && !result.second.empty()) {
+            allCovers.push_back(result);
+        }
+    }
+    
+    if (allCovers.empty()) {
+        std::cout << "所有平台封面下载失败" << std::endl;
+        return {};
+    }
+    
+    // 根据指定源选择封面
+    std::vector<uint8_t> selectedCover;
+    std::string selectedSource;
+    
+    if (specifiedSource == "酷狗音乐" || specifiedSource == "酷狗") {
+        // 酷狗：选择最大的封面
+        auto bestCover = std::max_element(allCovers.begin(), allCovers.end(),
+            [](const auto& a, const auto& b) {
+                return a.second.size() < b.second.size();
+            });
+        
+        selectedCover = bestCover->second;
+        selectedSource = bestCover->first;
+        std::cout << "指定酷狗，选择最大封面: " << selectedSource 
+                  << " (" << selectedCover.size() << " 字节)" << std::endl;
+                  
+    } else if (specifiedSource == "QQ音乐" || specifiedSource == "QQ") {
+        // QQ音乐：先尝试选择QQ音乐封面
+        auto it = std::find_if(allCovers.begin(), allCovers.end(),
+            [](const auto& cover) {
+                return cover.first == "QQ音乐";
+            });
+        
+        if (it != allCovers.end()) {
+            // 找到QQ音乐的封面
+            selectedCover = it->second;
+            selectedSource = it->first;
+            std::cout << "找到指定平台封面: " << selectedSource 
+                      << " (" << selectedCover.size() << " 字节)" << std::endl;
+        } else {
+            // QQ音乐没有封面，选择最大的
+            auto bestCover = std::max_element(allCovers.begin(), allCovers.end(),
+                [](const auto& a, const auto& b) {
+                    return a.second.size() < b.second.size();
+                });
+            
+            selectedCover = bestCover->second;
+            selectedSource = bestCover->first;
+            std::cout << "指定平台QQ音乐没有封面，选择最大封面: " 
+                      << selectedSource << " (" << selectedCover.size() << " 字节)" << std::endl;
+        }
+        
+    } else if (specifiedSource == "网易云音乐" || specifiedSource == "网易云") {
+        // 网易云：先尝试选择网易云封面
+        auto it = std::find_if(allCovers.begin(), allCovers.end(),
+            [](const auto& cover) {
+                return cover.first == "网易云音乐";
+            });
+        
+        if (it != allCovers.end()) {
+            // 找到网易云的封面
+            selectedCover = it->second;
+            selectedSource = it->first;
+            std::cout << "找到指定平台封面: " << selectedSource 
+                      << " (" << selectedCover.size() << " 字节)" << std::endl;
+        } else {
+            // 网易云没有封面，选择最大的
+            auto bestCover = std::max_element(allCovers.begin(), allCovers.end(),
+                [](const auto& a, const auto& b) {
+                    return a.second.size() < b.second.size();
+                });
+            
+            selectedCover = bestCover->second;
+            selectedSource = bestCover->first;
+            std::cout << "指定平台网易云音乐没有封面，选择最大封面: " 
+                      << selectedSource << " (" << selectedCover.size() << " 字节)" << std::endl;
+        }
+        
+    } else {
+        // 其他情况或默认选择最大的
+        auto bestCover = std::max_element(allCovers.begin(), allCovers.end(),
+            [](const auto& a, const auto& b) {
+                return a.second.size() < b.second.size();
+            });
+        
+        selectedCover = bestCover->second;
+        selectedSource = bestCover->first;
+        std::cout << "未识别指定源，选择最大封面: " << selectedSource 
+                  << " (" << selectedCover.size() << " 字节)" << std::endl;
+    }
+    
+    return selectedCover;
 }

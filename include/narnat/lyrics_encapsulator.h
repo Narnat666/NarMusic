@@ -57,7 +57,9 @@ class LyricsEncapsulator {
         bool getLyricsFromKugou(MusicData& data, int offsetMs);
         bool getLyricsFromQQMusic(MusicData& data, int offsetMs);
         bool getLyricsFromNetease(MusicData& data, int offsetMs);
-        std::vector<uint8_t> getBestCoverFromAllPlatforms(const std::vector<std::unique_ptr<MusicData>>& allData);
+        std::vector<uint8_t> getBestCoverFromAllPlatforms(
+            const std::vector<std::unique_ptr<MusicData>>& allData,
+            const std::string& specifiedSource);
         std::pair<std::string, bool> getBestLyrics(const std::vector<std::unique_ptr<MusicData>>& allData, const std::string platform);
         bool writeToM4AFile(const std::string& filepath, const MusicData& data);
         std::string encodeUrl(const std::string& value);
