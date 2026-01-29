@@ -86,8 +86,8 @@ clean_build() {
         warning "构建目录不存在，无需清理"
     fi
 
-    if [ -d "build" ]; then
-        rm -rf build
+    if [ -d "target" ]; then
+        rm -rf target
         success "构建目录已清理"
     else
         warning "构建目录不存在，无需清理"
@@ -128,8 +128,6 @@ build_project() {
     
     if [ $? -eq 0 ]; then
         success "编译成功完成！"
-        cp http_server ../
-        cp http_server /mnt/hgfs/tanran/share/ -rf
         # 显示生成的可执行文件
         if [ -f "http_server" ]; then
             echo ""
@@ -158,7 +156,7 @@ main() {
     case "${1:-}" in
         clean)
             clean_build
-            ;;
+                        ;;
         help|--help|-h)
             show_help
             exit 0
@@ -168,6 +166,16 @@ main() {
             check_requirements
             build_project
             
+            # 构建最终文件夹
+            if [ ! -d "target" ]; then
+                mkdir target
+                success "创建构建目录: target"
+            fi            
+            cp ./build-aarch64/http_server ./target/ -rf
+            cp ./service/*  ./target/ -rf
+            zip web.zip ./web -r && mv ./web.zip ./target/
+            cp ./target/* /mnt/hgfs/tanran/share/ -rf
+
             echo ""
             success "构建完成！"
             ;;
