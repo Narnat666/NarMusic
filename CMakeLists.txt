@@ -31,12 +31,26 @@ target_compile_options(http_server PRIVATE
     -O2
 )
 
+# 静态编译程序
+
 target_link_libraries(http_server
-    ${CMAKE_SOURCE_DIR}/lib/libcurl.so
-    ${CMAKE_SOURCE_DIR}/lib/libssl.so
-    ${CMAKE_SOURCE_DIR}/lib/libcrypto.so
-    ${CMAKE_SOURCE_DIR}/lib/libz.so
-    ${CMAKE_SOURCE_DIR}/lib/libgsasl.so.7
-    ${CMAKE_SOURCE_DIR}/lib/libtag.so.2.1.1
+    ${CMAKE_SOURCE_DIR}/lib/libcurl.a
+    ${CMAKE_SOURCE_DIR}/lib/libssl.a
+    ${CMAKE_SOURCE_DIR}/lib/libcrypto.a
+    ${CMAKE_SOURCE_DIR}/lib/libz.a
+    ${CMAKE_SOURCE_DIR}/lib/libgsasl.a
+    ${CMAKE_SOURCE_DIR}/lib/libtag.a
     pthread
 )
+
+# 动态编译程序
+
+# target_link_libraries(http_server
+#     ${CMAKE_SOURCE_DIR}/lib/libcurl.so
+#     ${CMAKE_SOURCE_DIR}/lib/libssl.so
+#     ${CMAKE_SOURCE_DIR}/lib/libcrypto.so
+#     ${CMAKE_SOURCE_DIR}/lib/libz.so
+#     ${CMAKE_SOURCE_DIR}/lib/libgsasl.so.7
+#     ${CMAKE_SOURCE_DIR}/lib/libtag.so.2.1.1
+#     pthread
+# )
