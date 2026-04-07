@@ -41,6 +41,7 @@ target_link_libraries(http_server
     ${CMAKE_SOURCE_DIR}/lib/libgsasl.a
     ${CMAKE_SOURCE_DIR}/lib/libtag.a
     pthread
+    ${CMAKE_DL_LIBS} 
 )
 
 # 动态编译程序

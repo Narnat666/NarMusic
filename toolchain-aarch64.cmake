@@ -3,8 +3,8 @@ set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
 # 指定交叉编译器路径
-set(CMAKE_C_COMPILER /home/saisi/rk3568_linux_sdk/buildroot/output/my/host/bin/aarch64-buildroot-linux-gnu-gcc)
-set(CMAKE_CXX_COMPILER /home/saisi/rk3568_linux_sdk/buildroot/output/my/host/bin/aarch64-buildroot-linux-gnu-g++)
+set(CMAKE_C_COMPILER /usr/bin/gcc)
+set(CMAKE_CXX_COMPILER /usr/bin/g++)
 
 # 设置编译器标志
 set(CMAKE_C_FLAGS "-march=armv8-a")
