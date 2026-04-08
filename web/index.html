@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>椒盐音乐 - Web (MD3 响应式版)</title>
+    <title>椒盐音乐 · 手机版</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
@@ -26,6 +26,7 @@
 
             /* 播放器专属颜色 */
             --player-bg: #FFFFFF;
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         * {
@@ -33,7 +34,6 @@
             margin: 0;
             padding: 0;
             font-family: 'Google Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -42,13 +42,11 @@
             display: grid;
             grid-template-columns: 260px 1fr;
             grid-template-rows: 1fr auto;
-            /* 采用 dvh 适配移动端浏览器上下地址栏的动态高度 */
             height: 100vh;
-            height: 100dvh; 
             overflow: hidden;
         }
 
-        /* ===== 左侧导航栏 (仅电脑端) ===== */
+        /* ===== 左侧导航栏 (桌面) ===== */
         .sidebar {
             grid-column: 1 / 2;
             grid-row: 1 / 2;
@@ -83,18 +81,23 @@
             background: transparent;
             width: 100%;
             font-size: 14px;
-            text-align: left;
         }
 
-        .nav-item:hover { background-color: rgba(0, 0, 0, 0.04); }
+        .nav-item:hover {
+            background-color: rgba(0, 0, 0, 0.04);
+        }
+
         .nav-item.active {
             background-color: var(--md-sys-color-primary-container);
             color: var(--md-sys-color-on-primary-container);
             font-weight: 600;
         }
-        .nav-item.active .material-symbols-rounded { font-variation-settings: 'FILL' 1; }
 
-        /* ===== 主内容区域 ===== */
+        .nav-item.active .material-symbols-rounded {
+            font-variation-settings: 'FILL' 1;
+        }
+
+        /* ===== 主内容区域 (桌面) ===== */
         .main-container {
             grid-column: 2 / 3;
             grid-row: 1 / 2;
@@ -115,7 +118,6 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--md-sys-color-surface-variant);
-            flex-shrink: 0;
         }
 
         .search-bar {
@@ -127,7 +129,6 @@
             width: 400px;
             height: 48px;
             gap: 12px;
-            transition: width 0.3s;
         }
 
         .search-bar input {
@@ -150,7 +151,6 @@
             color: var(--md-sys-color-primary);
             font-weight: bold;
             cursor: pointer;
-            flex-shrink: 0;
         }
 
         /* 核心内容滚动区 */
@@ -158,7 +158,6 @@
             flex: 1;
             padding: 32px;
             overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
         }
 
         .section-title {
@@ -174,7 +173,10 @@
             width: 100%;
         }
 
-        .input-group { margin-bottom: 20px; }
+        .input-group {
+            margin-bottom: 20px;
+        }
+
         .input-label {
             display: block;
             font-size: 14px;
@@ -193,12 +195,16 @@
             color: var(--md-sys-color-on-surface);
             transition: border-color 0.2s, box-shadow 0.2s;
             outline: none;
-            appearance: none; /* 移除移动端原生默认样式 */
         }
 
         .md-input:focus {
             border-color: var(--md-sys-color-primary);
             box-shadow: 0 0 0 4px rgba(0, 97, 164, 0.1);
+        }
+
+        .md-input::placeholder {
+            color: var(--md-sys-color-on-surface-variant);
+            opacity: 0.6;
         }
 
         .input-row {
@@ -223,13 +229,20 @@
             cursor: pointer;
             transition: background-color 0.2s, transform 0.1s;
             box-shadow: 0 2px 8px rgba(0, 97, 164, 0.3);
-            flex: 1;
         }
 
-        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:hover {
+            background-color: #00508a;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
         .btn-primary:disabled {
             background-color: var(--md-sys-color-surface-variant);
             color: var(--md-sys-color-on-surface-variant);
+            cursor: not-allowed;
             box-shadow: none;
         }
 
@@ -246,6 +259,16 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background-color: #c5d4ea;
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         /* 状态卡片 */
@@ -269,6 +292,7 @@
             height: 12px;
             border-radius: 50%;
             background-color: #ccc;
+            transition: background-color 0.3s;
         }
 
         .status-light.idle { background-color: #9E9E9E; }
@@ -281,11 +305,15 @@
             50% { opacity: 0.5; }
         }
 
-        .status-text { font-size: 16px; font-weight: 600; }
+        .status-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--md-sys-color-on-surface);
+        }
 
         .status-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 16px;
             margin-bottom: 20px;
         }
@@ -300,13 +328,18 @@
             font-size: 12px;
             color: var(--md-sys-color-on-surface-variant);
             margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .status-value {
             font-size: 18px;
             font-weight: 600;
+            color: var(--md-sys-color-on-surface);
+            font-variant-numeric: tabular-nums;
         }
 
+        /* 文件信息 */
         .file-info {
             background-color: var(--md-sys-color-surface);
             border-radius: 16px;
@@ -314,21 +347,43 @@
             margin-top: 16px;
             display: none;
         }
-        .file-info.show { display: block; }
+
+        .file-info.show {
+            display: block;
+        }
+
         .file-info-title {
             font-size: 14px;
             font-weight: 600;
             color: var(--md-sys-color-on-surface-variant);
             margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
+
         .file-info-row {
             display: flex;
             justify-content: space-between;
             padding: 8px 0;
             border-bottom: 1px solid var(--md-sys-color-surface-variant);
         }
-        .file-info-row:last-child { border-bottom: none; }
 
+        .file-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .file-info-label {
+            color: var(--md-sys-color-on-surface-variant);
+            font-size: 14px;
+        }
+
+        .file-info-value {
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+            font-size: 14px;
+        }
+
+        /* 音频播放器 */
         .audio-section {
             margin-top: 24px;
             padding: 20px;
@@ -336,8 +391,17 @@
             border-radius: 16px;
             display: none;
         }
-        .audio-section.show { display: block; }
-        .audio-player { width: 100%; height: 48px; border-radius: 24px; outline: none; }
+
+        .audio-section.show {
+            display: block;
+        }
+
+        .audio-player {
+            width: 100%;
+            height: 48px;
+            border-radius: 24px;
+            outline: none;
+        }
 
         /* 提示消息 */
         .toast {
@@ -348,16 +412,31 @@
             border-radius: 12px;
             font-weight: 500;
             z-index: 1000;
-            transform: translateX(120%);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
-        .toast.show { transform: translateX(0); }
-        .toast.info { background-color: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
-        .toast.success { background-color: var(--md-sys-color-success-container); color: var(--md-sys-color-success); }
-        .toast.error { background-color: var(--md-sys-color-error-container); color: var(--md-sys-color-error); }
 
-        /* ===== 底部播放器 ===== */
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.info {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+
+        .toast.success {
+            background-color: var(--md-sys-color-success-container);
+            color: var(--md-sys-color-success);
+        }
+
+        .toast.error {
+            background-color: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-error);
+        }
+
+        /* ===== 底部播放器 (桌面) ===== */
         .bottom-player {
             grid-column: 1 / 3;
             grid-row: 2 / 3;
@@ -395,12 +474,39 @@
             color: var(--md-sys-color-primary);
             flex-shrink: 0;
         }
-        .player-cover img { width: 100%; height: 100%; border-radius: 12px; object-fit: cover; }
-        .player-meta { min-width: 0; }
-        .player-title { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .player-artist { font-size: 13px; color: var(--md-sys-color-on-surface-variant); margin-top: 2px; }
 
-        .player-controls { display: flex; align-items: center; gap: 16px; }
+        .player-cover img {
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            object-fit: cover;
+        }
+
+        .player-meta {
+            min-width: 0;
+        }
+
+        .player-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--md-sys-color-on-surface);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-artist {
+            font-size: 13px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-top: 2px;
+        }
+
+        .player-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
         .icon-btn {
             background: transparent;
             border: none;
@@ -412,7 +518,14 @@
             border-radius: 50%;
             width: 40px;
             height: 40px;
+            transition: background-color 0.2s;
         }
+
+        .icon-btn:hover {
+            background-color: rgba(0,0,0,0.04);
+            color: var(--md-sys-color-on-surface);
+        }
+
         .play-pause-btn {
             width: 48px;
             height: 48px;
@@ -424,6 +537,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: transform 0.1s;
+        }
+
+        .play-pause-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .play-pause-btn:active {
+            transform: scale(0.95);
         }
 
         .player-extra {
@@ -433,7 +555,14 @@
             flex: 1;
             justify-content: flex-end;
         }
-        .time-display { font-size: 12px; color: var(--md-sys-color-on-surface-variant); font-family: monospace; }
+
+        .time-display {
+            font-size: 12px;
+            color: var(--md-sys-color-on-surface-variant);
+            font-variant-numeric: tabular-nums;
+            font-family: monospace;
+        }
+
         .progress-bar {
             width: 100px;
             height: 4px;
@@ -442,6 +571,7 @@
             position: relative;
             cursor: pointer;
         }
+
         .progress-fill {
             position: absolute;
             left: 0;
@@ -453,157 +583,339 @@
             transition: width 0.1s;
         }
 
-        /* ===== 移动端专属: 底部导航栏 ===== */
-        .mobile-bottom-nav {
-            display: none;
-            background-color: var(--md-sys-color-surface);
-            border-top: 1px solid var(--md-sys-color-surface-variant);
-            padding-bottom: env(safe-area-inset-bottom);
-            z-index: 20;
-        }
-
-        .nav-tab {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 0 8px;
-            background: none;
-            border: none;
-            color: var(--md-sys-color-on-surface-variant);
-            gap: 4px;
-            cursor: pointer;
-        }
-
-        .nav-tab .icon-container {
-            width: 64px;
-            height: 32px;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background-color 0.2s;
-        }
-
-        .nav-tab span.label {
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .nav-tab.active {
-            color: var(--md-sys-color-on-surface);
-        }
-
-        .nav-tab.active .icon-container {
-            background-color: var(--md-sys-color-primary-container);
-            color: var(--md-sys-color-on-primary-container);
-        }
-
-        .nav-tab.active .material-symbols-rounded {
-            font-variation-settings: 'FILL' 1;
-        }
-
-        /* ================= 响应式适配 (移动端 MD3) ================= */
+        /* ---------- 移动端适配 (小米/安卓竖屏) ---------- */
         @media (max-width: 768px) {
             body {
                 display: flex;
                 flex-direction: column;
+                grid-template-columns: none;
+                grid-template-rows: none;
+                height: 100vh;
+                overflow: hidden;
+                background-color: var(--md-sys-color-surface);
             }
 
-            .sidebar { display: none; } /* 隐藏左侧边栏 */
-            
-            .mobile-bottom-nav {
-                display: flex; /* 显示底部导航 */
-            }
-
-            .main-container {
-                flex: 1;
-                margin: 0;
-                border-radius: 0;
-                box-shadow: none;
-            }
-
-            /* 顶部栏适配 */
-            .topbar {
-                padding: 0 16px;
-                height: 64px;
-                gap: 12px;
-            }
-
-            .search-bar {
-                flex: 1;
-                width: auto;
-                padding: 0 12px;
-            }
-
-            /* 核心内容区适配 */
-            .content-scroll { padding: 16px; }
-            .section-title { font-size: 20px; margin-bottom: 16px; }
-            .input-row { grid-template-columns: 1fr; gap: 0; }
-            
-            /* 吐司提示自适应居中 */
-            .toast {
-                top: 16px;
-                left: 16px;
-                right: 16px;
-                text-align: center;
-                transform: translateY(-150%);
-            }
-            .toast.show { transform: translateY(0); }
-
-            /* 底部播放器化身为迷你播放器 (Mini Player) */
-            .bottom-player {
-                position: relative;
+            /* 顶部横向导航栏 (原左侧导航内容) */
+            .sidebar {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                grid-column: unset;
+                grid-row: unset;
+                width: 100%;
                 padding: 8px 16px;
-                border-top: 1px solid var(--md-sys-color-surface-variant);
+                gap: 8px;
+                overflow-x: auto;
+                overflow-y: hidden;
+                white-space: nowrap;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+                background-color: var(--md-sys-color-surface);
+                border-bottom: 1px solid var(--md-sys-color-surface-variant);
+                flex-shrink: 0;
+                order: 0;
             }
-
-            .player-content { gap: 12px; }
-            
-            .player-cover {
-                width: 40px;
-                height: 40px;
-                border-radius: 8px;
-            }
-
-            /* 隐藏复杂控件，仅保留核心 */
-            #shuffleBtn, #prevBtn, #repeatBtn, .player-extra .icon-btn, .time-display {
+            .sidebar::-webkit-scrollbar {
                 display: none;
             }
 
-            .play-pause-btn {
-                width: 36px;
-                height: 36px;
-                background: transparent; /* 迷你播放器常用透明底 */
+            .brand {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 8px 12px;
+                font-size: 18px;
+                font-weight: 600;
                 color: var(--md-sys-color-on-surface);
+                margin-right: 4px;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            .brand .material-symbols-rounded {
+                font-size: 24px;
             }
 
-            /* 进度条悬浮置顶 */
-            .player-extra {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 2px;
-                padding: 0;
+            .nav-item {
+                display: inline-flex;
+                width: auto;
+                padding: 10px 18px;
+                gap: 8px;
+                font-size: 14px;
+                white-space: nowrap;
+                flex-shrink: 0;
+                border-radius: 40px;
+            }
+
+            /* 主内容区域 — 占满剩余高度 */
+            .main-container {
+                grid-column: unset;
+                grid-row: unset;
                 margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                flex: 1;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .topbar {
+                height: 60px;
+                padding: 0 16px;
+                flex-shrink: 0;
+            }
+
+            .search-bar {
+                width: 100%;
+                max-width: 100%;
+                height: 44px;
+                padding: 0 12px;
+            }
+
+            .search-bar input {
+                font-size: 15px;
+            }
+
+            .user-profile {
+                width: 36px;
+                height: 36px;
+                margin-left: 12px;
+                flex-shrink: 0;
+            }
+
+            .content-scroll {
+                padding: 20px 16px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .section-title {
+                font-size: 22px;
+                margin-bottom: 20px;
+            }
+
+            .download-section {
+                max-width: 100%;
+            }
+
+            .input-row {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .md-input {
+                padding: 14px 16px;
+                font-size: 16px; /* 防止缩放 */
+            }
+
+            .btn-primary {
+                width: 100%;
+                padding: 16px 20px;
+                font-size: 16px;
+            }
+
+            .btn-secondary {
+                padding: 12px 18px;
+            }
+
+            .status-card {
+                padding: 20px 16px;
+                margin-top: 20px;
+            }
+
+            .status-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+
+            .status-item {
+                padding: 14px;
+            }
+
+            .file-info {
+                padding: 16px;
+            }
+
+            .audio-section {
+                padding: 16px;
+                margin-top: 20px;
+            }
+
+            /* 底部播放器 — 移动端紧凑单行布局 */
+            .bottom-player {
+                grid-column: unset;
+                grid-row: unset;
+                padding: 30px 22px;
+                padding-bottom: max(30px, var(--safe-bottom));
+                background-color: var(--player-bg);
+                border-top: 1px solid var(--md-sys-color-surface-variant);
+                flex-shrink: 0;
+                order: 2;
+                width: 100%;
+            }
+
+            .player-content {
+                gap: 8px;
+                flex-wrap: nowrap;
+                max-width: 100%;
+                justify-content: space-between;
+            }
+
+            /* 左侧歌曲信息 — 隐藏封面，仅显示文字 */
+            .player-info {
+                flex: 0 1 auto;
+                min-width: 100px;
+                max-width: 140px;
+                gap: 0;
+            }
+
+            .player-cover {
+                display: none;  /* 移动端隐藏封面节省空间 */
+            }
+
+            .player-meta {
+                overflow: hidden;
+            }
+
+            .player-title {
+                font-size: 13px;
+                font-weight: 600;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .player-artist {
+                font-size: 11px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* 中间控制按钮 — 居中 */
+            .player-controls {
+                flex: 0 0 auto;
+                gap: 4px;
+                justify-content: center;
+            }
+
+            .icon-btn {
+                width: 36px;
+                height: 36px;
+            }
+
+            .play-pause-btn {
+                width: 44px;
+                height: 44px;
+                margin: 0 2px;
+            }
+
+            /* 右侧时间与进度条区域 */
+            .player-extra {
+                flex: 0 1 auto;
+                gap: 6px;
+                justify-content: flex-end;
+                min-width: 110px;
+            }
+
+            .time-display {
+                font-size: 11px;
+                white-space: nowrap;
+                letter-spacing: 0.3px;
             }
 
             .progress-bar {
-                width: 100%;
-                height: 2px;
-                border-radius: 0;
-                background-color: transparent;
+                width: 50px;
+                height: 3px;
+                background-color: var(--md-sys-color-surface-variant);
             }
 
-            .progress-fill { border-radius: 0; }
+            /* 隐藏部分非核心按钮 (保留功能，视觉更简洁) */
+            #shuffleBtn, #repeatBtn {
+                display: none;
+            }
+
+            /* 音量按钮保留，稍作调整 */
+            .player-extra .icon-btn {
+                width: 32px;
+                height: 32px;
+                margin-left: 2px;
+            }
+
+            /* Toast 适配手机 */
+            .toast {
+                top: 16px;
+                right: 16px;
+                left: 16px;
+                transform: translateY(-120%);
+                padding: 14px 20px;
+                font-size: 15px;
+                text-align: center;
+                border-radius: 40px;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+            .toast.show {
+                transform: translateY(0);
+            }
+
+            /* 音乐库卡片网格调整 */
+            .album-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+
+            .album-card {
+                cursor: pointer;
+            }
         }
+
+        /* 更小屏幕微调 (<=400) */
+        @media (max-width: 400px) {
+            .brand {
+                font-size: 16px;
+            }
+            .nav-item {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+            .player-info {
+                max-width: 120px;
+            }
+            .player-title {
+                font-size: 12px;
+            }
+            .player-artist {
+                font-size: 10px;
+            }
+            .player-controls .icon-btn:not(.play-pause-btn) {
+                width: 32px;
+                height: 32px;
+            }
+            .play-pause-btn {
+                width: 40px;
+                height: 40px;
+            }
+            .progress-bar {
+                width: 45px;
+            }
+            .time-display {
+                font-size: 10px;
+            }
+            .player-extra {
+                min-width: 100px;
+            }
+        }
+
+        /* 桌面保留原有网格布局，不受影响 */
     </style>
 <base target="_blank">
 </head>
 <body>
 
+    <!-- 左侧导航栏 (移动端变为顶部横向导航) -->
     <aside class="sidebar">
         <div class="brand">
             <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 28px;">music_note</span>
@@ -611,11 +923,11 @@
         </div>
         <button class="nav-item active" onclick="switchTab('download')">
             <span class="material-symbols-rounded">download</span>
-            音乐下载
+            下载
         </button>
         <button class="nav-item" onclick="switchTab('library')">
             <span class="material-symbols-rounded">library_music</span>
-            音乐库
+            库
         </button>
         <button class="nav-item" onclick="switchTab('settings')">
             <span class="material-symbols-rounded">settings</span>
@@ -623,19 +935,22 @@
         </button>
     </aside>
 
+    <!-- 主内容区域 -->
     <main class="main-container">
         <header class="topbar">
             <div class="search-bar">
-                <span class="material-symbols-rounded" style="font-size: 20px;">search</span>
-                <input type="text" placeholder="搜索歌曲..." id="searchInput">
+                <span class="material-symbols-rounded">search</span>
+                <input type="text" placeholder="搜索歌曲、专辑或歌手..." id="searchInput">
             </div>
             <div class="user-profile">SP</div>
         </header>
 
         <div class="content-scroll">
+            <!-- 下载页面 -->
             <div id="downloadTab" class="tab-content">
                 <h2 class="section-title">音乐下载</h2>
                 <div class="download-section">
+                    <!-- 输入区域 -->
                     <div class="input-group">
                         <label class="input-label">音乐链接</label>
                         <textarea class="md-input" id="urlInput" rows="3" placeholder="输入歌曲链接或包含链接的文本..."></textarea>
@@ -662,16 +977,18 @@
                         </select>
                     </div>
 
-                    <div style="display: flex; gap: 12px; margin-top: 12px;">
+                    <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
                         <button class="btn-primary" id="sendBtn">
                             <span class="material-symbols-rounded">download</span>
                             开始下载
                         </button>
                         <button class="btn-secondary" id="localDownloadBtn" style="display: none;">
                             <span class="material-symbols-rounded">save</span>
+                            保存到本地
                         </button>
                     </div>
 
+                    <!-- 状态显示 -->
                     <div class="status-card" id="statusCard" style="display: none;">
                         <div class="status-header">
                             <div class="status-light idle" id="statusLight"></div>
@@ -684,20 +1001,25 @@
                                 <div class="status-value" id="downloadedBytes">0 B</div>
                             </div>
                             <div class="status-item">
-                                <div class="status-label">速度</div>
+                                <div class="status-label">下载速度</div>
                                 <div class="status-value" id="downloadSpeed">0 B/s</div>
                             </div>
                             <div class="status-item">
-                                <div class="status-label">时间</div>
+                                <div class="status-label">下载时间</div>
                                 <div class="status-value" id="downloadTime">-</div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-label">状态</div>
+                                <div class="status-value" id="downloadStatus">-</div>
                             </div>
                         </div>
 
+                        <!-- 文件信息 -->
                         <div class="file-info" id="fileInfo">
                             <div class="file-info-title">文件信息</div>
                             <div class="file-info-row">
                                 <span class="file-info-label">文件名</span>
-                                <span class="file-info-value" id="fileName" style="text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-</span>
+                                <span class="file-info-value" id="fileName">-</span>
                             </div>
                             <div class="file-info-row">
                                 <span class="file-info-label">文件大小</span>
@@ -705,6 +1027,7 @@
                             </div>
                         </div>
 
+                        <!-- 音频预览 -->
                         <div class="audio-section" id="audioSection">
                             <div class="file-info-title">在线预览</div>
                             <audio class="audio-player" id="audioPlayer" controls></audio>
@@ -713,10 +1036,11 @@
                 </div>
             </div>
 
+            <!-- 音乐库页面 -->
             <div id="libraryTab" class="tab-content" style="display: none;">
                 <h2 class="section-title">我的音乐库</h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px;">
-                    <div>
+                <div class="album-grid">
+                    <div class="album-card">
                         <div style="width: 100%; aspect-ratio: 1; border-radius: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;">
                             <span class="material-symbols-rounded" style="font-size: 48px; color: white;">music_note</span>
                         </div>
@@ -726,24 +1050,29 @@
                 </div>
             </div>
 
+            <!-- 设置页面 -->
             <div id="settingsTab" class="tab-content" style="display: none;">
                 <h2 class="section-title">设置</h2>
-                <div class="status-card" style="margin-top: 0;">
-                    <div class="file-info-title">关于</div>
-                    <p style="color: var(--md-sys-color-on-surface-variant); line-height: 1.6;">
-                        椒盐音乐 Web - 响应式 MD3 适配版<br>
-                        采用最新的底部导航栏与迷你播放器技术。
-                    </p>
+                <div style="max-width: 600px;">
+                    <div class="status-card">
+                        <div class="file-info-title">关于</div>
+                        <p style="color: var(--md-sys-color-on-surface-variant); line-height: 1.6;">
+                            椒盐音乐网页版 · 手机适配<br>
+                            支持多平台音乐链接解析与下载
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- 底部播放器 -->
     <footer class="bottom-player">
         <div class="player-content">
+            <!-- 左侧：歌曲信息 (移动端隐藏封面) -->
             <div class="player-info">
                 <div class="player-cover" id="playerCover">
-                    <span class="material-symbols-rounded" style="font-size: 28px;">music_note</span>
+                    <span class="material-symbols-rounded" style="font-size: 32px;">music_note</span>
                 </div>
                 <div class="player-meta">
                     <div class="player-title" id="playerTitle">未在播放</div>
@@ -751,6 +1080,7 @@
                 </div>
             </div>
 
+            <!-- 中间：控制按钮 -->
             <div class="player-controls">
                 <button class="icon-btn" id="shuffleBtn">
                     <span class="material-symbols-rounded">shuffle</span>
@@ -769,6 +1099,7 @@
                 </button>
             </div>
 
+            <!-- 右侧：时间 + 进度条 + 音量 -->
             <div class="player-extra">
                 <span class="time-display" id="timeDisplay">00:00 / 00:00</span>
                 <button class="icon-btn">
@@ -781,124 +1112,339 @@
         </div>
     </footer>
 
-    <nav class="mobile-bottom-nav">
-        <button class="nav-tab active" onclick="switchTab('download')">
-            <div class="icon-container">
-                <span class="material-symbols-rounded">download</span>
-            </div>
-            <span class="label">下载</span>
-        </button>
-        <button class="nav-tab" onclick="switchTab('library')">
-            <div class="icon-container">
-                <span class="material-symbols-rounded">library_music</span>
-            </div>
-            <span class="label">音乐库</span>
-        </button>
-        <button class="nav-tab" onclick="switchTab('settings')">
-            <div class="icon-container">
-                <span class="material-symbols-rounded">settings</span>
-            </div>
-            <span class="label">设置</span>
-        </button>
-    </nav>
-
+    <!-- Toast提示 -->
     <div class="toast" id="toast"></div>
 
     <script>
-    // ==================== 核心逻辑与 UI 交互交互 ====================
-    // （这部分代码保持了原有的基础逻辑，仅在 switchTab 中增加了双端同步的高亮更新机制）
-    
-    // 标签切换 (适配双端同步高亮)
-    function switchTab(tabName) {
-        // 隐藏所有标签内容
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.style.display = 'none';
-        });
+        // ==================== 核心下载功能 (完全保留原逻辑) ====================
+        let pollingInterval = null;
+        let currentTaskId = null;
+        let lastSpeedUpdateTime = Date.now();
+        let lastSpeedBytes = 0;
+        let speedHistory = [];
+        const MAX_SPEED_HISTORY = 3;
+        let downloadStartTime = null;
+        let isPlaying = false;
 
-        // 显示选中的标签
-        document.getElementById(tabName + 'Tab').style.display = 'block';
+        const urlInput = document.getElementById('urlInput');
+        const filenameInput = document.getElementById('filenameInput');
+        const platformSelect = document.getElementById('platformSelect');
+        const delayInput = document.getElementById('delayInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const localDownloadBtn = document.getElementById('localDownloadBtn');
+        const statusCard = document.getElementById('statusCard');
+        const statusLight = document.getElementById('statusLight');
+        const taskStatus = document.getElementById('taskStatus');
+        const downloadedBytesEl = document.getElementById('downloadedBytes');
+        const downloadSpeedEl = document.getElementById('downloadSpeed');
+        const downloadTimeEl = document.getElementById('downloadTime');
+        const downloadStatusEl = document.getElementById('downloadStatus');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileNameEl = document.getElementById('fileName');
+        const fileSizeEl = document.getElementById('fileSize');
+        const audioSection = document.getElementById('audioSection');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const toast = document.getElementById('toast');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playPauseIcon = document.getElementById('playPauseIcon');
+        const playerTitle = document.getElementById('playerTitle');
+        const playerArtist = document.getElementById('playerArtist');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const progressFill = document.getElementById('progressFill');
 
-        // 移除所有按钮的 active 状态 (包含左侧边栏和底部导航)
-        document.querySelectorAll('.nav-item, .nav-tab').forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        // 精准绑定并点亮被选中的功能项（桌面端和移动端同步点亮）
-        document.querySelectorAll(`[onclick="switchTab('${tabName}')"]`).forEach(item => {
-            item.classList.add('active');
-        });
-    }
-
-    // --- 以下保留原有全部播放控制及API调用业务代码 ---
-    let pollingInterval = null;
-    let currentTaskId = null;
-    let lastSpeedUpdateTime = Date.now();
-    let lastSpeedBytes = 0;
-    let speedHistory = [];
-    const MAX_SPEED_HISTORY = 3;
-    let downloadStartTime = null;
-    let isPlaying = false;
-
-    // DOM元素引用...
-    const urlInput = document.getElementById('urlInput');
-    const filenameInput = document.getElementById('filenameInput');
-    const platformSelect = document.getElementById('platformSelect');
-    const delayInput = document.getElementById('delayInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const localDownloadBtn = document.getElementById('localDownloadBtn');
-    const statusCard = document.getElementById('statusCard');
-    const statusLight = document.getElementById('statusLight');
-    const taskStatus = document.getElementById('taskStatus');
-    const downloadedBytesEl = document.getElementById('downloadedBytes');
-    const downloadSpeedEl = document.getElementById('downloadSpeed');
-    const downloadTimeEl = document.getElementById('downloadTime');
-    const fileInfo = document.getElementById('fileInfo');
-    const fileNameEl = document.getElementById('fileName');
-    const fileSizeEl = document.getElementById('fileSize');
-    const audioSection = document.getElementById('audioSection');
-    const audioPlayer = document.getElementById('audioPlayer');
-    const toast = document.getElementById('toast');
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    const playPauseIcon = document.getElementById('playPauseIcon');
-    const playerTitle = document.getElementById('playerTitle');
-    const playerArtist = document.getElementById('playerArtist');
-    const timeDisplay = document.getElementById('timeDisplay');
-    const progressFill = document.getElementById('progressFill');
-
-    function formatBytes(bytes) {
-        if (bytes === 0 || bytes === undefined) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    function showToast(message, type = 'info') {
-        toast.textContent = message;
-        toast.className = 'toast ' + type;
-        setTimeout(() => toast.classList.add('show'), 10);
-        setTimeout(() => toast.classList.remove('show'), 3000);
-    }
-
-    // 为了简洁演示，省去了中间冗余请求函数，这块直接套用你原本完好的 JS 即可。
-    // ... [你原有完整的 API fetch 与播放器控制 JavaScript 代码] ...
-
-    // 添加旋转动画
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        function formatBytes(bytes) {
+            if (bytes === 0 || bytes === undefined) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            if (i === 0) return bytes + ' ' + sizes[i];
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
-    `;
-    document.head.appendChild(style);
 
-    // 页面加载完成提示
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(() => {
-            showToast('🎵 准备就绪，欢迎使用', 'info');
-        }, 500);
-    });
+        function formatSpeed(bytesPerSecond) {
+            if (bytesPerSecond === 0) return '0 B/s';
+            const k = 1024;
+            const sizes = ['B/s', 'KB/s', 'MB/s'];
+            const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k));
+            if (i >= sizes.length) i = sizes.length - 1;
+            if (i === 0) return bytesPerSecond + ' ' + sizes[i];
+            return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatTime(seconds) {
+            if (seconds < 60) return seconds.toFixed(1) + '秒';
+            if (seconds < 3600) return Math.floor(seconds / 60) + '分' + Math.floor(seconds % 60) + '秒';
+            return Math.floor(seconds / 3600) + '小时' + Math.floor((seconds % 3600) / 60) + '分';
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds || isNaN(seconds)) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+        }
+
+        function extractUrlFromText(text) {
+            const urlPattern = /(https?:\/\/[^\s]+|www\.[^\s]+|[^\s]+\.[a-z]{2,}\/[^\s]*)/gi;
+            const matches = text.match(urlPattern);
+            if (matches && matches.length > 0) {
+                let url = matches[0];
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                return url;
+            }
+            return null;
+        }
+
+        function showToast(message, type = 'info') {
+            toast.textContent = message;
+            toast.className = 'toast ' + type;
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function updateStatusLight(status) {
+            statusLight.className = 'status-light ' + status;
+            switch(status) {
+                case 'error':
+                    taskStatus.textContent = '下载失败';
+                    downloadStatusEl.textContent = '失败';
+                    break;
+                case 'downloading':
+                    taskStatus.textContent = '下载中';
+                    downloadStatusEl.textContent = '进行中';
+                    break;
+                case 'success':
+                    taskStatus.textContent = '下载完成';
+                    downloadStatusEl.textContent = '已完成';
+                    break;
+                default:
+                    taskStatus.textContent = '等待中';
+                    downloadStatusEl.textContent = '-';
+            }
+        }
+
+        function resetTaskStatus() {
+            downloadedBytesEl.textContent = '0 B';
+            downloadSpeedEl.textContent = '0 B/s';
+            taskStatus.textContent = '等待中';
+            downloadTimeEl.textContent = '-';
+            downloadStatusEl.textContent = '-';
+            fileInfo.classList.remove('show');
+            audioSection.classList.remove('show');
+            audioPlayer.pause();
+            audioPlayer.src = '';
+            audioPlayer.removeAttribute('src');
+            audioPlayer.load();
+            updateStatusLight('idle');
+            localDownloadBtn.style.display = 'none';
+            localDownloadBtn.disabled = true;
+            lastSpeedBytes = 0;
+            lastSpeedUpdateTime = Date.now();
+            speedHistory = [];
+            downloadStartTime = null;
+            isPlaying = false;
+            updatePlayPauseIcon();
+            playerTitle.textContent = '未在播放';
+            playerArtist.textContent = '椒盐音乐';
+            timeDisplay.textContent = '00:00 / 00:00';
+            progressFill.style.width = '0%';
+        }
+
+        function updateTaskStatus(status) {
+            if (status.error) {
+                taskStatus.textContent = '错误: ' + status.error;
+                updateStatusLight('error');
+                stopPolling();
+                showToast('下载失败: ' + status.error, 'error');
+                return;
+            }
+            if (status.is_downloading) {
+                updateStatusLight('downloading');
+                localDownloadBtn.style.display = 'none';
+            } else if (status.is_finished) {
+                if (status.is_success) {
+                    updateStatusLight('success');
+                    localDownloadBtn.style.display = 'inline-flex';
+                    localDownloadBtn.disabled = false;
+                    if (currentTaskId && !audioPlayer.src) {
+                        setTimeout(() => {
+                            audioPlayer.src = '/api/download/stream?task_id=' + currentTaskId + '&t=' + Date.now();
+                            audioPlayer.load();
+                            audioSection.classList.add('show');
+                            if (status.file_info) {
+                                playerTitle.textContent = status.file_info.filename.replace(/\.[^/.]+$/, '') || '未知歌曲';
+                                playerArtist.textContent = '椒盐音乐';
+                            }
+                        }, 500);
+                    }
+                    if (status.file_info) {
+                        fileNameEl.textContent = status.file_info.filename || '未命名文件';
+                        fileSizeEl.textContent = formatBytes(status.file_info.filesize || 0);
+                        if (downloadStartTime) {
+                            downloadTimeEl.textContent = formatTime((Date.now() - downloadStartTime) / 1000);
+                        }
+                        fileInfo.classList.add('show');
+                    }
+                    showToast('文件下载完成！', 'success');
+                } else {
+                    updateStatusLight('error');
+                    localDownloadBtn.style.display = 'none';
+                    showToast('下载失败', 'error');
+                }
+                setTimeout(() => stopPolling(), 2000);
+            } else {
+                updateStatusLight('idle');
+                localDownloadBtn.style.display = 'none';
+            }
+            const downloadedBytes = status.downloaded_bytes || 0;
+            downloadedBytesEl.textContent = formatBytes(downloadedBytes);
+            const now = Date.now();
+            const timeDiff = (now - lastSpeedUpdateTime) / 1000;
+            if (timeDiff >= 1) {
+                const bytesDiff = downloadedBytes - lastSpeedBytes;
+                const speed = bytesDiff / timeDiff;
+                speedHistory.push(speed);
+                if (speedHistory.length > MAX_SPEED_HISTORY) speedHistory.shift();
+                const avgSpeed = speedHistory.reduce((sum, val) => sum + val, 0) / speedHistory.length;
+                downloadSpeedEl.textContent = formatSpeed(avgSpeed);
+                lastSpeedBytes = downloadedBytes;
+                lastSpeedUpdateTime = now;
+            }
+        }
+
+        function startPollingTaskStatus() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            downloadStartTime = Date.now();
+            pollingInterval = setInterval(async () => {
+                if (!currentTaskId) { stopPolling(); return; }
+                try {
+                    const response = await fetch('/api/download/status?task_id=' + currentTaskId);
+                    if (response.ok) {
+                        updateTaskStatus(await response.json());
+                    } else if (response.status === 404) {
+                        showToast('任务不存在或已过期', 'error');
+                        updateStatusLight('error');
+                        stopPolling();
+                    }
+                } catch (error) {
+                    console.error('轮询错误:', error);
+                }
+            }, 1000);
+        }
+
+        function stopPolling() {
+            if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+        }
+
+        sendBtn.addEventListener('click', async function() {
+            const inputText = urlInput.value.trim();
+            if (!inputText) { showToast('请输入内容！', 'error'); urlInput.focus(); return; }
+            const url = extractUrlFromText(inputText);
+            if (!url) { showToast('未找到有效的链接！', 'error'); urlInput.focus(); return; }
+            const platform = platformSelect ? platformSelect.value : "酷狗音乐";
+            let delayValue = 0;
+            if (delayInput) {
+                const delayText = delayInput.value.trim();
+                if (delayText !== '') {
+                    const parsedDelay = parseInt(delayText);
+                    if (isNaN(parsedDelay)) { showToast('Delay参数必须是整数！', 'error'); delayInput.focus(); return; }
+                    delayValue = parsedDelay;
+                }
+            }
+            resetTaskStatus();
+            statusCard.style.display = 'block';
+            showToast('正在创建下载任务...', 'info');
+            sendBtn.disabled = true;
+            const originalBtnContent = sendBtn.innerHTML;
+            sendBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">refresh</span> 发送中...';
+            try {
+                const requestData = { content: inputText, url: url, platform: platform, offsetMs: delayValue };
+                const filename = filenameInput.value.trim();
+                if (filename) requestData.filename = filename;
+                const response = await fetch('/api/message', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(requestData) });
+                const data = await response.json();
+                if (response.ok) {
+                    currentTaskId = data.task_id;
+                    showToast('下载任务已创建，开始下载...', 'success');
+                    updateStatusLight('downloading');
+                    setTimeout(() => startPollingTaskStatus(), 500);
+                } else {
+                    showToast('下载失败: ' + (data.error || '未知错误'), 'error');
+                    updateStatusLight('error');
+                }
+            } catch (error) {
+                showToast('连接错误: ' + error.message, 'error');
+                updateStatusLight('error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = originalBtnContent;
+            }
+        });
+
+        localDownloadBtn.addEventListener('click', async function() {
+            if (!currentTaskId) { showToast('没有可下载的文件', 'error'); return; }
+            showToast('正在准备文件...', 'info');
+            localDownloadBtn.disabled = true;
+            const originalContent = localDownloadBtn.innerHTML;
+            localDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">refresh</span> 准备中...';
+            try {
+                const response = await fetch('/api/download/file?task_id=' + currentTaskId);
+                if (response.ok) {
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'downloaded_music';
+                    if (contentDisposition) {
+                        const matches = /filename="?([^"]+)"?/i.exec(contentDisposition);
+                        if (matches && matches[1]) filename = matches[1];
+                    }
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = filename;
+                    document.body.appendChild(a); a.click();
+                    window.URL.revokeObjectURL(url); document.body.removeChild(a);
+                    showToast('文件开始下载到您的设备', 'success');
+                } else {
+                    const errorData = await response.json();
+                    showToast('下载失败: ' + (errorData.error || '未知错误'), 'error');
+                }
+            } catch (error) {
+                showToast('下载错误: ' + error.message, 'error');
+            } finally {
+                localDownloadBtn.disabled = false;
+                localDownloadBtn.innerHTML = originalContent;
+            }
+        });
+
+        function updatePlayPauseIcon() { playPauseIcon.textContent = isPlaying ? 'pause' : 'play_arrow'; }
+        playPauseBtn.addEventListener('click', () => { if (audioPlayer.src) isPlaying ? audioPlayer.pause() : audioPlayer.play(); });
+        audioPlayer.addEventListener('play', () => { isPlaying = true; updatePlayPauseIcon(); });
+        audioPlayer.addEventListener('pause', () => { isPlaying = false; updatePlayPauseIcon(); });
+        audioPlayer.addEventListener('timeupdate', () => {
+            if (audioPlayer.duration) {
+                progressFill.style.width = (audioPlayer.currentTime / audioPlayer.duration) * 100 + '%';
+                timeDisplay.textContent = formatDuration(audioPlayer.currentTime) + ' / ' + formatDuration(audioPlayer.duration);
+            }
+        });
+        audioPlayer.addEventListener('ended', () => { isPlaying = false; updatePlayPauseIcon(); progressFill.style.width = '0%'; });
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+            document.getElementById(tabName + 'Tab').style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); sendBtn.click(); } });
+        filenameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); } });
+        document.addEventListener('DOMContentLoaded', () => { setTimeout(() => showToast('🎵 输入链接或包含链接的文本即可开始下载', 'info'), 500); });
+        window.addEventListener('beforeunload', () => stopPolling());
+        const style = document.createElement('style');
+        style.textContent = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
