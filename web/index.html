@@ -1794,8 +1794,8 @@
             return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
-        async function downloadMusicFile(filename) {
-            if (!filename) {
+        async function downloadMusicFile(systemFilename) {
+            if (!systemFilename) {
                 showToast('文件名无效', 'error');
                 return;
             }
@@ -1803,11 +1803,18 @@
             showToast('准备下载文件...', 'info');
             
             try {
-                // 使用文件名作为参数
-                const response = await fetch(`/api/download/file?filename=${encodeURIComponent(filename)}`);
+                // 使用系统文件名作为参数
+                const response = await fetch(`/api/download/file?filename=${encodeURIComponent(systemFilename)}`);
                 if (response.ok) {
                     const contentDisposition = response.headers.get('Content-Disposition');
-                    let downloadFilename = filename;
+                    let downloadFilename = systemFilename;
+                    
+                    // 尝试获取自定义文件名作为下载时的显示文件名
+                    const musicItem = musicLibrary.find(item => item.system_filename === systemFilename);
+                    if (musicItem && musicItem.custom_filename) {
+                        downloadFilename = musicItem.custom_filename;
+                    }
+                    
                     if (contentDisposition) {
                         const matches = /filename="?([^"]+)"?/i.exec(contentDisposition);
                         if (matches && matches[1]) downloadFilename = matches[1];
@@ -1831,28 +1838,41 @@
             }
         }
 
-        function playMusicFromLibrary(filename) {
-            if (!filename) {
+        function playMusicFromLibrary(systemFilename) {
+            if (!systemFilename) {
                 showToast('文件名无效', 'error');
                 return;
             }
             
+            console.log('尝试播放文件:', systemFilename);
+            console.log('当前音乐库:', musicLibrary);
+            
             // 在音乐库中查找对应的文件
-            const musicItem = musicLibrary.find(item => item.filename === filename);
+            const musicItem = musicLibrary.find(item => item.system_filename === systemFilename);
             if (!musicItem) {
-                showToast('未找到对应的音乐文件', 'error');
-                return;
+                console.log('未找到对应的音乐文件，尝试查找自定义文件名');
+                // 尝试通过自定义文件名查找
+                const altMusicItem = musicLibrary.find(item => item.custom_filename === systemFilename);
+                if (!altMusicItem) {
+                    showToast('未找到对应的音乐文件', 'error');
+                    return;
+                }
+                // 使用找到的项
+                console.log('通过自定义文件名找到文件:', altMusicItem);
             }
             
             // 设置音频播放器
-            audioPlayer.src = `/api/download/stream?filename=${encodeURIComponent(filename)}&t=${Date.now()}`;
+            const streamUrl = `/api/download/stream?filename=${encodeURIComponent(systemFilename)}&t=${Date.now()}`;
+            console.log('播放URL:', streamUrl);
+            audioPlayer.src = streamUrl;
             audioPlayer.load();
             
             // 显示音频播放器
             audioSection.classList.add('show');
             
             // 更新播放器信息
-            const title = filename.replace(/\.[^/.]+$/, '') || '未知歌曲';
+            const customFilename = musicItem ? musicItem.custom_filename : systemFilename;
+            const title = customFilename.replace(/\.[^/.]+$/, '') || '未知歌曲';
             playerTitle.textContent = title;
             playerArtist.textContent = '从音乐库播放';
             
