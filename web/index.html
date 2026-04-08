@@ -956,25 +956,9 @@
                         <textarea class="md-input" id="urlInput" rows="3" placeholder="输入歌曲链接或包含链接的文本..."></textarea>
                     </div>
 
-                    <div class="input-row">
-                        <div class="input-group">
-                            <label class="input-label">自定义文件名（可选）</label>
-                            <input type="text" class="md-input" id="filenameInput" placeholder="输入文件名">
-                        </div>
-                        <div class="input-group">
-                            <label class="input-label">延迟 (ms)</label>
-                            <input type="number" class="md-input" id="delayInput" placeholder="0" value="0">
-                        </div>
-                    </div>
-
                     <div class="input-group">
-                        <label class="input-label">音乐平台</label>
-                        <select class="md-input" id="platformSelect" style="cursor: pointer;">
-                            <option value="酷狗音乐">酷狗音乐</option>
-                            <option value="网易云音乐">网易云音乐</option>
-                            <option value="QQ音乐">QQ音乐</option>
-                            <option value="酷我音乐">酷我音乐</option>
-                        </select>
+                        <label class="input-label">自定义文件名（可选）</label>
+                        <input type="text" class="md-input" id="filenameInput" placeholder="输入文件名">
                     </div>
 
                     <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
@@ -1055,6 +1039,39 @@
                 <h2 class="section-title">设置</h2>
                 <div style="max-width: 600px;">
                     <div class="status-card">
+                        <div class="file-info-title">下载设置</div>
+                        
+                        <div class="input-group">
+                            <label class="input-label">默认音乐平台</label>
+                            <select class="md-input" id="settingsPlatformSelect" style="cursor: pointer;">
+                                <option value="酷狗音乐">酷狗音乐</option>
+                                <option value="网易云音乐">网易云音乐</option>
+                                <option value="QQ音乐">QQ音乐</option>
+                                <option value="酷我音乐">酷我音乐</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label">默认延迟 (ms)</label>
+                            <input type="number" class="md-input" id="settingsDelayInput" placeholder="0" value="0">
+                            <div style="font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">
+                                设置下载前的延迟时间，0表示无延迟
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px; display: flex; gap: 12px;">
+                            <button class="btn-secondary" id="saveSettingsBtn">
+                                <span class="material-symbols-rounded">save</span>
+                                保存设置
+                            </button>
+                            <button class="btn-secondary" id="resetSettingsBtn">
+                                <span class="material-symbols-rounded">restart_alt</span>
+                                恢复默认
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="status-card" style="margin-top: 20px;">
                         <div class="file-info-title">关于</div>
                         <p style="color: var(--md-sys-color-on-surface-variant); line-height: 1.6;">
                             椒盐音乐网页版 · 手机适配<br>
@@ -1128,8 +1145,6 @@
 
         const urlInput = document.getElementById('urlInput');
         const filenameInput = document.getElementById('filenameInput');
-        const platformSelect = document.getElementById('platformSelect');
-        const delayInput = document.getElementById('delayInput');
         const sendBtn = document.getElementById('sendBtn');
         const localDownloadBtn = document.getElementById('localDownloadBtn');
         const statusCard = document.getElementById('statusCard');
@@ -1139,6 +1154,11 @@
         const downloadSpeedEl = document.getElementById('downloadSpeed');
         const downloadTimeEl = document.getElementById('downloadTime');
         const downloadStatusEl = document.getElementById('downloadStatus');
+        // 设置界面元素
+        const settingsPlatformSelect = document.getElementById('settingsPlatformSelect');
+        const settingsDelayInput = document.getElementById('settingsDelayInput');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const resetSettingsBtn = document.getElementById('resetSettingsBtn');
         const fileInfo = document.getElementById('fileInfo');
         const fileNameEl = document.getElementById('fileName');
         const fileSizeEl = document.getElementById('fileSize');
@@ -1205,6 +1225,64 @@
                 toast.classList.remove('show');
             }, 3000);
         }
+
+        // 设置管理功能
+        function loadSettings() {
+            const savedPlatform = localStorage.getItem('musicPlatform');
+            const savedDelay = localStorage.getItem('downloadDelay');
+            
+            if (savedPlatform && settingsPlatformSelect) {
+                settingsPlatformSelect.value = savedPlatform;
+            }
+            
+            if (savedDelay && settingsDelayInput) {
+                settingsDelayInput.value = savedDelay;
+            }
+        }
+
+        function saveSettings() {
+            if (settingsPlatformSelect) {
+                localStorage.setItem('musicPlatform', settingsPlatformSelect.value);
+            }
+            
+            if (settingsDelayInput) {
+                localStorage.setItem('downloadDelay', settingsDelayInput.value);
+            }
+            
+            showToast('设置已保存', 'success');
+        }
+
+        function resetSettings() {
+            if (settingsPlatformSelect) {
+                settingsPlatformSelect.value = '酷狗音乐';
+            }
+            
+            if (settingsDelayInput) {
+                settingsDelayInput.value = '0';
+            }
+            
+            localStorage.removeItem('musicPlatform');
+            localStorage.removeItem('downloadDelay');
+            
+            showToast('设置已恢复默认', 'info');
+        }
+
+        // 初始化设置
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            
+            // 设置按钮事件
+            if (saveSettingsBtn) {
+                saveSettingsBtn.addEventListener('click', saveSettings);
+            }
+            
+            if (resetSettingsBtn) {
+                resetSettingsBtn.addEventListener('click', resetSettings);
+            }
+            
+            // 初始提示
+            setTimeout(() => showToast('🎵 输入链接或包含链接的文本即可开始下载', 'info'), 500);
+        });
 
         function updateStatusLight(status) {
             statusLight.className = 'status-light ' + status;
@@ -1345,13 +1423,14 @@
             if (!inputText) { showToast('请输入内容！', 'error'); urlInput.focus(); return; }
             const url = extractUrlFromText(inputText);
             if (!url) { showToast('未找到有效的链接！', 'error'); urlInput.focus(); return; }
-            const platform = platformSelect ? platformSelect.value : "酷狗音乐";
+            // 从设置界面获取平台和延迟值
+            const platform = settingsPlatformSelect ? settingsPlatformSelect.value : "酷狗音乐";
             let delayValue = 0;
-            if (delayInput) {
-                const delayText = delayInput.value.trim();
+            if (settingsDelayInput) {
+                const delayText = settingsDelayInput.value.trim();
                 if (delayText !== '') {
                     const parsedDelay = parseInt(delayText);
-                    if (isNaN(parsedDelay)) { showToast('Delay参数必须是整数！', 'error'); delayInput.focus(); return; }
+                    if (isNaN(parsedDelay)) { showToast('延迟参数必须是整数！', 'error'); return; }
                     delayValue = parsedDelay;
                 }
             }
@@ -1440,7 +1519,6 @@
 
         urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); sendBtn.click(); } });
         filenameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); } });
-        document.addEventListener('DOMContentLoaded', () => { setTimeout(() => showToast('🎵 输入链接或包含链接的文本即可开始下载', 'info'), 500); });
         window.addEventListener('beforeunload', () => stopPolling());
         const style = document.createElement('style');
         style.textContent = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
