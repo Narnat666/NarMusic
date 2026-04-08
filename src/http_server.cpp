@@ -13,6 +13,8 @@
 #include <filesystem>
 #include <map>
 #include <vector>
+#include <iomanip>
+#include <algorithm>
 #include "task_manger.h"
 #include "nlohmann/json.hpp"
 #include "curl/curl.h"
@@ -134,6 +136,36 @@ std::string getTaskIdByJson(std::string& query) {
         }
     }
     return task_id;
+}
+
+// 从查询字符串中获取参数值
+std::string getQueryParam(std::string& query, const std::string& param) {
+    size_t pos = query.find(param + "=");
+    if (pos == std::string::npos) return "";
+    
+    std::string value = query.substr(pos + param.length() + 1);
+    // 移除可能的后缀
+    size_t end = value.find('&');
+    if (end != std::string::npos) {
+        value = value.substr(0, end);
+    }
+    // URL解码
+    std::string decoded;
+    for (size_t i = 0; i < value.length(); ++i) {
+        if (value[i] == '%' && i + 2 < value.length()) {
+            int hex;
+            std::stringstream ss;
+            ss << std::hex << value.substr(i + 1, 2);
+            ss >> hex;
+            decoded += static_cast<char>(hex);
+            i += 2;
+        } else if (value[i] == '+') {
+            decoded += ' ';
+        } else {
+            decoded += value[i];
+        }
+    }
+    return decoded;
 }
 
 static size_t headerCallback(char* buffer, size_t size, size_t nitems, void* userdata) { // 短链接回调函数
@@ -333,33 +365,70 @@ void HttpServer::handleRequest(int clientSocket) {
         if (request.getPath() == "/api/download/file") {
             std::string query = request.getQueryString();
             std::string task_id;
+            std::string filename;
+            
+            // 尝试通过task_id查找
             task_id = getTaskIdByJson(query);
             
+            // 如果task_id为空，尝试通过filename查找
             if (task_id.empty()) {
-                std::cerr << "找不到任务id：" << task_id << std::endl;
-                sendResponse(clientSocket, "400 Missing Task Id", "{\"error\":\"missing_task_id\"}");                 
-                return;
+                filename = getQueryParam(query, "filename");
+                if (filename.empty()) {
+                    std::cerr << "找不到任务id或文件名" << std::endl;
+                    sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"missing_task_id_or_filename\"}");                 
+                    return;
+                }
             }
-
 
             { 
                 // 开始上锁防止下载时文件被删掉
                 std::lock_guard<std::mutex> lock(nt.mutex_);
-                // 查看文件是否还在
-                auto it = nt.tasks_.find(task_id);
-                if (it != nt.tasks_.end()) { // 找到文件准备发送
-
-                    // 查看文件是否下载成功
-                    if (!it->second.is_finished) {
-                        sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");                         
-                        return;
+                
+                std::string file_name_path = "";
+                std::string display_filename = "";
+                
+                // 通过task_id查找文件
+                if (!task_id.empty()) {
+                    auto it = nt.tasks_.find(task_id);
+                    if (it != nt.tasks_.end()) {
+                        // 查看文件是否下载成功
+                        if (!it->second.is_finished) {
+                            sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");                         
+                            return;
+                        }
+                        file_name_path = it->second.file_path_name;
+                        display_filename = it->second.file_send_name;
                     }
+                }
+                // 通过filename查找文件
+                else if (!filename.empty()) {
+                    // 在任务列表中查找匹配的文件名
+                    for (const auto& task : nt.tasks_) {
+                        if (task.second.is_finished && 
+                            (task.second.file_send_name == filename || 
+                             task.second.file_path_name.find(filename) != std::string::npos)) {
+                            file_name_path = task.second.file_path_name;
+                            display_filename = task.second.file_send_name;
+                            break;
+                        }
+                    }
+                    
+                    // 如果没找到，尝试直接查找下载目录中的文件
+                    if (file_name_path.empty()) {
+                        std::string downloadPath = downloadPath_;
+                        std::string potential_path = downloadPath + filename;
+                        MusicAnaly analy;
+                        if (analy.fileExists(potential_path)) {
+                            file_name_path = potential_path;
+                            display_filename = filename;
+                        }
+                    }
+                }
 
                     // 查看文件是否存在
                     MusicAnaly analy;
-                    std::string file_name_path = it->second.file_path_name;
                     if (file_name_path.empty() || !analy.fileExists(file_name_path)) {
-                        sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");                         
+                        sendResponse(clientSocket, "404 File Not Found", "{\"error\":\"file missing\"}");                         
                         return;
                     }
 
@@ -383,20 +452,27 @@ void HttpServer::handleRequest(int clientSocket) {
                     file.read(buffer.data(), fileSize);
                     file.close();
                 
-                    // 获取文件名
-                    std::string filename = it->second.file_send_name;
+                    // 获取显示文件名
+                    if (display_filename.empty()) {
+                        display_filename = fs::path(file_name_path).filename().string();
+                    }
+                    
                     // 如果是 文件名 - 作者 的形式则将作者去掉
-                    size_t pos = filename.find(" - ");
+                    size_t pos = display_filename.find(" - ");
                     if (pos != std::string::npos) {
-                        filename = filename.substr(0, pos);
-                        filename += it->second.analyzer->getDownloadFileType();
+                        display_filename = display_filename.substr(0, pos);
+                        // 尝试获取文件扩展名
+                        std::string ext = fs::path(file_name_path).extension().string();
+                        if (!ext.empty()) {
+                            display_filename += ext;
+                        }
                     }
 
                     // 发送文件
                     std::stringstream response;
                     response << "HTTP/1.1 200 OK\r\n";
                     response << "Content-Type: application/octet-stream\r\n";
-                    response << "Content-Disposition: attachment; filename=\"" << urlEncodeUtf8(filename) << "\"\r\n";
+                    response << "Content-Disposition: attachment; filename=\"" << urlEncodeUtf8(display_filename) << "\"\r\n";
                     response << "Content-Length: " << fileSize << "\r\n";
                     response << "\r\n";
                 
@@ -407,13 +483,16 @@ void HttpServer::handleRequest(int clientSocket) {
                     // 然后发送文件内容
                     send(clientSocket, buffer.data(), buffer.size(), MSG_NOSIGNAL);
                 
-                    std::cout << "文件发送成功: " << filename << " (" << fileSize << " 字节)" << std::endl;
+                    std::cout << "文件发送成功: " << display_filename << " (" << fileSize << " 字节)" << std::endl;
                     
-                    it->second.ifusing = true; // 正在被使用                     
+                    // 标记文件正在被使用
+                    if (!task_id.empty()) {
+                        auto it = nt.tasks_.find(task_id);
+                        if (it != nt.tasks_.end()) {
+                            it->second.ifusing = true;
+                        }
+                    }                     
                     return;
-
-        
-                }
             }
     
         }
@@ -421,13 +500,13 @@ void HttpServer::handleRequest(int clientSocket) {
         // 流式播放
         if (request.getPath() == "/api/download/stream") {
             
-            // 解析range字符串找到task id
-            std::string range_string = request.getRangeString();
             std::string query_string = request.getQueryString();
             std::string task_id = getTaskIdByJson(query_string);
-            if (task_id.empty()) {
-                std::cerr << "找不到任务id：" << task_id << std::endl;
-                sendResponse(clientSocket, "400 Missing Task Id", "{\"error\":\"missing_task_id\"}");                 
+            std::string filename = getQueryParam(query_string, "filename");
+            
+            if (task_id.empty() && filename.empty()) {
+                std::cerr << "找不到任务id或文件名" << std::endl;
+                sendResponse(clientSocket, "400 Bad Request", "{\"error\":\"missing_task_id_or_filename\"}");                 
                 return;
             }
 
@@ -435,86 +514,120 @@ void HttpServer::handleRequest(int clientSocket) {
             {
                 // 开始上锁防止下载时文件被删掉
                 std::lock_guard<std::mutex> lock(nt.mutex_);
-                auto it = nt.tasks_.find(task_id);
-                if (it != nt.tasks_.end()) { // 找到文件准备发送
-
-                    // 查看文件是否下载成功
-                    if (!it->second.is_finished) {
-                        sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");                         
-                        return;
-                    }
-
-                    // 查看文件是否存在
-                    MusicAnaly analy;
-                    std::string file_name_path = it->second.file_path_name;
-                    if (file_name_path.empty() || !analy.fileExists(file_name_path)) {
-                        std::cerr << "流式传输音频失败，文件被删除" << std::endl;
-                        sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");
-                        return;
-                    }
-
-                    std::cout << "收到流式音频请求：" << file_name_path << std::endl;
-                    StreamSend strm(file_name_path, MAX_CHUNK_SIZE);
-                    bool status = strm.read_data_to_buffer(request.getRangeString());
-                    
-                    // 构建响应头
-                    std::stringstream response;
-                    if (status) {
-                        response << "HTTP/1.1 206 Partial Content\r\n";
-                        response << "Content-Range: bytes " << strm.file_buff_start_ << "-" << strm.file_buff_end_
-                                    << "/" << strm.file_size_ << "\r\n";
-                    } else {
-                        response << "HTTP/1.1 200 OK\r\n";
-                    }
-
-                    response << "Content-Type: audio/mp4\r\n";
-                    response << "Content-Length: " << strm.request_size_ << "\r\n";
-                    response << "Accept-Ranges: bytes\r\n";
-                    response << "Connection: close\r\n";
-                    response << "Access-Control-Allow-Origin: *\r\n";
-                    response << "Cache-Control: no-cache, no-store, must-revalidate\r\n";
-                    response << "\r\n";
-
-                    std::string header = response.str();
-                    // 发送头部
-                    ssize_t sent = send(clientSocket, header.c_str(), header.length(), MSG_NOSIGNAL);
-                    if (sent != (ssize_t)header.length()) {
-                        std::cerr << "发送头部失败，期望 " << header.length() 
-                                << "，实际 " << sent << std::endl;                        
-                        return;
-                    }
-
-                    it->second.ifusing = true; // 正在被使用
-                    
-                    // 发送数据
-                    struct timeval tv;
-                    tv.tv_sec = 30;   // 5秒超时
-                    tv.tv_usec = 0;
-                    if (setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO, 
-                                (const char*)&tv, sizeof(tv)) < 0) {
-                        std::cerr << "设置发送超时失败: " << strerror(errno) << std::endl;
-                    }
-                    sent = send(clientSocket, strm.buffer_.data(), strm.request_size_, MSG_NOSIGNAL);
-                    if (sent < 0) {
-                        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                            std::cerr << "发送超时，数据未完全发送" << std::endl;
-                        } else {
-                            std::cerr << "发送失败: " << strerror(errno) << std::endl;
+                
+                std::string file_name_path = "";
+                
+                // 通过task_id查找文件
+                if (!task_id.empty()) {
+                    auto it = nt.tasks_.find(task_id);
+                    if (it != nt.tasks_.end()) {
+                        // 查看文件是否下载成功
+                        if (!it->second.is_finished) {
+                            sendResponse(clientSocket, "404 Need Wait Task Finish", "{\"error\":\"please wait task finish\"}");                         
+                            return;
                         }
-                    } else if (sent != strm.request_size_) {
-                        std::cerr << "发送数据不完整，期望 " << strm.request_size_ 
-                                  << "，实际 " << sent << std::endl;
-                    } else {
-                        std::cout << "音频数据发送完成: " << sent << " 字节" << std::endl;
+                        file_name_path = it->second.file_path_name;
+                    }
+                }
+                // 通过filename查找文件
+                else if (!filename.empty()) {
+                    // 在任务列表中查找匹配的文件名
+                    for (const auto& task : nt.tasks_) {
+                        if (task.second.is_finished && 
+                            (task.second.file_send_name == filename || 
+                             task.second.file_path_name.find(filename) != std::string::npos)) {
+                            file_name_path = task.second.file_path_name;
+                            break;
+                        }
                     }
                     
-                    return;
+                    // 如果没找到，尝试直接查找下载目录中的文件
+                    if (file_name_path.empty()) {
+                        std::string downloadPath = downloadPath_;
+                        std::string potential_path = downloadPath + filename;
+                        MusicAnaly analy;
+                        if (analy.fileExists(potential_path)) {
+                            file_name_path = potential_path;
+                        }
+                    }
+                }
 
-                } else {  // 文件被删除
+                if (file_name_path.empty()) {
                     std::cerr << "文件被删除或还未被找到" << std::endl; 
-                    sendResponse(clientSocket, "404 File Deleted", "{\"error\":\"file missing\"}");                    
+                    sendResponse(clientSocket, "404 File Not Found", "{\"error\":\"file missing\"}");                    
                     return;
                 }
+
+                // 查看文件是否存在
+                MusicAnaly analy;
+                if (!analy.fileExists(file_name_path)) {
+                    std::cerr << "流式传输音频失败，文件被删除" << std::endl;
+                    sendResponse(clientSocket, "404 File Not Found", "{\"error\":\"file missing\"}");
+                    return;
+                }
+
+                std::cout << "收到流式音频请求：" << file_name_path << std::endl;
+                StreamSend strm(file_name_path, MAX_CHUNK_SIZE);
+                bool status = strm.read_data_to_buffer(request.getRangeString());
+                
+                // 构建响应头
+                std::stringstream response;
+                if (status) {
+                    response << "HTTP/1.1 206 Partial Content\r\n";
+                    response << "Content-Range: bytes " << strm.file_buff_start_ << "-" << strm.file_buff_end_
+                                << "/" << strm.file_size_ << "\r\n";
+                } else {
+                    response << "HTTP/1.1 200 OK\r\n";
+                }
+
+                response << "Content-Type: audio/mp4\r\n";
+                response << "Content-Length: " << strm.request_size_ << "\r\n";
+                response << "Accept-Ranges: bytes\r\n";
+                response << "Connection: close\r\n";
+                response << "Access-Control-Allow-Origin: *\r\n";
+                response << "Cache-Control: no-cache, no-store, must-revalidate\r\n";
+                response << "\r\n";
+
+                std::string header = response.str();
+                // 发送头部
+                ssize_t sent = send(clientSocket, header.c_str(), header.length(), MSG_NOSIGNAL);
+                if (sent != (ssize_t)header.length()) {
+                    std::cerr << "发送头部失败，期望 " << header.length() 
+                            << "，实际 " << sent << std::endl;                        
+                    return;
+                }
+
+                // 标记文件正在被使用
+                if (!task_id.empty()) {
+                    auto it = nt.tasks_.find(task_id);
+                    if (it != nt.tasks_.end()) {
+                        it->second.ifusing = true;
+                    }
+                }
+                
+                // 发送数据
+                struct timeval tv;
+                tv.tv_sec = 30;   // 5秒超时
+                tv.tv_usec = 0;
+                if (setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO, 
+                            (const char*)&tv, sizeof(tv)) < 0) {
+                    std::cerr << "设置发送超时失败: " << strerror(errno) << std::endl;
+                }
+                sent = send(clientSocket, strm.buffer_.data(), strm.request_size_, MSG_NOSIGNAL);
+                if (sent < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        std::cerr << "发送超时，数据未完全发送" << std::endl;
+                    } else {
+                        std::cerr << "发送失败: " << strerror(errno) << std::endl;
+                    }
+                } else if (sent != strm.request_size_) {
+                    std::cerr << "发送数据不完整，期望 " << strm.request_size_ 
+                              << "，实际 " << sent << std::endl;
+                } else {
+                    std::cout << "音频数据发送完成: " << sent << " 字节" << std::endl;
+                }
+                
+                return;
             }
 
         }
