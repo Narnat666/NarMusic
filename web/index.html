@@ -1715,7 +1715,8 @@
             
             let html = '';
             musicLibrary.forEach((music, index) => {
-                const filename = music.filename || '未知文件';
+                const customFilename = music.custom_filename || '未知文件';
+                const systemFilename = music.system_filename || customFilename;
                 const fileSize = music.file_size || 0;
                 const downloadTime = music.download_time ? new Date(music.download_time * 1000) : new Date();
                 const delayMs = music.delay_ms || 0;
@@ -1723,11 +1724,11 @@
                 // 格式化文件大小
                 const sizeText = formatBytes(fileSize);
                 
-                // 格式化下载时间
-                const timeText = formatDownloadTime(downloadTime);
+                // 格式化下载时间为具体时间戳
+                const timeText = formatDateTime(downloadTime);
                 
-                // 提取文件名（不含扩展名）作为歌曲标题
-                const title = filename.replace(/\.[^/.]+$/, '') || '未知歌曲';
+                // 使用自定义文件名作为标题
+                const title = customFilename.replace(/\.[^/.]+$/, '') || '未知歌曲';
                 
                 html += `
                 <div class="music-item" data-index="${index}">
@@ -1738,8 +1739,8 @@
                         <div class="music-title" title="${title}">${title}</div>
                         <div class="music-details">
                             <div class="music-detail-item">
-                                <span class="material-symbols-rounded" style="font-size: 14px;">description</span>
-                                ${filename}
+                                <span class="material-symbols-rounded" style="font-size: 14px;">timer</span>
+                                延迟 ${delayMs}ms
                             </div>
                             <div class="music-detail-item">
                                 <span class="material-symbols-rounded" style="font-size: 14px;">storage</span>
@@ -1749,17 +1750,13 @@
                                 <span class="material-symbols-rounded" style="font-size: 14px;">schedule</span>
                                 ${timeText}
                             </div>
-                            ${delayMs > 0 ? `<div class="music-detail-item">
-                                <span class="material-symbols-rounded" style="font-size: 14px;">timer</span>
-                                延迟 ${delayMs}ms
-                            </div>` : ''}
                         </div>
                     </div>
                     <div class="music-actions">
-                        <button class="music-action-btn play" title="播放" onclick="playMusicFromLibrary('${filename}')">
+                        <button class="music-action-btn play" title="播放" onclick="playMusicFromLibrary('${systemFilename}')">
                             <span class="material-symbols-rounded">play_arrow</span>
                         </button>
-                        <button class="music-action-btn download" title="下载" onclick="downloadMusicFile('${filename}')">
+                        <button class="music-action-btn download" title="下载" onclick="downloadMusicFile('${systemFilename}')">
                             <span class="material-symbols-rounded">download</span>
                         </button>
                     </div>
@@ -1786,6 +1783,15 @@
             } else {
                 return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
             }
+        }
+
+        function formatDateTime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
         async function downloadMusicFile(filename) {

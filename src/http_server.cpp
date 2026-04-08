@@ -77,9 +77,25 @@ std::vector<std::map<std::string, std::string>> scanMusicLibrary(const std::stri
                     
                     std::map<std::string, std::string> musicItem;
                     
-                    // 文件名
-                    std::string filename = entry.path().filename();
-                    musicItem["filename"] = filename;
+                    // 系统文件名
+                    std::string system_filename = entry.path().filename();
+                    musicItem["system_filename"] = system_filename;
+                    
+                    // 查找自定义文件名
+                    std::string custom_filename = system_filename;
+                    {
+                        std::lock_guard<std::mutex> lock(nt.mutex_);
+                        for (const auto& task : nt.tasks_) {
+                            // 通过文件路径匹配查找对应的任务
+                            std::string task_file_path = task.second.file_path_name;
+                            if (task.second.is_finished && 
+                                task_file_path.find(system_filename) != std::string::npos) {
+                                custom_filename = task.second.file_send_name;
+                                break;
+                            }
+                        }
+                    }
+                    musicItem["filename"] = custom_filename;
                     
                     // 文件大小（字节）
                     musicItem["file_size"] = std::to_string(entry.file_size());
@@ -97,7 +113,7 @@ std::vector<std::map<std::string, std::string>> scanMusicLibrary(const std::stri
                     {
                         std::lock_guard<std::mutex> lock(nt.mutex_);
                         for (const auto& task : nt.tasks_) {
-                            if (task.second.file_send_name == filename) {
+                            if (task.second.file_send_name == custom_filename) {
                                 delay_ms = task.second.delay_ms;
                                 break;
                             }
@@ -646,7 +662,8 @@ void HttpServer::handleRequest(int clientSocket) {
                 
                 for (const auto& item : musicList) {
                     json musicJson;
-                    musicJson["filename"] = item.at("filename");
+                    musicJson["custom_filename"] = item.at("filename");
+                    musicJson["system_filename"] = item.at("system_filename");
                     musicJson["download_time"] = std::stoll(item.at("download_time"));
                     musicJson["delay_ms"] = std::stoi(item.at("delay_ms"));
                     musicJson["file_size"] = std::stoll(item.at("file_size"));
