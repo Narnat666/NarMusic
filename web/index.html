@@ -8,21 +8,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
         :root {
-            /* Material Design 3 网页版经典配色 */
-            --md-sys-color-background: #F4F7FC;
+            /* Material Design 3 网页版经典配色 - 更柔和的版本 */
+            --md-sys-color-background: #F8FAFD;
             --md-sys-color-surface: #FFFFFF;
-            --md-sys-color-surface-variant: #E1E2E8;
-            --md-sys-color-on-surface: #1B1B1F;
-            --md-sys-color-on-surface-variant: #44474E;
-            --md-sys-color-primary: #0061A4;
-            --md-sys-color-primary-container: #D1E4FF;
-            --md-sys-color-on-primary-container: #001D36;
-            --md-sys-color-secondary: #535F70;
-            --md-sys-color-secondary-container: #D7E3F8;
-            --md-sys-color-error: #BA1A1A;
-            --md-sys-color-error-container: #FFDAD6;
-            --md-sys-color-success: #386A20;
-            --md-sys-color-success-container: #B8F397;
+            --md-sys-color-surface-variant: #E8EAED;
+            --md-sys-color-on-surface: #1A1A1A;
+            --md-sys-color-on-surface-variant: #5A5D63;
+            --md-sys-color-primary: #2D7BC1;
+            --md-sys-color-primary-container: #E3F0FF;
+            --md-sys-color-on-primary-container: #002A4D;
+            --md-sys-color-secondary: #6B7685;
+            --md-sys-color-secondary-container: #E9EDF5;
+            --md-sys-color-error: #C62828;
+            --md-sys-color-error-container: #FFEBEE;
+            --md-sys-color-success: #2E7D32;
+            --md-sys-color-success-container: #E8F5E9;
+            --md-sys-color-warning: #F57C00;
+            --md-sys-color-warning-container: #FFF3E0;
 
             /* 播放器专属颜色 */
             --player-bg: #FFFFFF;
@@ -232,7 +234,9 @@
         }
 
         .btn-primary:hover {
-            background-color: #00508a;
+            background-color: #1A8AE6;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(45, 123, 193, 0.3);
         }
 
         .btn-primary:active {
@@ -295,14 +299,14 @@
             transition: background-color 0.3s;
         }
 
-        .status-light.idle { background-color: #9E9E9E; }
-        .status-light.downloading { background-color: #FFC107; animation: pulse 1.5s infinite; }
-        .status-light.success { background-color: #4CAF50; }
-        .status-light.error { background-color: #F44336; }
+        .status-light.idle { background-color: #B0B0B0; }
+        .status-light.downloading { background-color: var(--md-sys-color-warning); animation: pulse 2s infinite; }
+        .status-light.success { background-color: var(--md-sys-color-success); }
+        .status-light.error { background-color: var(--md-sys-color-error); }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
         }
 
         .status-text {
@@ -413,27 +417,40 @@
             font-weight: 500;
             z-index: 1000;
             transform: translateX(400px);
-            transition: transform 0.3s ease;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            opacity: 0;
         }
 
         .toast.show {
             transform: translateX(0);
+            opacity: 1;
         }
 
         .toast.info {
-            background-color: var(--md-sys-color-primary-container);
+            background-color: rgba(227, 240, 255, 0.95);
             color: var(--md-sys-color-on-primary-container);
+            border-left: 4px solid var(--md-sys-color-primary);
         }
 
         .toast.success {
-            background-color: var(--md-sys-color-success-container);
+            background-color: rgba(232, 245, 233, 0.95);
             color: var(--md-sys-color-success);
+            border-left: 4px solid var(--md-sys-color-success);
+        }
+
+        .toast.warning {
+            background-color: rgba(255, 243, 224, 0.95);
+            color: var(--md-sys-color-warning);
+            border-left: 4px solid var(--md-sys-color-warning);
         }
 
         .toast.error {
-            background-color: var(--md-sys-color-error-container);
+            background-color: rgba(255, 235, 238, 0.95);
             color: var(--md-sys-color-error);
+            border-left: 4px solid var(--md-sys-color-error);
         }
 
         /* ===== 底部播放器 (桌面) ===== */
@@ -855,9 +872,14 @@
                 border-radius: 40px;
                 max-width: 400px;
                 margin: 0 auto;
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255,255,255,0.2);
+                opacity: 0;
+                transition: transform 0.3s ease, opacity 0.3s ease;
             }
             .toast.show {
                 transform: translateY(0);
+                opacity: 1;
             }
 
             /* 音乐库卡片网格调整 */
@@ -1356,6 +1378,18 @@
         }
 
         function showToast(message, type = 'info') {
+            // 如果已经有Toast正在显示，先隐藏它
+            if (toast.classList.contains('show')) {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    showNewToast(message, type);
+                }, 300);
+            } else {
+                showNewToast(message, type);
+            }
+        }
+        
+        function showNewToast(message, type) {
             toast.textContent = message;
             toast.className = 'toast ' + type;
             setTimeout(() => toast.classList.add('show'), 10);
@@ -1425,15 +1459,15 @@
             }
             
             // 初始提示
-            setTimeout(() => showToast('🎵 输入链接或包含链接的文本即可开始下载', 'info'), 500);
+            setTimeout(() => showToast('🎵 输入链接或包含链接的文本即可开始下载', 'info'), 1000);
         });
 
         function updateStatusLight(status) {
             statusLight.className = 'status-light ' + status;
             switch(status) {
                 case 'error':
-                    taskStatus.textContent = '下载失败';
-                    downloadStatusEl.textContent = '失败';
+                    taskStatus.textContent = '下载未完成';
+                    downloadStatusEl.textContent = '未完成';
                     break;
                 case 'downloading':
                     taskStatus.textContent = '下载中';
@@ -1478,10 +1512,10 @@
 
         function updateTaskStatus(status) {
             if (status.error) {
-                taskStatus.textContent = '错误: ' + status.error;
+                taskStatus.textContent = '问题: ' + status.error;
                 updateStatusLight('error');
                 stopPolling();
-                showToast('下载失败: ' + status.error, 'error');
+                showToast('下载未完成: ' + status.error, 'warning');
                 return;
             }
             if (status.is_downloading) {
@@ -1511,11 +1545,11 @@
                         }
                         fileInfo.classList.add('show');
                     }
-                    showToast('文件下载完成！', 'success');
+                    showToast('文件下载完成', 'success');
                 } else {
                     updateStatusLight('error');
                     localDownloadBtn.style.display = 'none';
-                    showToast('下载失败', 'error');
+                    showToast('下载未完成', 'warning');
                 }
                 setTimeout(() => stopPolling(), 2000);
             } else {
@@ -1548,7 +1582,7 @@
                     if (response.ok) {
                         updateTaskStatus(await response.json());
                     } else if (response.status === 404) {
-                        showToast('任务不存在或已过期', 'error');
+                        showToast('任务不存在或已过期', 'warning');
                         updateStatusLight('error');
                         stopPolling();
                     }
@@ -1564,9 +1598,9 @@
 
         sendBtn.addEventListener('click', async function() {
             const inputText = urlInput.value.trim();
-            if (!inputText) { showToast('请输入内容！', 'error'); urlInput.focus(); return; }
+            if (!inputText) { showToast('请输入内容', 'warning'); urlInput.focus(); return; }
             const url = extractUrlFromText(inputText);
-            if (!url) { showToast('未找到有效的链接！', 'error'); urlInput.focus(); return; }
+            if (!url) { showToast('未找到有效的链接', 'warning'); urlInput.focus(); return; }
             // 从设置界面获取平台和延迟值
             const platform = settingsPlatformSelect ? settingsPlatformSelect.value : "酷狗音乐";
             let delayValue = 0;
@@ -1574,7 +1608,7 @@
                 const delayText = settingsDelayInput.value.trim();
                 if (delayText !== '') {
                     const parsedDelay = parseInt(delayText);
-                    if (isNaN(parsedDelay)) { showToast('延迟参数必须是整数！', 'error'); return; }
+                    if (isNaN(parsedDelay)) { showToast('延迟参数必须是整数', 'warning'); return; }
                     delayValue = parsedDelay;
                 }
             }
@@ -1596,11 +1630,11 @@
                     updateStatusLight('downloading');
                     setTimeout(() => startPollingTaskStatus(), 500);
                 } else {
-                    showToast('下载失败: ' + (data.error || '未知错误'), 'error');
+                    showToast('下载未完成: ' + (data.error || '未知错误'), 'warning');
                     updateStatusLight('error');
                 }
             } catch (error) {
-                showToast('连接错误: ' + error.message, 'error');
+                showToast('连接错误: ' + error.message, 'warning');
                 updateStatusLight('error');
             } finally {
                 sendBtn.disabled = false;
@@ -1609,7 +1643,7 @@
         });
 
         localDownloadBtn.addEventListener('click', async function() {
-            if (!currentTaskId) { showToast('没有可下载的文件', 'error'); return; }
+            if (!currentTaskId) { showToast('没有可下载的文件', 'warning'); return; }
             showToast('正在准备文件...', 'info');
             localDownloadBtn.disabled = true;
             const originalContent = localDownloadBtn.innerHTML;
@@ -1632,10 +1666,10 @@
                     showToast('文件开始下载到您的设备', 'success');
                 } else {
                     const errorData = await response.json();
-                    showToast('下载失败: ' + (errorData.error || '未知错误'), 'error');
+                    showToast('下载未完成: ' + (errorData.error || '未知错误'), 'warning');
                 }
             } catch (error) {
-                showToast('下载错误: ' + error.message, 'error');
+                showToast('下载错误: ' + error.message, 'warning');
             } finally {
                 localDownloadBtn.disabled = false;
                 localDownloadBtn.innerHTML = originalContent;
@@ -1688,11 +1722,11 @@
                     showToast('音乐库加载成功', 'success');
                 } else {
                     const errorData = await response.json();
-                    showToast('加载失败: ' + (errorData.error || '未知错误'), 'error');
+                    showToast('加载失败: ' + (errorData.error || '未知错误'), 'warning');
                     musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">error</span><div style="font-size: 16px; font-weight: 500;">加载失败</div><div style="font-size: 14px; margin-top: 8px;">' + (errorData.error || '请重试') + '</div></div>';
                 }
             } catch (error) {
-                showToast('加载失败: ' + error.message, 'error');
+                showToast('加载失败: ' + error.message, 'warning');
                 musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">wifi_off</span><div style="font-size: 16px; font-weight: 500;">网络连接失败</div><div style="font-size: 14px; margin-top: 8px;">请检查服务器是否运行</div></div>';
             } finally {
                 isLibraryLoading = false;
@@ -1796,7 +1830,7 @@
 
         async function downloadMusicFile(systemFilename) {
             if (!systemFilename) {
-                showToast('文件名无效', 'error');
+                showToast('文件名无效', 'warning');
                 return;
             }
             
@@ -1831,16 +1865,16 @@
                     showToast('文件开始下载到您的设备', 'success');
                 } else {
                     const errorData = await response.json();
-                    showToast('下载失败: ' + (errorData.error || '未知错误'), 'error');
+                    showToast('下载未完成: ' + (errorData.error || '未知错误'), 'warning');
                 }
             } catch (error) {
-                showToast('下载错误: ' + error.message, 'error');
+                showToast('下载错误: ' + error.message, 'warning');
             }
         }
 
         function playMusicFromLibrary(systemFilename) {
             if (!systemFilename) {
-                showToast('文件名无效', 'error');
+                showToast('文件名无效', 'warning');
                 return;
             }
             
@@ -1854,7 +1888,7 @@
                 // 尝试通过自定义文件名查找
                 const altMusicItem = musicLibrary.find(item => item.custom_filename === systemFilename);
                 if (!altMusicItem) {
-                    showToast('未找到对应的音乐文件', 'error');
+                    showToast('未找到对应的音乐文件', 'warning');
                     return;
                 }
                 // 使用找到的项
