@@ -29,7 +29,7 @@ std::string TaskManager::createTask(const std::string& url, const std::string& f
     auto analyzer = std::make_shared<MusicAnaly>(task_id, ext, path); // 智能指针接管
     { // 上锁
         std::lock_guard<std::mutex> lock(mutex_);
-        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName(), name + analyzer->getDownloadFileType(), false};
+        tasks_[task_id] = TaskInfo{task_id, url, analyzer, false, std::chrono::system_clock::now(), analyzer->getDownloadFilePathName(), name + analyzer->getDownloadFileType(), false, offsetMs};
         // 加入到任务，并解锁
     }
 

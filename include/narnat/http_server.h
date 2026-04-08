@@ -10,7 +10,7 @@
 
 class HttpServer {
 public:
-    HttpServer(int port);
+    HttpServer(int port, const std::string& downloadPath = "./download/");
     ~HttpServer(); // 添加析构函数
     void start();
     void handleRequest(int clientSocket);
@@ -18,6 +18,7 @@ public:
 private:
     int port_;
     int serverSocket_;
+    std::string downloadPath_;
     std::atomic<bool> running_{true};
     BS::thread_pool<BS::tp::priority> pool_{5};
     

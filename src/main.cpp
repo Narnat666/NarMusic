@@ -59,7 +59,12 @@ int main(int argc, char* argv[]) {
     }
 
     {
-    HttpServer server(port);
+    // 如果未指定路径，使用默认路径
+    if (path.empty()) {
+        path = "./download/";
+    }
+    
+    HttpServer server(port, path);
     server.start();
     }
     return 0;

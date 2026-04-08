@@ -10,6 +10,9 @@
 #include <sstream>
 #include <fstream>
 #include <sys/stat.h>
+#include <filesystem>
+#include <map>
+#include <vector>
 #include "task_manger.h"
 #include "nlohmann/json.hpp"
 #include "curl/curl.h"
@@ -18,6 +21,7 @@
 #include "stream_send.h"
 
 using json = nlohmann::json;
+namespace fs = std::filesystem;
 extern bool debug;
 const long long MAX_CHUNK_SIZE = (288 * 1024);
 TaskManager& nt = TaskManager::instance();
@@ -46,6 +50,76 @@ std::string readFile(const std::string& path) {
 bool fileExists(const std::string& filename) {
     struct stat buffer;
     return (stat(filename.c_str(), &buffer) == 0);
+}
+
+// 辅助函数：扫描音乐库目录
+std::vector<std::map<std::string, std::string>> scanMusicLibrary(const std::string& directory) {
+    std::vector<std::map<std::string, std::string>> musicList;
+    
+    try {
+        // 检查目录是否存在
+        if (!fs::exists(directory)) {
+            std::cerr << "音乐库目录不存在: " << directory << std::endl;
+            return musicList;
+        }
+        
+        // 扫描目录中的音乐文件
+        for (const auto& entry : fs::directory_iterator(directory)) {
+            if (entry.is_regular_file()) {
+                std::string extension = entry.path().extension();
+                
+                // 支持的音乐文件格式
+                if (extension == ".m4a" || extension == ".mp3" || 
+                    extension == ".flac" || extension == ".wav" ||
+                    extension == ".aac" || extension == ".ogg") {
+                    
+                    std::map<std::string, std::string> musicItem;
+                    
+                    // 文件名
+                    std::string filename = entry.path().filename();
+                    musicItem["filename"] = filename;
+                    
+                    // 文件大小（字节）
+                    musicItem["file_size"] = std::to_string(entry.file_size());
+                    
+                    // 下载时间（使用文件修改时间）
+                    auto ftime = entry.last_write_time();
+                    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+                        ftime - fs::file_time_type::clock::now() + 
+                        std::chrono::system_clock::now());
+                    time_t download_time = std::chrono::system_clock::to_time_t(sctp);
+                    musicItem["download_time"] = std::to_string(download_time);
+                    
+                    // 延迟设置（从TaskManager中查找）
+                    int delay_ms = 0;
+                    {
+                        std::lock_guard<std::mutex> lock(nt.mutex_);
+                        for (const auto& task : nt.tasks_) {
+                            if (task.second.file_send_name == filename) {
+                                delay_ms = task.second.delay_ms;
+                                break;
+                            }
+                        }
+                    }
+                    musicItem["delay_ms"] = std::to_string(delay_ms);
+                    
+                    musicList.push_back(musicItem);
+                }
+            }
+        }
+        
+        // 按下载时间倒序排序（最新的在前）
+        std::sort(musicList.begin(), musicList.end(), 
+                  [](const auto& a, const auto& b) {
+                      return std::stoll(a.at("download_time")) > 
+                             std::stoll(b.at("download_time"));
+                  });
+        
+    } catch (const std::exception& e) {
+        std::cerr << "扫描音乐库失败: " << e.what() << std::endl;
+    }
+    
+    return musicList;
 }
 
 std::string getTaskIdByJson(std::string& query) {
@@ -444,6 +518,38 @@ void HttpServer::handleRequest(int clientSocket) {
             }
 
         }
+
+        // 音乐库列表API
+        if (request.getPath() == "/api/library/list") {
+            try {
+                // 扫描下载目录（使用配置的路径）
+                std::string downloadPath = downloadPath_;
+                
+                // 扫描音乐文件
+                auto musicList = scanMusicLibrary(downloadPath);
+                
+                // 构建JSON响应
+                json responseJson = json::array();
+                
+                for (const auto& item : musicList) {
+                    json musicJson;
+                    musicJson["filename"] = item.at("filename");
+                    musicJson["download_time"] = std::stoll(item.at("download_time"));
+                    musicJson["delay_ms"] = std::stoi(item.at("delay_ms"));
+                    musicJson["file_size"] = std::stoll(item.at("file_size"));
+                    responseJson.push_back(musicJson);
+                }
+                
+                sendResponse(clientSocket, "200 OK", responseJson.dump());
+                
+            } catch (const std::exception& e) {
+                json errorJson;
+                errorJson["error"] = "Failed to scan music library: " + std::string(e.what());
+                sendResponse(clientSocket, "500 Internal Server Error", errorJson.dump());
+            }
+            
+            return;
+        }
     
     }
 
@@ -542,7 +648,8 @@ void HttpServer::handleRequest(int clientSocket) {
                  
 }
 
-HttpServer::HttpServer(int port) : port_(port), serverSocket_(-1) {}
+HttpServer::HttpServer(int port, const std::string& downloadPath) 
+    : port_(port), serverSocket_(-1), downloadPath_(downloadPath) {}
 
 void HttpServer::start() {
     serverSocket_ = socket(AF_INET, SOCK_STREAM, 0);
