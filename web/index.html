@@ -1033,7 +1033,7 @@
         <header class="topbar">
             <div class="search-bar">
                 <span class="material-symbols-rounded">search</span>
-                <input type="text" placeholder="搜索歌曲、专辑或歌手..." id="searchInput">
+                <input type="text" placeholder="搜索歌曲、歌手..." id="searchInput">
             </div>
             <div class="user-profile">NAR</div>
         </header>
@@ -1041,17 +1041,17 @@
         <div class="content-scroll">
             <!-- 下载页面 -->
             <div id="downloadTab" class="tab-content">
-                <h2 class="section-title">音乐下载</h2>
+                <h2 class="section-title">音乐提取</h2>
                 <div class="download-section">
                     <!-- 输入区域 -->
                     <div class="input-group">
                         <label class="input-label">音乐链接</label>
-                        <textarea class="md-input" id="urlInput" rows="3" placeholder="输入歌曲链接或包含链接的文本..."></textarea>
+                        <textarea class="md-input" id="urlInput" rows="3" placeholder="输入B站歌曲视频链接或包含链接的文本..."></textarea>
                     </div>
 
                     <div class="input-group">
-                        <label class="input-label">自定义文件名（可选）</label>
-                        <input type="text" class="md-input" id="filenameInput" placeholder="输入文件名">
+                        <label class="input-label">自定义文件名（歌词提取）</label>
+                        <input type="text" class="md-input" id="filenameInput" placeholder="歌曲名称 - 作者">
                     </div>
 
                     <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
@@ -1111,7 +1111,7 @@
 
             <!-- 音乐库页面 -->
             <div id="libraryTab" class="tab-content" style="display: none;">
-                <h2 class="section-title">我的音乐库</h2>
+                <h2 class="section-title">服务器音乐库</h2>
                 <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
                     <div style="color: var(--md-sys-color-on-surface-variant); font-size: 14px;">
                         已下载 <span id="musicCount">0</span> 首音乐
@@ -1139,20 +1139,19 @@
                         <div class="file-info-title">下载设置</div>
                         
                         <div class="input-group">
-                            <label class="input-label">默认音乐平台</label>
+                            <label class="input-label">歌词提取平台</label>
                             <select class="md-input" id="settingsPlatformSelect" style="cursor: pointer;">
-                                <option value="酷狗音乐">酷狗音乐</option>
                                 <option value="网易云音乐">网易云音乐</option>
+                                <option value="酷狗音乐">酷狗音乐</option>
                                 <option value="QQ音乐">QQ音乐</option>
-                                <option value="酷我音乐">酷我音乐</option>
                             </select>
                         </div>
 
                         <div class="input-group">
-                            <label class="input-label">默认延迟 (ms)</label>
-                            <input type="number" class="md-input" id="settingsDelayInput" placeholder="0" value="0">
+                            <label class="input-label">延迟 (ms)</label>
+                            <input type="number" class="md-input" id="settingsDelayInput" placeholder="0" value="0" step="100" min="0">
                             <div style="font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">
-                                设置下载前的延迟时间，0表示无延迟
+                                设置歌词写入延迟时间，0表示无延迟
                             </div>
                         </div>
 
@@ -1169,10 +1168,12 @@
                     </div>
 
                     <div class="status-card" style="margin-top: 20px;">
-                        <div class="file-info-title">关于</div>
+                        <div class="file-info-title">关于纳儿音乐</div>
                         <p style="color: var(--md-sys-color-on-surface-variant); line-height: 1.6;">
-                            纳儿音乐网页版 · 手机适配<br>
-                            支持多平台音乐链接解析与下载
+                            基于B站歌曲链接下载音频<br>
+                            -支持封面与歌词封装<br>
+                            -支持多平台歌词获取<br>
+                            -支持歌词与音频同步<br>
                         </p>
                     </div>
                 </div>
@@ -1341,7 +1342,7 @@
 
         function resetSettings() {
             if (settingsPlatformSelect) {
-                settingsPlatformSelect.value = '酷狗音乐';
+                settingsPlatformSelect.value = '网易云音乐';
             }
             
             if (settingsDelayInput) {
@@ -1743,7 +1744,7 @@
             const url = extractUrlFromText(inputText);
             if (!url) { showToast('未找到有效的链接', 'warning'); urlInput.focus(); return; }
             // 从设置界面获取平台和延迟值
-            const platform = settingsPlatformSelect ? settingsPlatformSelect.value : "酷狗音乐";
+            const platform = settingsPlatformSelect ? settingsPlatformSelect.value : "网易云音乐";
             let delayValue = 0;
             if (settingsDelayInput) {
                 const delayText = settingsDelayInput.value.trim();
