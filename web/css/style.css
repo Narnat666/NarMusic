@@ -1,0 +1,1000 @@
+:root {
+    /* Material Design 3 网页版经典配色 - 更柔和的版本 */
+    --md-sys-color-background: #F8FAFD;
+    --md-sys-color-surface: #FFFFFF;
+    --md-sys-color-surface-variant: #E8EAED;
+    --md-sys-color-on-surface: #1A1A1A;
+    --md-sys-color-on-surface-variant: #5A5D63;
+    --md-sys-color-primary: #2D7BC1;
+    --md-sys-color-primary-container: #E3F0FF;
+    --md-sys-color-on-primary-container: #002A4D;
+    --md-sys-color-secondary: #6B7685;
+    --md-sys-color-secondary-container: #E9EDF5;
+    --md-sys-color-error: #C62828;
+    --md-sys-color-error-container: #FFEBEE;
+    --md-sys-color-success: #2E7D32;
+    --md-sys-color-success-container: #E8F5E9;
+    --md-sys-color-warning: #F57C00;
+    --md-sys-color-warning-container: #FFF3E0;
+
+    /* 播放器专属颜色 */
+    --player-bg: #FFFFFF;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Google Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+    background-color: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-surface);
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 1fr;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ===== 左侧导航栏 (桌面) ===== */
+.sidebar {
+    grid-column: 1 / 2;
+    grid-row: 1 / 2;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px 24px 16px;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px;
+    border-radius: 100px;
+    color: var(--md-sys-color-on-surface-variant);
+    text-decoration: none;
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    width: 100%;
+    font-size: 14px;
+}
+
+.nav-item:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.nav-item.active {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    font-weight: 600;
+}
+
+.nav-item.active .material-symbols-rounded {
+    font-variation-settings: 'FILL' 1;
+}
+
+/* ===== 主内容区域 (桌面) ===== */
+.main-container {
+    grid-column: 2 / 3;
+    grid-row: 1 / 2;
+    background-color: var(--md-sys-color-surface);
+    border-radius: 24px;
+    margin: 16px 16px 16px 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+
+/* 顶部搜索与应用栏 */
+.topbar {
+    height: 72px;
+    padding: 0 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    background-color: var(--md-sys-color-background);
+    padding: 0 16px;
+    border-radius: 100px;
+    width: 400px;
+    height: 48px;
+    gap: 12px;
+}
+
+.search-bar input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    font-size: 16px;
+    color: var(--md-sys-color-on-surface);
+}
+
+.user-profile {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--md-sys-color-primary-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--md-sys-color-primary);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* 核心内容滚动区 */
+.content-scroll {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+}
+
+.section-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 24px;
+}
+
+/* ===== 下载功能区 ===== */
+.download-section {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.input-group {
+    margin-bottom: 20px;
+}
+
+.input-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 8px;
+}
+
+.md-input {
+    width: 100%;
+    padding: 16px 20px;
+    border: 1px solid var(--md-sys-color-surface-variant);
+    border-radius: 16px;
+    font-size: 16px;
+    background-color: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-surface);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+
+.md-input:focus {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 4px rgba(0, 97, 164, 0.1);
+}
+
+.md-input::placeholder {
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.6;
+}
+
+.input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* 按钮样式 */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px 32px;
+    background-color: var(--md-sys-color-primary);
+    color: white;
+    border: none;
+    border-radius: 100px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    box-shadow: 0 2px 8px rgba(0, 97, 164, 0.3);
+}
+
+.btn-primary:hover {
+    background-color: #1A8AE6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(45, 123, 193, 0.3);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+    background-color: var(--md-sys-color-surface-variant);
+    color: var(--md-sys-color-on-surface-variant);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-surface);
+    border: none;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #c5d4ea;
+}
+
+.btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 状态卡片 */
+.status-card {
+    background-color: var(--md-sys-color-background);
+    border-radius: 20px;
+    padding: 24px;
+    margin-top: 24px;
+    border: 1px solid var(--md-sys-color-surface-variant);
+}
+
+.status-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.status-light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #ccc;
+    transition: background-color 0.3s;
+}
+
+.status-light.idle { background-color: #B0B0B0; }
+.status-light.downloading { background-color: var(--md-sys-color-warning); animation: pulse 2s infinite; }
+.status-light.success { background-color: var(--md-sys-color-success); }
+.status-light.error { background-color: var(--md-sys-color-error); }
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+.status-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.status-item {
+    background-color: var(--md-sys-color-surface);
+    padding: 16px;
+    border-radius: 12px;
+}
+
+.status-label {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+    font-variant-numeric: tabular-nums;
+}
+
+/* 文件信息 */
+.file-info {
+    background-color: var(--md-sys-color-surface);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 16px;
+    display: none;
+}
+
+.file-info.show {
+    display: block;
+}
+
+.file-info-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.file-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+}
+
+.file-info-row:last-child {
+    border-bottom: none;
+}
+
+.file-info-label {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 14px;
+}
+
+.file-info-value {
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface);
+    font-size: 14px;
+}
+
+
+
+/* 弹窗音频播放器 */
+.audio-popup {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) translateY(20px);
+    width: 320px;
+    background-color: var(--md-sys-color-surface);
+    border-radius: 20px;
+    padding: 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    z-index: 1000;
+    border: 1px solid var(--md-sys-color-surface-variant);
+    overflow: hidden;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0;
+}
+
+.audio-popup.show {
+    display: block;
+    opacity: 1;
+}
+
+.audio-popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: var(--md-sys-color-primary-container);
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    cursor: move;
+    user-select: none;
+}
+
+.audio-popup-title {
+    font-weight: 600;
+    color: var(--md-sys-color-on-primary-container);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+}
+
+.audio-popup-close-btn {
+    background: none;
+    border: none;
+    color: var(--md-sys-color-on-primary-container);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.audio-popup-close-btn:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.audio-popup-content {
+    padding: 20px;
+}
+
+.audio-popup-track-info {
+    margin-bottom: 16px;
+}
+
+.audio-popup-track-title {
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+    font-size: 18px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.audio-popup-track-artist {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 14px;
+}
+
+.audio-popup-player {
+    width: 100%;
+    margin-bottom: 16px;
+    border-radius: 8px;
+    outline: none;
+}
+
+/* 移动端弹窗适配 */
+@media (max-width: 768px) {
+    .audio-popup {
+        width: calc(100% - 40px);
+        max-width: 400px;
+    }
+}
+
+/* 提示消息 */
+.toast {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-weight: 500;
+    z-index: 1000;
+    transform: translateX(400px);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    opacity: 0;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast.info {
+    background-color: rgba(227, 240, 255, 0.95);
+    color: var(--md-sys-color-on-primary-container);
+    border-left: 4px solid var(--md-sys-color-primary);
+}
+
+.toast.success {
+    background-color: rgba(232, 245, 233, 0.95);
+    color: var(--md-sys-color-success);
+    border-left: 4px solid var(--md-sys-color-success);
+}
+
+.toast.warning {
+    background-color: rgba(255, 243, 224, 0.95);
+    color: var(--md-sys-color-warning);
+    border-left: 4px solid var(--md-sys-color-warning);
+}
+
+.toast.error {
+    background-color: rgba(255, 235, 238, 0.95);
+    color: var(--md-sys-color-error);
+    border-left: 4px solid var(--md-sys-color-error);
+}
+
+/* ===== 音乐库 - 酷狗歌单风格 ===== */
+.music-library {
+    width: 100%;
+}
+
+.music-list-header {
+    display: grid;
+    grid-template-columns: 48px 1fr 90px 80px 130px 72px;
+    align-items: center;
+    padding: 0 12px;
+    height: 36px;
+    border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.music-list-header .col-center {
+    text-align: center;
+}
+
+.music-item {
+    display: grid;
+    grid-template-columns: 48px 1fr 90px 80px 130px 72px;
+    align-items: center;
+    padding: 0 12px;
+    height: 52px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    transition: background-color 0.15s;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    gap: 0;
+    cursor: default;
+}
+
+.music-item:hover {
+    background-color: rgba(0,0,0,0.03);
+}
+
+.music-item:nth-child(even) {
+    background-color: rgba(0,0,0,0.015);
+}
+
+.music-item:nth-child(even):hover {
+    background-color: rgba(0,0,0,0.04);
+}
+
+.music-index {
+    text-align: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.music-index-num {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-variant-numeric: tabular-nums;
+}
+
+.music-item:hover .music-index-num {
+    display: none;
+}
+
+.music-index-play {
+    display: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--md-sys-color-primary);
+    color: white;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s, background-color 0.15s;
+}
+
+.music-index-play:hover {
+    transform: scale(1.1);
+    background-color: #1A8AE6;
+}
+
+.music-index-play .material-symbols-rounded {
+    font-size: 18px;
+}
+
+.music-item:hover .music-index-play {
+    display: flex;
+}
+
+.music-name {
+    min-width: 0;
+    padding-right: 12px;
+    overflow: hidden;
+}
+
+.music-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.music-subtitle {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+    line-height: 1.3;
+    display: none;
+}
+
+.music-delay {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.music-size {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.music-time {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.music-actions-cell {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.music-item:hover .music-actions-cell {
+    opacity: 1;
+}
+
+.music-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.music-action-btn:hover {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-primary);
+}
+
+.music-action-btn .material-symbols-rounded {
+    font-size: 18px;
+}
+
+/* ---------- 移动端适配 (小米/安卓竖屏) ---------- */
+@media (max-width: 768px) {
+    body {
+        display: flex;
+        flex-direction: column;
+        grid-template-columns: none;
+        grid-template-rows: none;
+        height: 100vh;
+        overflow: hidden;
+        background-color: var(--md-sys-color-surface);
+    }
+
+    /* 顶部横向导航栏 (原左侧导航内容) */
+    .sidebar {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        grid-column: unset;
+        grid-row: unset;
+        width: 100%;
+        padding: 8px 16px;
+        gap: 8px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        background-color: var(--md-sys-color-surface);
+        border-bottom: 1px solid var(--md-sys-color-surface-variant);
+        flex-shrink: 0;
+        order: 0;
+    }
+    .sidebar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--md-sys-color-on-surface);
+        margin-right: 4px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .brand .material-symbols-rounded {
+        font-size: 24px;
+    }
+
+    .nav-item {
+        display: inline-flex;
+        width: auto;
+        padding: 10px 18px;
+        gap: 8px;
+        font-size: 14px;
+        white-space: nowrap;
+        flex-shrink: 0;
+        border-radius: 40px;
+    }
+
+    /* 主内容区域 — 占满剩余高度 */
+    .main-container {
+        grid-column: unset;
+        grid-row: unset;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .topbar {
+        height: 60px;
+        padding: 0 16px;
+        flex-shrink: 0;
+    }
+
+    .search-bar {
+        width: 100%;
+        max-width: 100%;
+        height: 44px;
+        padding: 0 12px;
+    }
+
+    .search-bar input {
+        font-size: 15px;
+    }
+
+    .user-profile {
+        width: 36px;
+        height: 36px;
+        margin-left: 12px;
+        flex-shrink: 0;
+    }
+
+    .content-scroll {
+        padding: 20px 16px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .section-title {
+        font-size: 22px;
+        margin-bottom: 20px;
+    }
+
+    .download-section {
+        max-width: 100%;
+    }
+
+    .input-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .md-input {
+        padding: 14px 16px;
+        font-size: 16px; /* 防止缩放 */
+    }
+
+    .btn-primary {
+        width: 100%;
+        padding: 16px 20px;
+        font-size: 16px;
+    }
+
+    .btn-secondary {
+        padding: 12px 18px;
+    }
+
+    .status-card {
+        padding: 20px 16px;
+        margin-top: 20px;
+    }
+
+    .status-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .status-item {
+        padding: 14px;
+    }
+
+    .file-info {
+        padding: 16px;
+    }
+
+    .audio-section {
+        padding: 16px;
+        margin-top: 20px;
+    }
+
+
+
+    /* Toast 适配手机 */
+    .toast {
+        top: 16px;
+        right: 16px;
+        left: 16px;
+        transform: translateY(-120%);
+        padding: 14px 20px;
+        font-size: 15px;
+        text-align: center;
+        border-radius: 40px;
+        max-width: 400px;
+        margin: 0 auto;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+        opacity: 0;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .toast.show {
+        transform: translateY(0);
+        opacity: 1;
+    }
+
+    /* 音乐库移动端适配 - 酷狗歌单风格 */
+    .music-list-header {
+        display: none;
+    }
+
+    .music-item {
+        grid-template-columns: 36px 1fr auto auto;
+        height: auto;
+        min-height: 56px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    }
+
+    .music-delay,
+    .music-size {
+        display: none;
+    }
+
+    .music-time {
+        font-size: 12px;
+        text-align: right;
+        align-self: center;
+        padding-right: 4px;
+    }
+
+    .music-index-play {
+        width: 24px;
+        height: 24px;
+    }
+
+    .music-index-play .material-symbols-rounded {
+        font-size: 16px;
+    }
+
+    .music-item:hover .music-index-num {
+        display: none;
+    }
+
+    .music-item:hover .music-index-play {
+        display: flex;
+    }
+
+    .music-name {
+        padding-right: 8px;
+    }
+
+    .music-title {
+        font-size: 15px;
+    }
+
+    .music-subtitle {
+        font-size: 12px;
+        display: block;
+    }
+
+    .music-actions-cell {
+        opacity: 1;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .music-action-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .music-action-btn .material-symbols-rounded {
+        font-size: 20px;
+    }
+}
+
+/* 更小屏幕微调 (<=400) */
+@media (max-width: 400px) {
+    .brand {
+        font-size: 16px;
+    }
+    .nav-item {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+    .player-info {
+        max-width: 120px;
+    }
+    .player-title {
+        font-size: 12px;
+    }
+    .player-artist {
+        font-size: 10px;
+    }
+    .player-controls .icon-btn:not(.play-pause-btn) {
+        width: 32px;
+        height: 32px;
+    }
+    .play-pause-btn {
+        width: 40px;
+        height: 40px;
+    }
+    .progress-bar {
+        width: 45px;
+    }
+    .time-display {
+        font-size: 10px;
+    }
+    .player-extra {
+        min-width: 100px;
+    }
+}
+
+/* 桌面保留原有网格布局，不受影响 */
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

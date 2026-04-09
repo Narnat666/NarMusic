@@ -859,8 +859,8 @@ void HttpServer::start() {
     // 定时清理map表 - 保存线程对象避免泄漏
     pool_.detach_task([this]() {
         while (running_) { 
-            TaskManager::instance().cleanupOldTasks(60);
-            std::this_thread::sleep_for(std::chrono::seconds(60));
+            TaskManager::instance().cleanupOldTasks(600);
+            std::this_thread::sleep_for(std::chrono::seconds(600));
         }
     });
     
