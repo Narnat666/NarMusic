@@ -13,6 +13,7 @@ add_executable(http_server
     src/task_manger.cpp
     src/stream_send.cpp
     src/lyrics_encapsulator.cpp
+    src/bili_searcher.cpp
 )
 
 target_include_directories(http_server PRIVATE

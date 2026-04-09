@@ -21,12 +21,14 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include "stream_send.h"
+#include "bili_searcher.h"
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 extern bool debug;
 const long long MAX_CHUNK_SIZE = (288 * 1024);
 TaskManager& nt = TaskManager::instance();
+BiliSearcher searcher;
 
 void sendResponse(int socket, const std::string& status, const std::string& body) {
     std::stringstream response;
@@ -646,6 +648,36 @@ void HttpServer::handleRequest(int clientSocket) {
                 return;
             }
 
+        }
+
+        // 搜索API
+        if (request.getPath() == "/api/search") {
+            std::string query = request.getQueryString();
+            std::string keyword = getQueryParam(query, "keyword");
+            
+            if (keyword.empty()) {
+                sendResponse(clientSocket, "400 Bad Request", "{\"keyword\":\"\",\"link\":\"\",\"title\":\"\",\"error\":\"missing_keyword\"}");
+                return;
+            }
+
+            std::cout << "收到搜索请求: " << keyword << std::endl;
+            auto results = searcher.search(keyword);
+
+            json responseJson;
+            responseJson["keyword"] = keyword;
+
+            if (!results.empty() && !results[0]["link"].empty()) {
+                responseJson["link"] = results[0]["link"];
+                responseJson["title"] = results[0]["title"];
+                std::cout << "搜索成功: " << results[0]["title"] << " -> " << results[0]["link"] << std::endl;
+            } else {
+                responseJson["link"] = "";
+                responseJson["title"] = "";
+                std::cerr << "搜索失败: 未找到匹配视频" << std::endl;
+            }
+
+            sendResponse(clientSocket, "200 OK", responseJson.dump());
+            return;
         }
 
         // 音乐库列表API
