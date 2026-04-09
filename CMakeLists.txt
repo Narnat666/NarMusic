@@ -24,6 +24,7 @@ target_include_directories(http_server PRIVATE
     include/threadpool
     include/taglib
     include/taglib/toolkit
+    include/gumbo-parser
 )
 
 target_compile_options(http_server PRIVATE
@@ -41,6 +42,7 @@ target_link_libraries(http_server
     ${CMAKE_SOURCE_DIR}/lib/libz.a
     ${CMAKE_SOURCE_DIR}/lib/libgsasl.a
     ${CMAKE_SOURCE_DIR}/lib/libtag.a
+    ${CMAKE_SOURCE_DIR}/lib/libgumbo.a
     pthread
     ${CMAKE_DL_LIBS} 
 )

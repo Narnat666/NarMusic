@@ -1031,9 +1031,9 @@
     <!-- 主内容区域 -->
     <main class="main-container">
         <header class="topbar">
-            <div class="search-bar">
-                <span class="material-symbols-rounded">search</span>
-                <input type="text" placeholder="搜索歌曲、歌手..." id="searchInput">
+            <div class="search-bar" id="searchBar">
+                <span class="material-symbols-rounded" id="searchIcon">search</span>
+                <input type="text" placeholder="搜索歌曲、歌手..." id="searchInput" enterkeyhint="search">
             </div>
             <div class="user-profile">NAR</div>
         </header>
@@ -1170,10 +1170,11 @@
                     <div class="status-card" style="margin-top: 20px;">
                         <div class="file-info-title">关于纳儿音乐</div>
                         <p style="color: var(--md-sys-color-on-surface-variant); line-height: 1.6;">
-                            基于B站歌曲链接下载音频<br>
+                            基于B站歌曲链接下载音乐文件<br>
                             -支持封面与歌词封装<br>
                             -支持多平台歌词获取<br>
                             -支持歌词与音频同步<br>
+                            -支持通过歌曲名搜索下载<br>
                         </p>
                     </div>
                 </div>
@@ -1215,6 +1216,7 @@
         let speedHistory = [];
         const MAX_SPEED_HISTORY = 3;
         let downloadStartTime = null;
+        let taskSuccessNotified = false;
         
         // 音乐库相关变量
         let musicLibrary = [];
@@ -1655,6 +1657,7 @@
             lastSpeedUpdateTime = Date.now();
             speedHistory = [];
             downloadStartTime = null;
+            taskSuccessNotified = false;
         }
 
         function updateTaskStatus(status) {
@@ -1681,7 +1684,10 @@
                         }
                         fileInfo.classList.add('show');
                     }
-                    showToast('文件下载完成', 'success');
+                    if (!taskSuccessNotified) {
+                        taskSuccessNotified = true;
+                        showToast('文件下载完成', 'success');
+                    }
                 } else {
                     updateStatusLight('error');
                     localDownloadBtn.style.display = 'none';
@@ -1819,6 +1825,63 @@
         });
 
 
+
+        const searchInput = document.getElementById('searchInput');
+        const searchIcon = document.getElementById('searchIcon');
+        const searchBar = document.getElementById('searchBar');
+        let isSearching = false;
+
+        async function performSearch() {
+            const keyword = searchInput.value.trim();
+            if (!keyword) { showToast('请输入搜索关键词', 'warning'); searchInput.focus(); return; }
+            if (isSearching) return;
+
+            isSearching = true;
+            searchIcon.textContent = 'hourglass_top';
+            searchIcon.style.animation = 'spin 1s linear infinite';
+            searchInput.disabled = true;
+
+            try {
+                const response = await fetch('/api/search?keyword=' + encodeURIComponent(keyword));
+                const data = await response.json();
+
+                if (response.ok && data.link) {
+                    switchTabByName('download');
+                    urlInput.value = data.title + ' ' + data.link;
+                    filenameInput.value = data.keyword;
+                    showToast('已找到: ' + data.title, 'success');
+                } else {
+                    showToast('未找到匹配视频，请尝试其他关键词', 'warning');
+                }
+            } catch (error) {
+                showToast('搜索失败: ' + error.message, 'warning');
+            } finally {
+                isSearching = false;
+                searchIcon.textContent = 'search';
+                searchIcon.style.animation = '';
+                searchInput.disabled = false;
+            }
+        }
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); performSearch(); }
+        });
+        searchInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); }
+        });
+        searchIcon.addEventListener('click', performSearch);
+        searchIcon.style.cursor = 'pointer';
+
+        function switchTabByName(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+            document.getElementById(tabName + 'Tab').style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            const navItems = document.querySelectorAll('.nav-item');
+            const tabIndex = { download: 0, library: 1, settings: 2 };
+            if (tabIndex[tabName] !== undefined && navItems[tabIndex[tabName]]) {
+                navItems[tabIndex[tabName]].classList.add('active');
+            }
+        }
 
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
