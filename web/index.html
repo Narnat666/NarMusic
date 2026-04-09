@@ -535,7 +535,181 @@
             border-left: 4px solid var(--md-sys-color-error);
         }
 
+        /* ===== 音乐库 - 酷狗歌单风格 ===== */
+        .music-library {
+            width: 100%;
+        }
 
+        .music-list-header {
+            display: grid;
+            grid-template-columns: 48px 1fr 90px 80px 130px 72px;
+            align-items: center;
+            padding: 0 12px;
+            height: 36px;
+            border-bottom: 1px solid var(--md-sys-color-surface-variant);
+            color: var(--md-sys-color-on-surface-variant);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .music-list-header .col-center {
+            text-align: center;
+        }
+
+        .music-item {
+            display: grid;
+            grid-template-columns: 48px 1fr 90px 80px 130px 72px;
+            align-items: center;
+            padding: 0 12px;
+            height: 52px;
+            border-bottom: 1px solid rgba(0,0,0,0.04);
+            transition: background-color 0.15s;
+            border-radius: 0;
+            border: none;
+            background: transparent;
+            gap: 0;
+            cursor: default;
+        }
+
+        .music-item:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+
+        .music-item:nth-child(even) {
+            background-color: rgba(0,0,0,0.015);
+        }
+
+        .music-item:nth-child(even):hover {
+            background-color: rgba(0,0,0,0.04);
+        }
+
+        .music-index {
+            text-align: center;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .music-index-num {
+            font-size: 13px;
+            color: var(--md-sys-color-on-surface-variant);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .music-item:hover .music-index-num {
+            display: none;
+        }
+
+        .music-index-play {
+            display: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--md-sys-color-primary);
+            color: white;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s, background-color 0.15s;
+        }
+
+        .music-index-play:hover {
+            transform: scale(1.1);
+            background-color: #1A8AE6;
+        }
+
+        .music-index-play .material-symbols-rounded {
+            font-size: 18px;
+        }
+
+        .music-item:hover .music-index-play {
+            display: flex;
+        }
+
+        .music-name {
+            min-width: 0;
+            padding-right: 12px;
+            overflow: hidden;
+        }
+
+        .music-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+        }
+
+        .music-subtitle {
+            font-size: 12px;
+            color: var(--md-sys-color-on-surface-variant);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+            line-height: 1.3;
+            display: none;
+        }
+
+        .music-delay {
+            font-size: 13px;
+            color: var(--md-sys-color-on-surface-variant);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .music-size {
+            font-size: 13px;
+            color: var(--md-sys-color-on-surface-variant);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .music-time {
+            font-size: 13px;
+            color: var(--md-sys-color-on-surface-variant);
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .music-actions-cell {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .music-item:hover .music-actions-cell {
+            opacity: 1;
+        }
+
+        .music-action-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--md-sys-color-on-surface-variant);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .music-action-btn:hover {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-primary);
+        }
+
+        .music-action-btn .material-symbols-rounded {
+            font-size: 18px;
+        }
 
         /* ---------- 移动端适配 (小米/安卓竖屏) ---------- */
         @media (max-width: 768px) {
@@ -720,142 +894,75 @@
                 opacity: 1;
             }
 
-            /* 音乐库卡片网格调整 */
-            .album-grid {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr);
-                gap: 16px;
+            /* 音乐库移动端适配 - 酷狗歌单风格 */
+            .music-list-header {
+                display: none;
             }
 
-            .album-card {
-                cursor: pointer;
-            }
-
-            /* 音乐库移动端适配 */
             .music-item {
-                padding: 14px 16px;
-                gap: 12px;
+                grid-template-columns: 36px 1fr auto auto;
+                height: auto;
+                min-height: 56px;
+                padding: 10px 12px;
+                border-bottom: 1px solid var(--md-sys-color-surface-variant);
             }
 
-            .music-icon {
-                width: 40px;
-                height: 40px;
+            .music-delay,
+            .music-size {
+                display: none;
+            }
+
+            .music-time {
+                font-size: 12px;
+                text-align: right;
+                align-self: center;
+                padding-right: 4px;
+            }
+
+            .music-index-play {
+                width: 24px;
+                height: 24px;
+            }
+
+            .music-index-play .material-symbols-rounded {
+                font-size: 16px;
+            }
+
+            .music-item:hover .music-index-num {
+                display: none;
+            }
+
+            .music-item:hover .music-index-play {
+                display: flex;
+            }
+
+            .music-name {
+                padding-right: 8px;
             }
 
             .music-title {
                 font-size: 15px;
             }
 
-            .music-details {
-                flex-wrap: wrap;
-                gap: 8px;
+            .music-subtitle {
+                font-size: 12px;
+                display: block;
             }
 
-            .music-detail-item {
-                font-size: 12px;
+            .music-actions-cell {
+                opacity: 1;
+                flex-direction: column;
+                gap: 2px;
             }
 
             .music-action-btn {
-                width: 36px;
-                height: 36px;
+                width: 32px;
+                height: 32px;
             }
 
-        /* 音乐库列表样式 */
-        .music-library {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .music-item {
-            background-color: var(--md-sys-color-surface);
-            border-radius: 16px;
-            padding: 16px 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            transition: background-color 0.2s;
-            border: 1px solid var(--md-sys-color-surface-variant);
-        }
-
-        .music-item:hover {
-            background-color: var(--md-sys-color-background);
-        }
-
-        .music-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            background-color: var(--md-sys-color-primary-container);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--md-sys-color-primary);
-            flex-shrink: 0;
-        }
-
-        .music-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .music-title {
-            font-weight: 600;
-            font-size: 16px;
-            color: var(--md-sys-color-on-surface);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 4px;
-        }
-
-        .music-details {
-            display: flex;
-            gap: 16px;
-            font-size: 13px;
-            color: var(--md-sys-color-on-surface-variant);
-        }
-
-        .music-detail-item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .music-actions {
-            display: flex;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-
-        .music-action-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: var(--md-sys-color-background);
-            color: var(--md-sys-color-on-surface-variant);
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.2s, color 0.2s;
-        }
-
-        .music-action-btn:hover {
-            background-color: var(--md-sys-color-surface-variant);
-            color: var(--md-sys-color-on-surface);
-        }
-
-        .music-action-btn.download:hover {
-            background-color: var(--md-sys-color-primary-container);
-            color: var(--md-sys-color-on-primary-container);
-        }
-
-        .music-action-btn.play:hover {
-            background-color: var(--md-sys-color-primary-container);
-            color: var(--md-sys-color-on-primary-container);
-        }
+            .music-action-btn .material-symbols-rounded {
+                font-size: 20px;
+            }
         }
 
         /* 更小屏幕微调 (<=400) */
@@ -1771,7 +1878,8 @@
             
             musicCountEl.textContent = musicLibrary.length;
             
-            let html = '';
+            let html = '<div class="music-list-header"><span></span><span>歌曲</span><span class="col-center">延迟</span><span class="col-center">大小</span><span class="col-center">下载时间</span><span></span></div>';
+            
             musicLibrary.forEach((music, index) => {
                 const customFilename = music.custom_filename || '未知文件';
                 const systemFilename = music.system_filename || customFilename;
@@ -1779,42 +1887,28 @@
                 const downloadTime = music.download_time ? new Date(music.download_time * 1000) : new Date();
                 const delayMs = music.delay_ms || 0;
                 
-                // 格式化文件大小
                 const sizeText = formatBytes(fileSize);
-                
-                // 格式化下载时间为具体时间戳
                 const timeText = formatDateTime(downloadTime);
-                
-                // 使用自定义文件名作为标题
                 const title = customFilename.replace(/\.[^/.]+$/, '') || '未知歌曲';
+                const indexNum = String(index + 1).padStart(2, '0');
                 
                 html += `
                 <div class="music-item" data-index="${index}">
-                    <div class="music-icon">
-                        <span class="material-symbols-rounded">music_note</span>
-                    </div>
-                    <div class="music-info">
-                        <div class="music-title" title="${title}">${title}</div>
-                        <div class="music-details">
-                            <div class="music-detail-item">
-                                <span class="material-symbols-rounded" style="font-size: 14px;">timer</span>
-                                延迟 ${delayMs}ms
-                            </div>
-                            <div class="music-detail-item">
-                                <span class="material-symbols-rounded" style="font-size: 14px;">storage</span>
-                                ${sizeText}
-                            </div>
-                            <div class="music-detail-item">
-                                <span class="material-symbols-rounded" style="font-size: 14px;">schedule</span>
-                                ${timeText}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="music-actions">
-                        <button class="music-action-btn play" title="播放" onclick="playMusicFromLibrary('${systemFilename}')">
+                    <div class="music-index">
+                        <span class="music-index-num">${indexNum}</span>
+                        <button class="music-index-play" title="播放" onclick="playMusicFromLibrary('${systemFilename}')">
                             <span class="material-symbols-rounded">play_arrow</span>
                         </button>
-                        <button class="music-action-btn download" title="下载" onclick="downloadMusicFile('${systemFilename}')">
+                    </div>
+                    <div class="music-name">
+                        <div class="music-title" title="${title}">${title}</div>
+                        <div class="music-subtitle">${delayMs}ms · ${sizeText}</div>
+                    </div>
+                    <div class="music-delay">${delayMs}ms</div>
+                    <div class="music-size">${sizeText}</div>
+                    <div class="music-time">${timeText}</div>
+                    <div class="music-actions-cell">
+                        <button class="music-action-btn" title="下载" onclick="downloadMusicFile('${systemFilename}')">
                             <span class="material-symbols-rounded">download</span>
                         </button>
                     </div>
