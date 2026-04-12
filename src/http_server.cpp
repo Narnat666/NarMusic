@@ -115,7 +115,7 @@ std::vector<std::map<std::string, std::string>> scanMusicLibrary(const std::stri
                     {
                         std::lock_guard<std::mutex> lock(nt.mutex_);
                         for (const auto& task : nt.tasks_) {
-                            if (task.second.file_send_name == custom_filename) {
+                            if (task.second.file_path_name.find(system_filename) != std::string::npos) {
                                 delay_ms = task.second.delay_ms;
                                 break;
                             }
