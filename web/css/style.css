@@ -471,6 +471,36 @@ body {
     outline: none;
 }
 
+/* 歌词容器 */
+.lyrics-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: 8px;
+    background-color: var(--md-sys-color-surface-variant);
+    padding: 12px;
+    margin-top: 12px;
+    border: 1px solid var(--md-sys-color-surface-variant);
+}
+
+.lyrics-display {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--md-sys-color-on-surface-variant);
+    text-align: center;
+}
+
+.lyrics-line {
+    padding: 4px 8px;
+    transition: color 0.2s, font-weight 0.2s;
+    border-radius: 4px;
+}
+
+.lyrics-line.active {
+    color: var(--md-sys-color-primary);
+    font-weight: 600;
+    background-color: var(--md-sys-color-primary-container);
+}
+
 /* 移动端弹窗适配 */
 @media (max-width: 768px) {
     .audio-popup {
