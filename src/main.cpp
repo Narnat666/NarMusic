@@ -4,6 +4,7 @@
 #include <string>
 #include "curl/curl.h"
 #include <signal.h>
+#include <filesystem>
 
 std::string path = "";
 std::string ext = "";
@@ -59,9 +60,27 @@ int main(int argc, char* argv[]) {
     }
 
     {
-    // 如果未指定路径，使用默认路径
     if (path.empty()) {
         path = "./download/";
+    }
+    
+    namespace fs = std::filesystem;
+    if (fs::exists(path) && fs::is_directory(path)) {
+        int deletedCount = 0;
+        for (const auto& entry : fs::directory_iterator(path)) {
+            if (entry.is_regular_file()) {
+                std::string filePath = entry.path().string();
+                if (filePath.size() >= 4 && 
+                    filePath.substr(filePath.size() - 4) == ".m4a") {
+                    if (fs::remove(entry.path())) {
+                        deletedCount++;
+                    }
+                }
+            }
+        }
+        if (deletedCount > 0) {
+            std::cout << "已清理 " << deletedCount << " 个 .m4a 音乐文件" << std::endl;
+        }
     }
     
     HttpServer server(port, path);

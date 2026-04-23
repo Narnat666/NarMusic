@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
-project(http_server)
+project(NarMusic)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 可执行文件
-add_executable(http_server
+add_executable(NarMusic
     src/main.cpp
     src/http_server.cpp
     src/http_request.cpp
@@ -16,7 +16,7 @@ add_executable(http_server
     src/bili_searcher.cpp
 )
 
-target_include_directories(http_server PRIVATE
+target_include_directories(NarMusic PRIVATE
     include
     include/curl
     include/narnat
@@ -27,7 +27,7 @@ target_include_directories(http_server PRIVATE
     include/gumbo-parser
 )
 
-target_compile_options(http_server PRIVATE
+target_compile_options(NarMusic PRIVATE
     -Wall
     -Wextra
     -O2
@@ -35,7 +35,7 @@ target_compile_options(http_server PRIVATE
 
 # 静态编译程序
 
-target_link_libraries(http_server
+target_link_libraries(NarMusic
     ${CMAKE_SOURCE_DIR}/lib/libcurl.a
     ${CMAKE_SOURCE_DIR}/lib/libssl.a
     ${CMAKE_SOURCE_DIR}/lib/libcrypto.a

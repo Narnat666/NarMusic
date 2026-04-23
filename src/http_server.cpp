@@ -490,7 +490,7 @@ void HttpServer::handleRequest(int clientSocket) {
                     std::stringstream response;
                     response << "HTTP/1.1 200 OK\r\n";
                     response << "Content-Type: application/octet-stream\r\n";
-                    response << "Content-Disposition: attachment; filename=\"" << urlEncodeUtf8(display_filename) << "\"\r\n";
+                    response << "Content-Disposition: attachment; filename*=UTF-8''" << urlEncodeUtf8(display_filename) << "\r\n";
                     response << "Content-Length: " << fileSize << "\r\n";
                     response << "\r\n";
                 
@@ -770,7 +770,6 @@ void HttpServer::handleRequest(int clientSocket) {
                     platform = j["platform"].get<std::string>();
                     if (debug) std::cout << "音乐平台: " << platform << std::endl;
                 } else {
-                    // 如果前端未发送，保持默认值
                     platform = "酷狗音乐";
                     if (debug) std::cout << "使用默认音乐平台: " << platform << std::endl;
                 }
@@ -780,7 +779,6 @@ void HttpServer::handleRequest(int clientSocket) {
                     offsetMs = j["offsetMs"].get<int>();
                     if (debug) std::cout << "Delay参数: " << offsetMs << "ms" << std::endl;
                 } else {
-                    // 如果前端未发送，保持默认值
                     offsetMs = 0;
                     if (debug) std::cout << "使用默认Delay参数: " << offsetMs << "ms" << std::endl;
                 }

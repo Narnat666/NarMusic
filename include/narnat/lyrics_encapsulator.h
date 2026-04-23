@@ -23,6 +23,8 @@
 #include <memory>
 #include <chrono>
 #include <random>
+#include <cmath>
+#include <numeric>
 
 // 为m4a音乐文件写入歌词和封面
 // 需要文件名和文件路径作为输入
@@ -38,9 +40,11 @@ class LyricsEncapsulator {
             std::string artist;
             std::string album;
             std::string lyrics;
+            std::string translationLyrics;
             std::vector<uint8_t> coverData;
             std::string coverUrl;
             bool hasLyrics = false;
+            bool hasTranslation = false;
             bool hasCover = false;
             bool hasAlbum = false;
             int coverSize = 0;
@@ -54,9 +58,10 @@ class LyricsEncapsulator {
         std::string adjustLyricsTiming(const std::string& lyrics, int offsetMs); // 延迟设置
         bool searchSongFromKugou(const std::string& keyword, MusicData& data);
         bool searchSongFromQQMusic(const std::string& keyword, MusicData& data);
-        bool getLyricsFromKugou(MusicData& data, int offsetMs);
-        bool getLyricsFromQQMusic(MusicData& data, int offsetMs);
-        bool getLyricsFromNetease(MusicData& data, int offsetMs);
+        std::string fetchKugouAlbumCover(const std::string& album_id);
+        bool getLyricsFromKugou(MusicData& data);
+        bool getLyricsFromQQMusic(MusicData& data);
+        bool getLyricsFromNetease(MusicData& data);
         std::vector<uint8_t> getBestCoverFromAllPlatforms(
             const std::vector<std::unique_ptr<MusicData>>& allData,
             const std::string& specifiedSource);
@@ -71,6 +76,10 @@ class LyricsEncapsulator {
         std::vector<uint8_t> downloadImageFromUrl(const std::string& url);
         bool isValidImage(const std::vector<uint8_t>& data);
         std::string base64Decode(const std::string& encoded);
+        bool decryptKRC(const std::vector<uint8_t>& krcData, std::string& outLyrics, std::string& outTranslation);
+        std::string extractTranslationFromKRCMetadata(const std::string& krcText, const std::string& /*originalLyrics*/);
+        double nameSimilarity(const std::string& a, const std::string& b); // 歌名相似度
+
     
     public:
         LyricsEncapsulator();

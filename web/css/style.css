@@ -27,6 +27,12 @@
     margin: 0;
     padding: 0;
     font-family: 'Google Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 防闪烁：CSS未就绪时隐藏内容 */
+body.preload {
+    visibility: hidden;
 }
 
 body {
@@ -151,6 +157,16 @@ body {
     flex: 1;
     padding: 32px;
     overflow-y: auto;
+}
+
+/* tab默认隐藏 */
+.tab-content {
+    display: none;
+}
+
+/* 默认激活的tab */
+#downloadTab {
+    display: block;
 }
 
 .section-title {
@@ -736,8 +752,6 @@ body {
     body {
         display: flex;
         flex-direction: column;
-        grid-template-columns: none;
-        grid-template-rows: none;
         height: 100vh;
         overflow: hidden;
         background-color: var(--md-sys-color-surface);
@@ -748,8 +762,6 @@ body {
         display: flex;
         flex-direction: row;
         align-items: center;
-        grid-column: unset;
-        grid-row: unset;
         width: 100%;
         padding: 8px 16px;
         gap: 8px;
@@ -796,8 +808,6 @@ body {
 
     /* 主内容区域 — 占满剩余高度 */
     .main-container {
-        grid-column: unset;
-        grid-row: unset;
         margin: 0;
         border-radius: 0;
         box-shadow: none;

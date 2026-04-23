@@ -33,3 +33,6 @@ build
 build-aarch64
 http_server
 target
+dist
+build-aarch64-Release
+.arts/

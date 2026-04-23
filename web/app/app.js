@@ -356,26 +356,20 @@ function initDragFunctionality() {
 }
 
 // 辅助函数：使用指定Range请求并解析歌词
-function fetchLyricsWithRange(filename, rangeStart, rangeEnd, attempt) {
+function fetchLyricsWithRange(filename, rangeStart, rangeEnd) {
     return new Promise((resolve, reject) => {
         const url = `/api/download/stream?filename=${encodeURIComponent(filename)}`;
-        const rangeHeader = rangeStart === null ? 'none' : `bytes=${rangeStart}-${rangeEnd}`;
-        
-        console.log(`[歌词调试] 尝试${attempt}，Range: ${rangeHeader}`);
         
         const options = {};
         if (rangeStart !== null) {
-            options.headers = { 'Range': rangeHeader };
+            options.headers = { 'Range': `bytes=${rangeStart}-${rangeEnd}` };
         }
         
         fetch(url, options)
         .then(response => {
-            console.log(`[歌词调试] 尝试${attempt}响应状态:`, response.status, response.statusText);
-            
             if (!response.ok) {
                 // 如果Range请求失败，尝试完整请求
                 if (response.status === 416 && rangeStart !== null) {
-                    console.log(`[歌词调试] 尝试${attempt} Range请求失败(416)，尝试完整请求`);
                     return fetch(url); // 不带Range头
                 }
                 throw new Error(`HTTP ${response.status} - ${response.statusText}`);
@@ -383,8 +377,6 @@ function fetchLyricsWithRange(filename, rangeStart, rangeEnd, attempt) {
             return response.blob();
         })
         .then(blob => {
-            console.log(`[歌词调试] 尝试${attempt}获取到Blob，大小:`, blob.size, '类型:', blob.type);
-            
             if (!blob || blob.size === 0) {
                 reject(new Error('Blob为空或无效'));
                 return;
@@ -392,29 +384,19 @@ function fetchLyricsWithRange(filename, rangeStart, rangeEnd, attempt) {
             
             jsmediatags.read(blob, {
                 onSuccess: function(tag) {
-                    console.log(`[歌词调试] 尝试${attempt} jsmediatags解析成功`);
-                    console.log(`[歌词调试] 尝试${attempt} 可用标签:`, Object.keys(tag.tags));
-                    
                     const lyrics = tag.tags.lyrics;
                     if (lyrics) {
-                        console.log(`[歌词调试] 尝试${attempt} 找到歌词，长度:`, lyrics.length);
                         resolve(lyrics);
                     } else {
-                        console.log(`[歌词调试] 尝试${attempt} 未找到歌词标签`);
                         resolve(null);
                     }
                 },
                 onError: function(error) {
-                    console.error(`[歌词调试] 尝试${attempt} jsmediatags解析失败:`, error);
-                    console.error(`[歌词调试] 尝试${attempt} 错误类型:`, error.type);
-                    console.error(`[歌词调试] 尝试${attempt} 错误信息:`, error.info || error.message || error);
                     reject(error);
                 }
             });
         })
         .catch(error => {
-            console.error(`[歌词调试] 尝试${attempt} 请求失败:`, error);
-            console.error(`[歌词调试] 尝试${attempt} 错误消息:`, error.message || error);
             reject(error);
         });
     });
@@ -422,29 +404,23 @@ function fetchLyricsWithRange(filename, rangeStart, rangeEnd, attempt) {
 
 // 歌词相关功能
  async function fetchLyrics(filename) {
-     console.log('[歌词调试] 开始加载歌词，文件名:', filename);
-     
      // 检查jsmediatags库是否加载
      if (typeof jsmediatags === 'undefined') {
          const error = new Error('jsmediatags库未加载');
-         console.error('[歌词调试] jsmediatags库未加载');
          throw error;
      }
      
      // 策略1：先尝试文件开头512KB
-     console.log('[歌词调试] 尝试策略1: 文件开头512KB');
      try {
-         const lyrics1 = await fetchLyricsWithRange(filename, 0, 524287, '1(开头512KB)');
+         const lyrics1 = await fetchLyricsWithRange(filename, 0, 524287);
          if (lyrics1 !== null) {
-             console.log('[歌词调试] 策略1成功，返回歌词');
              return lyrics1;
          }
      } catch (error) {
-         console.log('[歌词调试] 策略1解析失败（可能数据不完整），继续尝试:', error.message || error);
+         // 忽略错误，继续尝试下一个策略
      }
      
      // 策略2：尝试文件末尾512KB
-     console.log('[歌词调试] 尝试策略2: 文件末尾512KB');
      try {
          // 获取文件大小 - 使用Range请求
          let fileSize = null;
@@ -458,11 +434,10 @@ function fetchLyricsWithRange(filename, rangeStart, rangeEnd, attempt) {
                  const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
                  if (match) {
                      fileSize = parseInt(match[1]);
-                     console.log('[歌词调试] 通过Range获取文件大小:', fileSize);
                  }
              }
          } catch (rangeError) {
-             console.log('[歌词调试] Range请求获取文件大小失败:', rangeError.message || rangeError);
+             // 忽略错误，继续执行
          }
          
          if (fileSize && fileSize > 524288) { // 文件大于512KB
@@ -470,70 +445,46 @@ function fetchLyricsWithRange(filename, rangeStart, rangeEnd, attempt) {
              const rangeStart = Math.max(0, fileSize - 524288);
              const rangeEnd = fileSize - 1;
              
-             console.log(`[歌词调试] 文件大小${fileSize}，请求末尾范围: ${rangeStart}-${rangeEnd}`);
-             const lyrics2 = await fetchLyricsWithRange(filename, rangeStart, rangeEnd, '2(末尾512KB)');
+             const lyrics2 = await fetchLyricsWithRange(filename, rangeStart, rangeEnd);
              if (lyrics2 !== null) {
-                 console.log('[歌词调试] 策略2成功，返回歌词');
                  return lyrics2;
              }
          } else if (fileSize) {
-             console.log(`[歌词调试] 文件大小${fileSize}小于512KB，直接尝试完整文件`);
              // 文件较小，直接尝试完整文件
-             const lyrics2 = await fetchLyricsWithRange(filename, null, null, '2(完整文件)');
+             const lyrics2 = await fetchLyricsWithRange(filename, null, null);
              if (lyrics2 !== null) {
-                 console.log('[歌词调试] 策略2成功，返回歌词');
                  return lyrics2;
              }
-         } else {
-             console.log('[歌词调试] 无法获取文件大小，跳过策略2');
          }
+         // 无法获取文件大小或文件太小，继续下一个策略
      } catch (error) {
-         console.log('[歌词调试] 策略2失败，继续尝试:', error.message || error);
+         // 忽略错误，继续尝试下一个策略
      }
      
      // 策略3：尝试完整文件
-     console.log('[歌词调试] 尝试策略3: 完整文件');
      try {
-         const lyrics3 = await fetchLyricsWithRange(filename, null, null, '3(完整文件)');
+         const lyrics3 = await fetchLyricsWithRange(filename, null, null);
          if (lyrics3 !== null) {
-             console.log('[歌词调试] 策略3成功，返回歌词');
              return lyrics3;
          } else {
-             console.log('[歌词调试] 所有策略都未找到歌词');
              return null;
          }
      } catch (error) {
-         console.error('[歌词调试] 策略3也失败:', error);
          throw error;
      }
  }
 
 function parseLrcLyrics(lrcText) {
-    console.log('[歌词调试] 开始解析LRC歌词');
-    console.log('[歌词调试] 原始歌词文本长度:', lrcText.length);
-    console.log('[歌词调试] 歌词前200字符:', lrcText.substring(0, 200));
-    
     const lines = lrcText.split('\n');
-    console.log('[歌词调试] 总行数:', lines.length);
-    
     const lyrics = [];
     const timeRegex = /\[(\d+):(\d+\.?\d*)\]/g;
     
-    let parsedLines = 0;
-    let skippedLines = 0;
-    
     for (const line of lines) {
         const matches = [...line.matchAll(timeRegex)];
-        if (matches.length === 0) {
-            skippedLines++;
-            continue;
-        }
+        if (matches.length === 0) continue;
         
         const text = line.replace(timeRegex, '').trim();
-        if (!text) {
-            skippedLines++;
-            continue;
-        }
+        if (!text) continue;
         
         // 支持多时间戳（双语歌词）
         for (const match of matches) {
@@ -541,48 +492,28 @@ function parseLrcLyrics(lrcText) {
             const seconds = parseFloat(match[2]);
             const time = minutes * 60 + seconds;
             lyrics.push({ time, text });
-            parsedLines++;
         }
     }
     
-    console.log('[歌词调试] 解析结果: 成功解析', parsedLines, '行，跳过', skippedLines, '行');
-    
     // 按时间排序
     lyrics.sort((a, b) => a.time - b.time);
-    
-    if (lyrics.length > 0) {
-        console.log('[歌词调试] 第一行歌词:', lyrics[0]);
-        console.log('[歌词调试] 最后一行歌词:', lyrics[lyrics.length - 1]);
-    } else {
-        console.log('[歌词调试] 警告: 未解析到任何歌词行');
-    }
     
     return lyrics;
 }
 
 function displayLyrics(lyricsArray) {
-    console.log('[歌词调试] 开始显示歌词');
-    console.log('[歌词调试] 歌词数组长度:', lyricsArray.length);
-    
-    if (!lyricsDisplay) {
-        console.error('[歌词调试] 错误: lyricsDisplay元素未找到');
-        return;
-    }
+    if (!lyricsDisplay) return;
     
     if (lyricsArray.length === 0) {
-        console.log('[歌词调试] 显示"暂无歌词"');
         lyricsDisplay.innerHTML = '<div class="lyrics-line">暂无歌词</div>';
         return;
     }
     
-    console.log('[歌词调试] 生成歌词HTML，共', lyricsArray.length, '行');
     let html = '';
     for (const item of lyricsArray) {
         html += `<div class="lyrics-line" data-time="${item.time}">${item.text}</div>`;
     }
     lyricsDisplay.innerHTML = html;
-    
-    console.log('[歌词调试] 歌词显示完成，HTML长度:', html.length);
 }
 
 function updateLyricsHighlight() {
@@ -659,7 +590,16 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSettings();
     initAudioPlayer();
 
-    // 设置按钮事件
+    // 防闪烁：等字体就绪+布局计算完成后再显示页面
+    document.fonts.ready.then(() => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                document.body.classList.remove('preload');
+                document.body.style.visibility = '';
+            });
+        });
+    });
+
     if (saveSettingsBtn) {
         saveSettingsBtn.addEventListener('click', saveSettings);
     }
@@ -1165,30 +1105,19 @@ async function playMusicFromLibrary(systemFilename) {
 
         // 加载歌词
         try {
-            console.log('[歌词调试] === 开始歌词加载流程 ===');
             showToast('正在加载歌词...', 'info');
             const lyricsText = await fetchLyrics(systemFilename);
             
             if (lyricsText) {
-                console.log('[歌词调试] 获取到歌词文本，开始解析');
                 currentLyrics = parseLrcLyrics(lyricsText);
-                console.log('[歌词调试] 歌词解析完成，开始显示');
                 displayLyrics(currentLyrics);
                 showToast('歌词加载成功', 'success');
-                console.log('[歌词调试] === 歌词加载成功 ===');
             } else {
-                console.log('[歌词调试] 未获取到歌词文本');
                 currentLyrics = [];
                 displayLyrics([]);
                 showToast('未找到歌词', 'info');
-                console.log('[歌词调试] === 未找到歌词 ===');
             }
         } catch (error) {
-            console.error('[歌词调试] === 歌词加载失败 ===');
-            console.error('[歌词调试] 错误对象:', error);
-            console.error('[歌词调试] 错误消息:', error.message || error);
-            console.error('[歌词调试] 错误堆栈:', error.stack || '无堆栈信息');
-            
             // 显示更详细的错误信息给用户
             let errorMessage = '歌词加载失败';
             const errorMsg = error.message || String(error);
@@ -1205,7 +1134,6 @@ async function playMusicFromLibrary(systemFilename) {
             currentLyrics = [];
             displayLyrics([]);
             showToast(errorMessage, 'warning');
-            console.log('[歌词调试] === 错误处理完成 ===');
         }
 
         // 自动播放

@@ -1,4 +1,4 @@
-# http_server
+# NarMusic
 
 交叉编译：
 mkdir build-aarch64
@@ -57,4 +57,190 @@ vmware-hgfsclient
 vmhgfs-fuse .host:/tanran /mnt/hgfs/tanran/ -o allow_other,uid=$(id -u),gid=$(id -g)
 
 # 程序完全静默运行
-(./http_server -p ./download/ -e .m4a > http_server.log 2>&1 &)
+(./NarMusic -p ./download/ -e .m4a > NarMusic.log 2>&1 &)
+
+# 构建说明
+
+## 构建脚本
+
+项目提供了一个专业的构建脚本 `build.sh`，专门为ARM64 Linux平台设计，支持交叉编译和本地编译。
+
+### 快速开始
+
+```bash
+# 查看帮助信息
+./build.sh --help
+
+# 默认构建 (ARM64交叉编译)
+./build.sh
+
+# Debug构建
+./build.sh -t Debug
+
+# 本地构建 (在ARM64设备上)
+./build.sh -a native
+
+# 清理构建目录
+./build.sh -c
+
+# 创建发布包
+./build.sh -p
+
+# 构建并安装到系统
+./build.sh -i
+```
+
+### 自定义交叉编译工具链
+
+```bash
+# 指定编译器路径
+./build.sh --cc /path/to/aarch64-linux-gnu-gcc --cxx /path/to/aarch64-linux-gnu-g++
+
+# 使用环境变量
+export CC=/path/to/aarch64-linux-gnu-gcc
+export CXX=/path/to/aarch64-linux-gnu-g++
+./build.sh
+
+# 指定sysroot
+./build.sh --sysroot /path/to/sysroot
+
+# 使用工具链文件
+./build.sh --toolchain toolchain-aarch64.cmake
+```
+
+### 构建配置
+
+编辑 `build.config` 文件可以自定义构建配置：
+
+```bash
+# 项目信息
+PROJECT_NAME="NarMusic"
+PROJECT_VERSION="1.0.0"
+
+# 默认构建配置
+DEFAULT_BUILD_TYPE="Release"
+DEFAULT_ARCH="aarch64"
+DEFAULT_PLATFORM="linux"
+
+# 自定义编译器路径
+# CC="/opt/linaro-12.3/bin/aarch64-linux-gnu-gcc"
+# CXX="/opt/linaro-12.3/bin/aarch64-linux-gnu-g++"
+# SYSROOT_DIR="/opt/linaro-12.3/aarch64-linux-gnu/sysroot"
+```
+
+### 依赖库
+
+项目包含预编译的ARM64依赖库：
+- 库文件：`lib/` 目录
+- 头文件：`include/` 目录
+
+包含以下库：
+- libcurl - HTTP客户端库
+- OpenSSL - 加密库
+- TagLib - 音频元数据库
+- Gumbo - HTML解析库
+
+### 发布包
+
+构建完成后可以创建发布包：
+```bash
+./build.sh -p
+```
+
+发布包位于 `dist/` 目录，包含：
+- 可执行文件
+- 启动脚本
+- 服务文件
+- Web界面文件
+- README和许可证
+
+### 在ARM64设备上运行
+
+1. 传输文件到ARM64设备：
+   ```bash
+   scp dist/NarMusic-1.0.0-aarch64-linux.tar.gz user@arm64-device:/tmp/
+   ```
+
+2. 在ARM64设备上运行：
+   ```bash
+   tar -xzf NarMusic-1.0.0-aarch64-linux.tar.gz
+   cd NarMusic-1.0.0-aarch64-linux
+   chmod +x NarMusic start.sh
+   ./start.sh
+   ```
+
+### 系统服务安装
+
+```bash
+# 复制服务文件
+sudo cp service/NarMusic.service /etc/systemd/system/
+
+# 编辑服务文件中的路径
+sudo nano /etc/systemd/system/NarMusic.service
+
+# 启用并启动服务
+sudo systemctl daemon-reload
+sudo systemctl enable NarMusic
+sudo systemctl start NarMusic
+```
+
+### 故障排除
+
+#### 交叉编译工具链未找到
+```bash
+# 安装交叉编译工具链 (Ubuntu/Debian)
+sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make
+```
+
+#### 权限问题
+```bash
+# 安装时需要sudo权限
+sudo ./build.sh -i
+
+# 或使用用户目录
+./build.sh -i --prefix ~/.local
+```
+
+#### 详细输出
+```bash
+# 启用详细输出查看问题
+./build.sh -v
+
+# 干运行模式（只显示将要执行的操作）
+./build.sh -n
+```
+
+## 手动构建
+
+如果需要手动构建，可以使用以下命令：
+
+```bash
+# ARM64交叉编译
+mkdir build-aarch64
+cd build-aarch64
+cmake -D CMAKE_TOOLCHAIN_FILE=../toolchain-aarch64.cmake ..
+make -j$(nproc)
+
+# 本地构建 (在ARM64设备上)
+mkdir build
+cd build
+cmake ..
+make -j$(nproc)
+```
+
+## 项目结构
+
+```
+NarMusic/
+├── build.sh              # 专业构建脚本
+├── build.config          # 构建配置文件
+├── toolchain-aarch64.cmake # ARM64交叉编译工具链
+├── CMakeLists.txt        # CMake构建配置
+├── src/                  # 源代码
+├── include/              # 头文件
+├── lib/                  # 预编译的ARM64库
+├── service/              # 服务管理文件
+├── web/                  # Web界面
+├── dist/                 # 发布包目录
+└── README.md            # 项目说明
+```
