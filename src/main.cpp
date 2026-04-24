@@ -149,6 +149,7 @@ int main(int argc, char* argv[]) {
             if (fs::exists(shareDir / "index.html")) webDir = shareDir.string();
         } catch (...) {}
     }
+    LOG_I("Main", "Web目录: " + webDir);
     auto staticHandler = std::make_shared<StaticFileHandler>(webDir);
 
     // ===== 路由注册 =====

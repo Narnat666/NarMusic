@@ -31,9 +31,12 @@ Response StaticFileHandler::handle(const Request& req) {
         filePath += req.path();
     }
 
+    LOG_I("StaticFile", req.path() + " -> " + filePath);
+
     std::ifstream file(filePath, std::ios::binary);
     if (!file) {
-        return Response::error(404, "Not Found", "file_not_found", "静态文件不存在");
+        LOG_W("StaticFile", "文件不存在: " + filePath);
+        return Response::error(404, "Not Found", "file_not_found", "静态文件不存在: " + filePath);
     }
 
     std::string content((std::istreambuf_iterator<char>(file)),
