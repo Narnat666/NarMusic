@@ -20,7 +20,7 @@ public:
     const std::string& path() const { return path_; }
     const std::string& queryString() const { return queryString_; }
     const std::string& body() const { return body_; }
-    int bodyLength() const { return bodyLength_; }
+    size_t bodyLength() const { return bodyLength_; }
 
     std::string header(const std::string& key) const;
     const std::map<std::string, std::string>& headers() const { return headers_; }
@@ -42,7 +42,7 @@ private:
     std::string queryString_;
     std::map<std::string, std::string> headers_;
     std::string body_;
-    int bodyLength_ = 0;
+    size_t bodyLength_ = 0;
     std::map<std::string, std::string> pathParams_;
 
     static std::string urlDecode(const std::string& str);

@@ -27,7 +27,8 @@ public:
         std::string userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
     };
 
-    explicit CurlClient(const Options& opts = Options());
+    CurlClient();
+    explicit CurlClient(const Options& opts);
 
     // GET请求
     HttpResponse get(const std::string& url,

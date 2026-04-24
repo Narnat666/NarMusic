@@ -33,6 +33,8 @@ static int curlProgressCallback(void* clientp, curl_off_t dltotal, curl_off_t dl
     return 0;
 }
 
+CurlClient::CurlClient() : opts_() {}
+
 CurlClient::CurlClient(const Options& opts) : opts_(opts) {}
 
 HttpResponse CurlClient::get(const std::string& url,

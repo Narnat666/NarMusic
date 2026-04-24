@@ -59,7 +59,7 @@ bool Request::parse(const std::string& raw) {
     bodyLength_ = 0;
     auto it = headers_.find("Content-Length");
     if (it != headers_.end()) {
-        try { bodyLength_ = std::stoi(it->second); } catch (...) { bodyLength_ = 0; }
+        try { bodyLength_ = static_cast<size_t>(std::stoul(it->second)); } catch (...) { bodyLength_ = 0; }
     }
 
     // Body

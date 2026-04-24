@@ -17,7 +17,7 @@
 namespace narnat {
 
 EpollServer::EpollServer(const ServerConfig& config, Router& router)
-    : config_(config), router_(router), pool_(config.thread_pool_size) {}
+    : config_(config), router_(router), pool_(static_cast<size_t>(config.thread_pool_size)) {}
 
 EpollServer::~EpollServer() {
     stop();
@@ -43,7 +43,7 @@ bool EpollServer::createListenSocket() {
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(config_.port);
+    addr.sin_port = htons(static_cast<uint16_t>(config_.port));
 
     if (bind(listenFd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
         LOG_E("EpollServer", "绑定端口失败");
@@ -152,7 +152,11 @@ void EpollServer::handleAccept() {
         int clientFd = accept4(listenFd_, reinterpret_cast<sockaddr*>(&clientAddr),
                                &addrLen, SOCK_NONBLOCK);
         if (clientFd < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) break;
+            if (errno == EAGAIN
+#if EAGAIN != EWOULDBLOCK
+                || errno == EWOULDBLOCK
+#endif
+            ) break;
             LOG_W("EpollServer", "accept错误: " + std::string(strerror(errno)));
             break;
         }
@@ -189,7 +193,7 @@ void EpollServer::handleRead(int fd) {
     while (true) {
         ssize_t n = read(fd, buffer, sizeof(buffer));
         if (n > 0) {
-            requestData.append(buffer, n);
+            requestData.append(buffer, static_cast<size_t>(n));
         } else if (n == 0) {
             // 连接关闭
             close(fd);
@@ -197,7 +201,11 @@ void EpollServer::handleRead(int fd) {
             connections_.erase(fd);
             return;
         } else {
-            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+            if (errno != EAGAIN
+#if EAGAIN != EWOULDBLOCK
+                && errno != EWOULDBLOCK
+#endif
+            ) {
                 close(fd);
                 std::lock_guard<std::mutex> lock(connMutex_);
                 connections_.erase(fd);
@@ -245,9 +253,13 @@ void EpollServer::handleWrite(int fd) {
         ssize_t n = send(fd, conn.writeBuffer.data() + conn.written,
                          conn.writeBuffer.size() - conn.written, MSG_NOSIGNAL);
         if (n > 0) {
-            conn.written += n;
+            conn.written += static_cast<size_t>(n);
         } else if (n < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (errno == EAGAIN
+#if EAGAIN != EWOULDBLOCK
+                || errno == EWOULDBLOCK
+#endif
+            ) {
                 // 等待下次EPOLLOUT
                 return;
             }
@@ -279,9 +291,13 @@ void EpollServer::sendResponse(int fd, const std::string& response) {
             ssize_t n = send(fd, response.data() + sent,
                              response.size() - sent, MSG_NOSIGNAL);
             if (n > 0) {
-                sent += n;
+                sent += static_cast<size_t>(n);
             } else if (n < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (errno == EAGAIN
+#if EAGAIN != EWOULDBLOCK
+                    || errno == EWOULDBLOCK
+#endif
+                ) {
                     // 缓冲区满，走epoll write
                     std::lock_guard<std::mutex> lock(connMutex_);
                     auto it = connections_.find(fd);

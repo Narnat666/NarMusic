@@ -180,7 +180,7 @@ get_build_dir() { echo "build-${ARCH}-${BUILD_TYPE}"; }
 
 clean_build() {
     log "清理构建目录..."
-    rm -rf build-* CMakeCache.txt CMakeFiles cmake_install.cmake Makefile *.cmake
+    rm -rf build-* CMakeCache.txt CMakeFiles cmake_install.cmake Makefile
     ok "已清理"
 }
 
