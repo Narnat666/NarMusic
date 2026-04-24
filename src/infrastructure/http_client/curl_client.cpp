@@ -24,8 +24,8 @@ static size_t writeFileCallback(void* ptr, size_t size, size_t nmemb, void* stre
     return fwrite(ptr, size, nmemb, static_cast<FILE*>(stream));
 }
 
-static int curlProgressCallback(void* clientp, curl_off_t dltotal, curl_off_t dlnow,
-                                curl_off_t ultotal, curl_off_t ulnow) {
+static int curlProgressCallback(void* clientp, curl_off_t /*dltotal*/, curl_off_t dlnow,
+                                curl_off_t /*ultotal*/, curl_off_t /*ulnow*/) {
     auto* cb = static_cast<std::function<void(long long)>*>(clientp);
     if (cb && *cb && dlnow > 0) {
         (*cb)(dlnow);

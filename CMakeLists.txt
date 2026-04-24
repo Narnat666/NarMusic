@@ -13,7 +13,7 @@ include(cmake/PreventInSourceBuild.cmake)
 # ---------------------------------------------------------------------------
 project(NarMusic
     VERSION     1.0.0
-    LANGUAGES   CXX
+    LANGUAGES   C CXX
     DESCRIPTION "C++ Music Server for ARM64 Linux"
 )
 
@@ -129,6 +129,20 @@ if(NARNAT_WARNINGS_AS_ERROR)
 else()
     target_set_warnings(${PROJECT_NAME})
 endif()
+
+# 抑制第三方头文件引入的告警
+set_source_files_properties(
+    src/infrastructure/bilibili/bilibili_client.cpp
+    src/infrastructure/lyrics/kugou_provider.cpp
+    src/infrastructure/lyrics/netease_provider.cpp
+    src/infrastructure/lyrics/qqmusic_provider.cpp
+    src/presentation/controllers/download_controller.cpp
+    PROPERTIES COMPILE_FLAGS "-Wno-null-dereference"
+)
+set_source_files_properties(
+    src/infrastructure/filesystem/music_file_repository.cpp
+    PROPERTIES COMPILE_FLAGS "-Wno-shadow"
+)
 
 # LTO
 if(NARNAT_ENABLE_LTO)

@@ -41,17 +41,17 @@ bool NeteaseProvider::searchSong(const std::string& keyword, MusicMetadata& data
             j.contains("result") && j["result"].contains("songs") && !j["result"]["songs"].empty()) {
 
             auto& songs = j["result"]["songs"];
-            int bestIndex = 0;
+            size_t bestIndex = 0;
 
             if (songs.size() > 1) {
                 long long maxPop = 0;
-                for (int i = 0; i < static_cast<int>(songs.size()); i++) {
+                for (size_t i = 0; i < songs.size(); i++) {
                     long long pop = songs[i].value("pop", 0LL);
                     if (pop > maxPop) maxPop = pop;
                 }
 
                 double bestScore = -1.0;
-                for (int i = 0; i < static_cast<int>(songs.size()); i++) {
+                for (size_t i = 0; i < songs.size(); i++) {
                     std::string songName = songs[i].value("name", "");
                     double sim = LyricsAggregator::nameSimilarity(keyword, songName);
 
@@ -61,7 +61,7 @@ bool NeteaseProvider::searchSong(const std::string& keyword, MusicMetadata& data
 
                     double popBonus = 0.0;
                     if (maxPop > 0 && songs[i].contains("pop") && songs[i]["pop"].is_number())
-                        popBonus = 0.15 * static_cast<double>(songs[i]["pop"].get<long long>()) / maxPop;
+                        popBonus = 0.15 * static_cast<double>(songs[i]["pop"].get<long long>()) / static_cast<double>(maxPop);
 
                     double score = sim + artistBonus + popBonus;
                     if (score > bestScore) { bestScore = score; bestIndex = i; }

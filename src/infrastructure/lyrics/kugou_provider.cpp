@@ -46,11 +46,11 @@ bool KugouProvider::searchSong(const std::string& keyword, MusicMetadata& data) 
             j.contains("data") && j["data"].contains("info") && !j["data"]["info"].empty()) {
 
             auto& songs = j["data"]["info"];
-            int bestIndex = 0;
+            size_t bestIndex = 0;
 
             if (songs.size() > 1) {
                 long long maxPop = 0;
-                for (int i = 0; i < static_cast<int>(songs.size()); i++) {
+                for (size_t i = 0; i < songs.size(); i++) {
                     long long pop = 0;
                     if (songs[i].contains("play_count") && songs[i]["play_count"].is_number())
                         pop = songs[i]["play_count"].get<long long>();
@@ -58,7 +58,7 @@ bool KugouProvider::searchSong(const std::string& keyword, MusicMetadata& data) 
                 }
 
                 double bestScore = -1.0;
-                for (int i = 0; i < static_cast<int>(songs.size()); i++) {
+                for (size_t i = 0; i < songs.size(); i++) {
                     std::string songName = songs[i].value("songname", "");
                     double sim = LyricsAggregator::nameSimilarity(keyword, songName);
                     double artistBonus = 0.0;
@@ -66,7 +66,7 @@ bool KugouProvider::searchSong(const std::string& keyword, MusicMetadata& data) 
                         artistBonus = 0.2 * LyricsAggregator::nameSimilarity(keyword, songs[i]["singername"].get<std::string>());
                     double popBonus = 0.0;
                     if (maxPop > 0 && songs[i].contains("play_count") && songs[i]["play_count"].is_number())
-                        popBonus = 0.15 * static_cast<double>(songs[i]["play_count"].get<long long>()) / maxPop;
+                        popBonus = 0.15 * static_cast<double>(songs[i]["play_count"].get<long long>()) / static_cast<double>(maxPop);
                     double score = sim + artistBonus + popBonus;
                     if (score > bestScore) { bestScore = score; bestIndex = i; }
                 }

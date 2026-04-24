@@ -22,7 +22,7 @@ std::vector<MusicFileInfo> FsMusicFileRepository::scanLibrary(const std::string&
 
         MusicFileInfo info;
         info.systemFilename = entry.path().filename().string();
-        info.fileSize = fs::file_size(entry.path());
+        info.fileSize = static_cast<long long>(fs::file_size(entry.path()));
         info.downloadTime = fs::last_write_time(entry.path()).time_since_epoch().count();
         files.push_back(info);
     }
@@ -35,7 +35,7 @@ bool FsMusicFileRepository::fileExists(const std::string& path) {
 }
 
 long long FsMusicFileRepository::fileSize(const std::string& path) {
-    try { return std::filesystem::file_size(path); } catch (...) { return -1; }
+    try { return static_cast<long long>(std::filesystem::file_size(path)); } catch (...) { return -1; }
 }
 
 std::string FsMusicFileRepository::readFile(const std::string& path) {
@@ -96,7 +96,7 @@ bool FsMusicFileRepository::writeMetadata(const std::string& filePath,
         covers.append(TagLib::MP4::CoverArt(format,
             TagLib::ByteVector(
                 reinterpret_cast<const char*>(metadata.coverData.data()),
-                metadata.coverData.size())));
+                static_cast<unsigned int>(metadata.coverData.size()))));
         tag->setItem("covr", TagLib::MP4::Item(covers));
     }
 

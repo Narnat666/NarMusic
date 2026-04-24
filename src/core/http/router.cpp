@@ -20,6 +20,11 @@ void Router::addRoute(Request::Method method, const std::string& pattern, Handle
     routes_.push_back(std::move(route));
 }
 
+void Router::addCatchAllRoute(Request::Method method, Handler handler) {
+    catchAllMethod_ = method;
+    catchAllHandler_ = std::move(handler);
+}
+
 Response Router::dispatch(const Request& req) {
     for (const auto& route : routes_) {
         if (route.method != req.method()) continue;
@@ -34,6 +39,15 @@ Response Router::dispatch(const Request& req) {
                 LOG_E("Router", std::string("Handler异常: ") + e.what());
                 return Response::error(500, "Internal Server Error", "handler_error", e.what());
             }
+        }
+    }
+
+    if (catchAllHandler_ && req.method() == catchAllMethod_) {
+        try {
+            return catchAllHandler_(req);
+        } catch (const std::exception& e) {
+            LOG_E("Router", std::string("CatchAll Handler异常: ") + e.what());
+            return Response::error(500, "Internal Server Error", "handler_error", e.what());
         }
     }
 

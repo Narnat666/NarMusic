@@ -39,7 +39,6 @@ std::string AudioDownloader::download(const std::string& url,
     fs::create_directories(saveDir);
 
     std::string filePath = saveDir + filename + ".m4a";
-    auto& curl = biliClient_;  // 共享httpClient
 
     // 直接使用CurlClient下载
     CurlClient::Options opts;

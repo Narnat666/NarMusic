@@ -77,7 +77,7 @@ StreamData StreamSender::read(const std::string& filePath, const std::string& ra
     }
 
     file.seekg(result.rangeStart, std::ios::beg);
-    result.buffer.resize(result.requestSize);
+    result.buffer.resize(static_cast<size_t>(result.requestSize));
     if (!file.read(result.buffer.data(), result.requestSize)) {
         LOG_E("StreamSender", "文件读取失败");
         return result;

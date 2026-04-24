@@ -45,7 +45,7 @@ std::vector<char> StreamingService::getFileData(const std::string& taskIdOrFilen
     auto size = file.tellg();
     file.seekg(0, std::ios::beg);
 
-    std::vector<char> data(size);
+    std::vector<char> data(static_cast<size_t>(size));
     file.read(data.data(), size);
     return data;
 }

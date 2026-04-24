@@ -18,6 +18,9 @@ public:
     // 注册路由
     void addRoute(Request::Method method, const std::string& pattern, Handler handler);
 
+    // 注册兜底路由（匹配所有未被其他路由匹配的请求）
+    void addCatchAllRoute(Request::Method method, Handler handler);
+
     // 分发请求
     Response dispatch(const Request& req);
 
@@ -33,6 +36,8 @@ private:
     };
 
     std::vector<Route> routes_;
+    Handler catchAllHandler_;
+    Request::Method catchAllMethod_ = Request::Method::GET;
 
     // 路径模式匹配，返回是否匹配及路径参数
     std::pair<bool, std::map<std::string, std::string>> matchPath(

@@ -129,7 +129,7 @@ void EpollServer::eventLoop() {
             } else if (fd == timerFd_) {
                 // 定时器触发：清理超时连接
                 uint64_t expirations;
-                read(timerFd_, &expirations, sizeof(expirations));
+                (void)read(timerFd_, &expirations, sizeof(expirations));
                 cleanupTimeouts();
             } else if (events[i].events & (EPOLLERR | EPOLLHUP)) {
                 // 错误或挂起，关闭连接

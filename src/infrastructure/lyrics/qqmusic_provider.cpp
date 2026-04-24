@@ -92,17 +92,17 @@ bool QQMusicProvider::searchSong(const std::string& keyword, MusicMetadata& data
         if (!songList || songList->empty()) return false;
 
         auto& songs = *songList;
-        int bestIndex = 0;
+        size_t bestIndex = 0;
 
         if (songs.size() > 1) {
             long long maxPop = 0;
-            for (int i = 0; i < static_cast<int>(songs.size()); i++) {
+            for (size_t i = 0; i < songs.size(); i++) {
                 long long pop = songs[i].value("listenCnt", 0LL);
                 if (pop > maxPop) maxPop = pop;
             }
 
             double bestScore = -1.0;
-            for (int i = 0; i < static_cast<int>(songs.size()); i++) {
+            for (size_t i = 0; i < songs.size(); i++) {
                 std::string songName = songs[i].value("name", "");
                 double sim = LyricsAggregator::nameSimilarity(keyword, songName);
 
@@ -113,7 +113,7 @@ bool QQMusicProvider::searchSong(const std::string& keyword, MusicMetadata& data
 
                 double popBonus = 0.0;
                 if (maxPop > 0 && songs[i].contains("listenCnt") && songs[i]["listenCnt"].is_number())
-                    popBonus = 0.15 * static_cast<double>(songs[i]["listenCnt"].get<long long>()) / maxPop;
+                    popBonus = 0.15 * static_cast<double>(songs[i]["listenCnt"].get<long long>()) / static_cast<double>(maxPop);
 
                 double score = sim + artistBonus + popBonus;
                 if (score > bestScore) { bestScore = score; bestIndex = i; }

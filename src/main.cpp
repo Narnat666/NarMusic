@@ -165,7 +165,7 @@ int main(int argc, char* argv[]) {
         [libraryCtrl](const Request& req) { return libraryCtrl->list(req); });
 
     // 静态文件兜底路由（所有GET请求）
-    router.addRoute(Request::Method::GET, "/",
+    router.addCatchAllRoute(Request::Method::GET,
         [staticHandler](const Request& req) { return staticHandler->handle(req); });
 
     // ===== 启动服务器 =====
