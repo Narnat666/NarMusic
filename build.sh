@@ -276,7 +276,10 @@ main() {
     echo "  构建: ${BUILD_TYPE} | 架构: ${ARCH}"
     echo "=========================================="
 
-    (( CLEAN )) && clean_build
+    if (( CLEAN )); then
+        clean_build
+        exit 0
+    fi
 
     check_requirements
     configure_and_build

@@ -128,7 +128,7 @@ std::string LyricsAggregator::adjustLyricsTiming(const std::string& lyrics, int 
     size_t lastPos = 0;
 
     for (; it != end; ++it) {
-        result += lyrics.substr(lastPos, it->position() - lastPos);
+        result += lyrics.substr(lastPos, static_cast<size_t>(it->position()) - lastPos);
 
         int min = std::stoi((*it)[1].str());
         int sec = std::stoi((*it)[2].str());
@@ -136,16 +136,16 @@ std::string LyricsAggregator::adjustLyricsTiming(const std::string& lyrics, int 
         long long totalMs = (min * 60 + sec) * 1000 + ms + offsetMs;
         if (totalMs < 0) totalMs = 0;
 
-        int newMin = totalMs / 60000;
-        int newSec = (totalMs % 60000) / 1000;
-        int newMs = totalMs % 1000;
+        auto newMin = static_cast<int>(totalMs / 60000);
+        auto newSec = static_cast<int>((totalMs % 60000) / 1000);
+        auto newMs = static_cast<int>(totalMs % 1000);
 
         std::ostringstream oss;
         oss << "[" << std::setfill('0') << std::setw(2) << newMin
             << ":" << std::setw(2) << newSec
             << "." << std::setw(2) << newMs / 10 << "]";
         result += oss.str();
-        lastPos = it->position() + it->length();
+        lastPos = static_cast<size_t>(it->position()) + static_cast<size_t>(it->length());
     }
     result += lyrics.substr(lastPos);
     return result;
@@ -256,7 +256,7 @@ double LyricsAggregator::nameSimilarity(const std::string& a, const std::string&
                           std::back_inserter(intersection));
 
     size_t minSize = std::min(wordsA.size(), wordsB.size());
-    return static_cast<double>(intersection.size()) / minSize;
+    return static_cast<double>(intersection.size()) / static_cast<double>(minSize);
 }
 
 } // namespace narnat

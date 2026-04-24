@@ -106,21 +106,21 @@ std::pair<std::string, std::string> BilibiliClient::fetchWbiKeys() {
 
 std::map<std::string, std::string> BilibiliClient::signWbiParams(
     const std::map<std::string, std::string>& params) {
-    std::map<std::string, std::string> signed = params;
-    signed["wts"] = std::to_string(time(nullptr));
+    std::map<std::string, std::string> signedParams = params;
+    signedParams["wts"] = std::to_string(time(nullptr));
 
     std::string rawKey = imgKey_ + subKey_;
     std::string mixinKey;
-    for (int i = 0; i < 32; ++i) mixinKey += rawKey[MIXIN_KEY_ENC_TAB[i]];
+    for (int i = 0; i < 32; ++i) mixinKey += rawKey[static_cast<size_t>(MIXIN_KEY_ENC_TAB[i])];
 
     std::string qs;
-    for (const auto& p : signed) {
+    for (const auto& p : signedParams) {
         if (p.second.empty()) continue;
         if (!qs.empty()) qs += "&";
         qs += p.first + "=" + urlEncodeWbi(p.second);
     }
-    signed["w_rid"] = md5Hex(qs + mixinKey);
-    return signed;
+    signedParams["w_rid"] = md5Hex(qs + mixinKey);
+    return signedParams;
 }
 
 std::string BilibiliClient::extractBvid(const std::string& url) {
