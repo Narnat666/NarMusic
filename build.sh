@@ -244,7 +244,9 @@ configure_and_build() {
     if [[ "${DRY_RUN}" == 1 ]]; then
         echo "  make -j${JOBS}"
     else
-        make -j"${JOBS}" VERBOSE="${VERBOSE}" || { cd ..; die "编译失败"; }
+        local verbose_flag=""
+        [[ "${VERBOSE}" == 1 ]] && verbose_flag="VERBOSE=1"
+        make -j"${JOBS}" ${verbose_flag} || { cd ..; die "编译失败"; }
         ok "编译完成"
     fi
 

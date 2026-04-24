@@ -140,7 +140,16 @@ int main(int argc, char* argv[]) {
     auto downloadCtrl = std::make_shared<DownloadController>(downloadService, streamingService);
     auto searchCtrl = std::make_shared<SearchController>(searchService);
     auto libraryCtrl = std::make_shared<LibraryController>(libraryService);
-    auto staticHandler = std::make_shared<StaticFileHandler>("./web");
+
+    std::string webDir = "./web";
+    if (!fs::exists(webDir + "/index.html")) {
+        try {
+            auto exePath = fs::canonical("/proc/self/exe");
+            auto shareDir = exePath.parent_path().parent_path() / "share" / "NarMusic" / "web";
+            if (fs::exists(shareDir / "index.html")) webDir = shareDir.string();
+        } catch (...) {}
+    }
+    auto staticHandler = std::make_shared<StaticFileHandler>(webDir);
 
     // ===== 路由注册 =====
     Router router;
@@ -176,8 +185,9 @@ int main(int argc, char* argv[]) {
     std::atomic<bool> running{true};
     std::thread cleanupThread([&]() {
         while (running) {
-            std::this_thread::sleep_for(std::chrono::seconds(config.download.cleanup_interval));
-            downloadService->cleanupExpiredTasks();
+            for (int i = 0; i < config.download.cleanup_interval && running; ++i)
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            if (running) downloadService->cleanupExpiredTasks();
         }
     });
 
