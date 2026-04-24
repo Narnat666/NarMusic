@@ -1,0 +1,94 @@
+#include "download_controller.h"
+#include "core/logger.h"
+#include "nlohmann/json.hpp"
+
+namespace narnat {
+
+using json = nlohmann::json;
+
+DownloadController::DownloadController(std::shared_ptr<DownloadService> downloadService,
+                                        std::shared_ptr<StreamingService> streamingService)
+    : downloadService_(std::move(downloadService))
+    , streamingService_(std::move(streamingService)) {}
+
+Response DownloadController::createTask(const Request& req) {
+    try {
+        json body = json::parse(req.body());
+
+        DownloadService::CreateTaskRequest taskReq;
+        taskReq.url = body.value("content", "");
+        taskReq.filename = body.value("filename", "");
+        taskReq.platform = body.value("platform", "酷狗音乐");
+        taskReq.delayMs = body.value("offsetMs", 0);
+
+        if (taskReq.url.empty()) {
+            return Response::error(400, "Bad Request", "missing_url", "URL不能为空");
+        }
+
+        std::string taskId = downloadService_->createTask(taskReq);
+
+        json result;
+        result["task_id"] = taskId;
+        result["status"] = "created";
+        return Response::json(200, "OK", result);
+
+    } catch (const std::exception& e) {
+        LOG_E("DownloadCtrl", std::string("创建任务失败: ") + e.what());
+        return Response::error(400, "Bad Request", "parse_error", e.what());
+    }
+}
+
+Response DownloadController::getStatus(const Request& req) {
+    std::string taskId = req.queryParam("task_id");
+    if (taskId.empty()) {
+        return Response::error(400, "Bad Request", "missing_task_id", "task_id参数缺失");
+    }
+
+    auto task = downloadService_->getTaskStatus(taskId);
+    if (!task) {
+        return Response::error(404, "Not Found", "task_not_found", "任务不存在");
+    }
+
+    return Response::json(200, "OK", task->toJson());
+}
+
+Response DownloadController::downloadFile(const Request& req) {
+    std::string taskId = req.queryParam("task_id");
+    std::string filename = req.queryParam("filename");
+
+    std::string id = taskId.empty() ? filename : taskId;
+    if (id.empty()) {
+        return Response::error(400, "Bad Request", "missing_id", "task_id或filename参数缺失");
+    }
+
+    auto fileData = streamingService_->getFileData(id);
+    if (fileData.empty()) {
+        return Response::error(404, "Not Found", "file_not_found", "文件不存在");
+    }
+
+    std::string displayName = downloadService_->getTaskDisplayName(id);
+    if (displayName.empty()) displayName = id;
+    displayName += ".m4a";
+
+    return Response::download(fileData, displayName);
+}
+
+Response DownloadController::stream(const Request& req) {
+    std::string taskId = req.queryParam("task_id");
+    std::string filename = req.queryParam("filename");
+
+    std::string id = taskId.empty() ? filename : taskId;
+    if (id.empty()) {
+        return Response::error(400, "Bad Request", "missing_id", "task_id或filename参数缺失");
+    }
+
+    auto data = streamingService_->stream(id, req.rangeString());
+    if (data.buffer.empty()) {
+        return Response::error(404, "Not Found", "file_not_found", "文件不存在");
+    }
+
+    return Response::stream(data.buffer, data.fileSize,
+                            data.rangeStart, data.rangeEnd, data.isPartial);
+}
+
+} // namespace narnat

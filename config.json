@@ -1,0 +1,31 @@
+{
+    "server": {
+        "port": 8080,
+        "backlog": 512,
+        "connection_timeout": 30,
+        "thread_pool_size": 5
+    },
+    "download": {
+        "path": "./download/",
+        "extension": ".m4a",
+        "cleanup_interval": 600,
+        "max_age": 600
+    },
+    "bilibili": {
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "connect_timeout": 10,
+        "request_timeout": 15
+    },
+    "lyrics": {
+        "default_platform": "酷狗音乐",
+        "platforms": ["酷狗音乐", "网易云音乐", "QQ音乐"]
+    },
+    "logging": {
+        "level": "info",
+        "file": "./logs/narnat.log",
+        "max_size_mb": 10
+    },
+    "database": {
+        "path": "./data/narnat.db"
+    }
+}
