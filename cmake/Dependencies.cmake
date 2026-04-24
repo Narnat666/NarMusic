@@ -38,6 +38,7 @@ function(target_link_dependencies TARGET)
         ${NARNAT_INC_DIR}/taglib
         ${NARNAT_INC_DIR}/taglib/toolkit
         ${NARNAT_INC_DIR}/gumbo-parser
+        ${NARNAT_INC_DIR}/zlib
     )
 
     # 静态链接

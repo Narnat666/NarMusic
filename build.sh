@@ -198,6 +198,9 @@ configure_and_build() {
     mkdir -p "${BUILD_DIR}"
     cd "${BUILD_DIR}"
 
+    export NARNAT_CC="${CC}"
+    export NARNAT_CXX="${CXX}"
+
     # CMake 参数
     local cmake_args=(
         -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"

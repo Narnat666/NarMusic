@@ -10,11 +10,15 @@ set(CMAKE_CROSSCOMPILING TRUE)
 # ---------------------------------------------------------------------------
 # 编译器
 # ---------------------------------------------------------------------------
-# 优先使用环境变量，其次使用默认交叉编译器
-if(NOT CMAKE_C_COMPILER)
+# 优先级: 环境变量NARNAT_CC/NARNAT_CXX > 环境变量CC/CXX > 默认交叉编译器
+if(DEFINED ENV{NARNAT_CC})
+    set(CMAKE_C_COMPILER "$ENV{NARNAT_CC}")
+elseif(NOT CMAKE_C_COMPILER)
     set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)
 endif()
-if(NOT CMAKE_CXX_COMPILER)
+if(DEFINED ENV{NARNAT_CXX})
+    set(CMAKE_CXX_COMPILER "$ENV{NARNAT_CXX}")
+elseif(NOT CMAKE_CXX_COMPILER)
     set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
 endif()
 
@@ -53,7 +57,7 @@ foreach(COMP C CXX)
     if(_RESULT)
         message(FATAL_ERROR
             "${COMP} 编译器不可用: ${CMAKE_${COMP}_COMPILER}\n"
-            "安装: sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu"
+            "可通过 --cc/--cxx 指定编译器路径，或安装: sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu"
         )
     endif()
 endforeach()
