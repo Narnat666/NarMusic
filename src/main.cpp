@@ -40,7 +40,7 @@ using namespace narnat;
 
 static EpollServer* gServer = nullptr;
 
-void signalHandler(int sig) {
+void signalHandler(int) {
     if (gServer) gServer->stop();
 }
 
@@ -115,11 +115,11 @@ int main(int argc, char* argv[]) {
     auto taskRepo = std::make_shared<SqliteTaskRepository>(db);
     auto fileRepo = std::make_shared<FsMusicFileRepository>();
 
-    auto curlClient = std::make_shared<CurlClient>(CurlClient::Options{
-        .connectTimeout = config.bilibili.connect_timeout,
-        .requestTimeout = config.bilibili.request_timeout,
-        .userAgent = config.bilibili.user_agent
-    });
+    CurlClient::Options curlOpts;
+    curlOpts.connectTimeout = config.bilibili.connect_timeout;
+    curlOpts.requestTimeout = config.bilibili.request_timeout;
+    curlOpts.userAgent = config.bilibili.user_agent;
+    auto curlClient = std::make_shared<CurlClient>(curlOpts);
 
     auto biliClient = std::make_shared<BilibiliClient>(curlClient);
     auto audioDownloader = std::make_shared<AudioDownloader>(biliClient);

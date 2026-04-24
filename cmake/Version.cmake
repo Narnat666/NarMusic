@@ -29,13 +29,6 @@ function(generate_version_header TARGET)
     set(VERSION_H_PATH "${CMAKE_BINARY_DIR}/generated/version.h")
     file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated")
 
-    configure_file(
-        "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/version.h.in"
-        "${VERSION_H_PATH}"
-        @ONLY
-    )
-
-    # 直接写入（避免需要 .in 模板文件）
     file(WRITE "${VERSION_H_PATH}"
         "#ifndef NARNAT_VERSION_H\n"
         "#define NARNAT_VERSION_H\n"

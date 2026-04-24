@@ -2,6 +2,12 @@
 #include "core/logger.h"
 #include <sqlite3.h>
 #include <sstream>
+#include <cstdint>
+
+namespace {
+const sqlite3_destructor_type kSqliteTransient =
+    reinterpret_cast<sqlite3_destructor_type>(static_cast<intptr_t>(-1));
+}
 
 namespace narnat {
 
@@ -44,12 +50,12 @@ std::string SqliteTaskRepository::save(const Task& task) {
     auto createdSec = std::chrono::duration_cast<std::chrono::seconds>(
         task.createdAt().time_since_epoch()).count();
 
-    sqlite3_bind_text(stmt, 1, task.id().c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, task.url().c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 1, task.id().c_str(), -1, kSqliteTransient);
+    sqlite3_bind_text(stmt, 2, task.url().c_str(), -1, kSqliteTransient);
     sqlite3_bind_int(stmt, 3, static_cast<int>(task.status()));
     sqlite3_bind_int64(stmt, 4, task.downloadedBytes());
-    sqlite3_bind_text(stmt, 5, task.filePath().c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 6, task.displayName().c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, task.filePath().c_str(), -1, kSqliteTransient);
+    sqlite3_bind_text(stmt, 6, task.displayName().c_str(), -1, kSqliteTransient);
     sqlite3_bind_int(stmt, 7, task.delayMs());
     sqlite3_bind_int(stmt, 8, task.inUse() ? 1 : 0);
     sqlite3_bind_int64(stmt, 9, createdSec);
@@ -72,7 +78,7 @@ std::optional<Task> SqliteTaskRepository::findById(const std::string& id) {
         return std::nullopt;
     }
 
-    sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 1, id.c_str(), -1, kSqliteTransient);
 
     std::optional<Task> result;
     if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -125,7 +131,7 @@ std::vector<Task> SqliteTaskRepository::findAll() {
 }
 
 void SqliteTaskRepository::update(const Task& task) {
-    save(task);  // INSERT OR REPLACE
+    save(task);
 }
 
 void SqliteTaskRepository::remove(const std::string& id) {
@@ -135,7 +141,7 @@ void SqliteTaskRepository::remove(const std::string& id) {
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_->handle(), sql, -1, &stmt, nullptr) != SQLITE_OK) return;
 
-    sqlite3_bind_text(stmt, 1, id.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 1, id.c_str(), -1, kSqliteTransient);
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
 }
@@ -153,7 +159,6 @@ void SqliteTaskRepository::removeOlderThan(int seconds) {
     sqlite3_bind_int64(stmt, 1, now - seconds);
     sqlite3_step(stmt);
 
-    // 标记正在使用的为下次删除
     const char* markSql = "UPDATE tasks SET in_use = 0 WHERE created_at < ? AND in_use = 1";
     if (sqlite3_prepare_v2(db_->handle(), markSql, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int64(stmt, 1, now - seconds);
