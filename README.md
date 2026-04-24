@@ -59,6 +59,32 @@ vmhgfs-fuse .host:/tanran /mnt/hgfs/tanran/ -o allow_other,uid=$(id -u),gid=$(id
 # 程序完全静默运行
 (./NarMusic -p ./download/ -e .m4a > NarMusic.log 2>&1 &)
 
+# 解决目标机libc库版本不匹配问题，在旧版 glibc 系统上运行需要新版 glibc 的程序
+
+## 问题
+系统 glibc 2.31，程序需要 GLIBC_2.33，无法启动。
+
+## 解决
+编译新版 glibc 至独立目录，用 `patchelf` 修改程序动态链接。
+
+### 1. 编译安装 glibc 2.33
+sudo apt install -y build-essential bison gawk python3 texinfo patchelf
+wget http://ftp.gnu.org/gnu/glibc/glibc-2.33.tar.gz
+tar xf glibc-2.33.tar.gz
+cd glibc-2.33 && mkdir build && cd build
+../configure --prefix=/opt/glibc-2.33
+make -j$(nproc)
+sudo make install
+cd ../..
+
+### 2. 修改程序动态链接
+
+sudo patchelf --set-interpreter /opt/glibc-2.33/lib/ld-linux-aarch64.so.1 ./NarMusic
+sudo patchelf --set-rpath '/opt/glibc-2.33/lib:/usr/lib/aarch64-linux-gnu' ./NarMusic 
+
+### 3. 运行
+./NarMusic
+
 # 构建说明
 
 ## 构建脚本
