@@ -77,7 +77,15 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // 加载配置
+    // 加载配置（自动查找配置文件路径）
+    namespace fs = std::filesystem;
+    if (!fs::exists(configPath)) {
+        try {
+            auto exePath = fs::canonical("/proc/self/exe");
+            auto etcDir = exePath.parent_path().parent_path() / "etc" / "NarMusic" / "config.json";
+            if (fs::exists(etcDir)) configPath = etcDir.string();
+        } catch (...) {}
+    }
     Config config = Config::load(configPath);
     config.applyOverrides(port, downloadPath, extension, debug);
 
@@ -95,7 +103,6 @@ int main(int argc, char* argv[]) {
     LOG_I("Main", "NarMusic 启动中...");
 
     // 清理旧文件
-    namespace fs = std::filesystem;
     if (fs::exists(config.download.path) && fs::is_directory(config.download.path)) {
         int count = 0;
         for (const auto& entry : fs::directory_iterator(config.download.path)) {

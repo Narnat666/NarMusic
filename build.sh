@@ -263,7 +263,7 @@ configure_and_build() {
     # 打包
     if (( PACKAGE )); then
         log "打包..."
-        cpack -G TGZ || warn "打包失败"
+        cpack -G ZIP || warn "打包失败"
     fi
 
     cd ..

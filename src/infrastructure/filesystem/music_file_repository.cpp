@@ -8,6 +8,7 @@
 #include <taglib/mp4/mp4tag.h>
 #include <taglib/mp4/mp4coverart.h>
 #include <taglib/mp4/mp4item.h>
+#include <cstdio>
 
 namespace narnat {
 
@@ -42,8 +43,14 @@ std::vector<MusicFileInfo> FsMusicFileRepository::scanLibrary(const std::string&
 
         // 从M4A元数据读取延迟和自定义文件名
         if (ext == ".m4a") {
+            FILE* oldStderr2 = nullptr;
             try {
+                // 抑制TagLib的stderr警告
+                fflush(stderr);
+                oldStderr2 = freopen("/dev/null", "w", stderr);
+
                 TagLib::MP4::File m4aFile(entry.path().c_str());
+
                 if (m4aFile.isValid()) {
                     auto* tag = m4aFile.tag();
                     if (tag) {
@@ -62,6 +69,7 @@ std::vector<MusicFileInfo> FsMusicFileRepository::scanLibrary(const std::string&
                     }
                 }
             } catch (...) {}
+            if (oldStderr2) freopen("/dev/tty", "w", stderr);
         }
 
         files.push_back(info);
@@ -98,14 +106,23 @@ bool FsMusicFileRepository::ensureDirectory(const std::string& path) {
 
 bool FsMusicFileRepository::writeMetadata(const std::string& filePath,
                                            const MusicMetadata& metadata) {
+    // 抑制TagLib的stderr警告(如"Invalid atom size")
+    fflush(stderr);
+    FILE* oldStderr = freopen("/dev/null", "w", stderr);
+
     TagLib::MP4::File file(filePath.c_str());
+
     if (!file.isValid()) {
+        if (oldStderr) freopen("/dev/tty", "w", stderr);
         LOG_E("FsMusicRepo", "无法打开M4A文件: " + filePath);
         return false;
     }
 
     auto* tag = file.tag();
-    if (!tag) return false;
+    if (!tag) {
+        if (oldStderr) freopen("/dev/tty", "w", stderr);
+        return false;
+    }
 
     // 写入标题
     if (!metadata.songName.empty()) {
@@ -151,9 +168,13 @@ bool FsMusicFileRepository::writeMetadata(const std::string& filePath,
     }
 
     if (!file.save()) {
+        if (oldStderr) freopen("/dev/tty", "w", stderr);
         LOG_E("FsMusicRepo", "M4A保存失败: " + filePath);
         return false;
     }
+
+    // 恢复stderr
+    if (oldStderr) freopen("/dev/tty", "w", stderr);
 
     LOG_I("FsMusicRepo", "元数据写入成功: " + filePath);
     return true;

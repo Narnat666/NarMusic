@@ -204,12 +204,12 @@ install(DIRECTORY web/
 # ---------------------------------------------------------------------------
 # CPack 打包
 # ---------------------------------------------------------------------------
-set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
+set(CPACK_PACKAGE_NAME "NarMusicServer")
 set(CPACK_PACKAGE_VERSION ${NARNAT_VERSION})
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${PROJECT_DESCRIPTION})
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "纳儿音乐服务器")
 set(CPACK_PACKAGE_VENDOR "NarNat")
-set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${NARNAT_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
-set(CPACK_GENERATOR TGZ)
+set(CPACK_PACKAGE_FILE_NAME "NarMusicServer")
+set(CPACK_GENERATOR ZIP)
 set(CPACK_STRIP_FILES TRUE)
 set(CPACK_INSTALL_PREFIX "/opt/${PROJECT_NAME}")
 
