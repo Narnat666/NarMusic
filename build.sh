@@ -328,6 +328,16 @@ main() {
     else
     echo "  模式: 本机编译 (${ARCH})"
     fi
+    local extras=()
+    (( OPT_LTO ))     && extras+=("LTO")
+    (( OPT_ASAN ))    && extras+=("ASan")
+    (( OPT_TSAN ))    && extras+=("TSan")
+    (( OPT_UBSAN ))   && extras+=("UBSan")
+    (( OPT_WERROR ))  && extras+=("Werror")
+    (( OPT_STATIC ))  && extras+=("Static")
+    if [[ ${#extras[@]} -gt 0 ]]; then
+    echo "  附加: ${extras[*]}"
+    fi
     echo "=========================================="
 
     if (( CLEAN )); then
