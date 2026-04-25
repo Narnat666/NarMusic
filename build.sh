@@ -213,7 +213,14 @@ check_requirements() {
 # ============================================================================
 # 构建
 # ============================================================================
-get_build_dir() { echo "build-${ARCH}-${BUILD_TYPE}"; }
+get_build_dir() {
+    local dir_name
+    case "${ARCH}" in
+        x86_64|amd64) dir_name="x86" ;;
+        *)            dir_name="${ARCH}" ;;
+    esac
+    echo "build-${dir_name}"
+}
 
 clean_build() {
     log "清理构建目录..."

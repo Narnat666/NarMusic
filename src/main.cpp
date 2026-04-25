@@ -35,6 +35,7 @@
 #include <unistd.h>
 #include <curl/curl.h>
 #include <filesystem>
+#include "version.h"
 
 using namespace narnat;
 
@@ -58,6 +59,14 @@ int main(int argc, char* argv[]) {
     atexit([]() { curl_global_cleanup(); });
 
     // 解析命令行参数
+    for (int i = 1; i < argc; i++) {
+        std::string arg(argv[i]);
+        if (arg == "--version") {
+            std::cout << NARNAT_VERSION << " (" << NARNAT_TARGET_ARCH << ")" << std::endl;
+            return 0;
+        }
+    }
+
     int port = 0;
     std::string downloadPath, extension;
     bool debug = false;

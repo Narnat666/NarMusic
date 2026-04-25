@@ -39,3 +39,4 @@ build-aarch64-Release
 build-native-Release
 build-x86_64-Release
 .codeartsdoer
+build-x86

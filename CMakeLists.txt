@@ -137,11 +137,12 @@ set_source_files_properties(
     src/infrastructure/lyrics/netease_provider.cpp
     src/infrastructure/lyrics/qqmusic_provider.cpp
     src/presentation/controllers/download_controller.cpp
-    PROPERTIES COMPILE_FLAGS "-Wno-null-dereference"
+    src/core/http/response.cpp
+    PROPERTIES COMPILE_FLAGS "-Wno-null-dereference -Wno-sign-conversion"
 )
 set_source_files_properties(
     src/infrastructure/filesystem/music_file_repository.cpp
-    PROPERTIES COMPILE_FLAGS "-Wno-shadow"
+    PROPERTIES COMPILE_FLAGS "-Wno-shadow -Wno-unused-result"
 )
 
 # LTO
@@ -208,7 +209,7 @@ set(CPACK_PACKAGE_NAME "NarMusicServer")
 set(CPACK_PACKAGE_VERSION ${NARNAT_VERSION})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "纳儿音乐服务器")
 set(CPACK_PACKAGE_VENDOR "NarNat")
-set(CPACK_PACKAGE_FILE_NAME "NarMusicServer-${NARNAT_VERSION}-${NARNAT_TARGET_ARCH}")
+set(CPACK_PACKAGE_FILE_NAME "NarMusicServer-dist")
 set(CPACK_GENERATOR ZIP)
 set(CPACK_STRIP_FILES TRUE)
 set(CPACK_INSTALL_PREFIX "/opt/${PROJECT_NAME}")

@@ -38,6 +38,7 @@ function(generate_version_header TARGET)
         "#define NARNAT_VERSION_PATCH  ${NARNAT_VERSION_PATCH}\n"
         "#define NARNAT_VERSION        \"${NARNAT_VERSION}\"\n"
         "#define NARNAT_PROJECT_NAME   \"${PROJECT_NAME}\"\n"
+        "#define NARNAT_TARGET_ARCH    \"${NARNAT_TARGET_ARCH}\"\n"
         "\n"
         "#endif\n"
     )
