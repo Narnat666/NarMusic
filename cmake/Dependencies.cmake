@@ -1,11 +1,44 @@
 # ============================================================================
 # 依赖库配置
 # 统一管理所有第三方库的路径、头文件和链接
+# 支持多架构: lib/aarch64/ 和 lib/x86_64/
 # ============================================================================
 
-# 静态库根目录
-set(NARNAT_LIB_DIR "${CMAKE_SOURCE_DIR}/lib" CACHE PATH "第三方静态库目录")
 set(NARNAT_INC_DIR "${CMAKE_SOURCE_DIR}/include" CACHE PATH "第三方头文件目录")
+
+# ---------------------------------------------------------------------------
+# 确定目标架构的库目录
+# ---------------------------------------------------------------------------
+if(NOT DEFINED NARNAT_TARGET_ARCH)
+    if(DEFINED CMAKE_SYSTEM_PROCESSOR AND NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "")
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+            set(NARNAT_TARGET_ARCH "aarch64")
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64")
+            set(NARNAT_TARGET_ARCH "x86_64")
+        else()
+            set(NARNAT_TARGET_ARCH "${CMAKE_SYSTEM_PROCESSOR}")
+        endif()
+    else()
+        # 回退: 使用本机架构
+        execute_process(
+            COMMAND uname -m
+            OUTPUT_VARIABLE HOST_ARCH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if(HOST_ARCH MATCHES "aarch64|arm64")
+            set(NARNAT_TARGET_ARCH "aarch64")
+        elseif(HOST_ARCH MATCHES "x86_64|amd64")
+            set(NARNAT_TARGET_ARCH "x86_64")
+        else()
+            set(NARNAT_TARGET_ARCH "${HOST_ARCH}")
+        endif()
+    endif()
+endif()
+
+set(NARNAT_LIB_DIR "${CMAKE_SOURCE_DIR}/lib/${NARNAT_TARGET_ARCH}" CACHE PATH "第三方静态库目录")
+
+message(STATUS "目标架构: ${NARNAT_TARGET_ARCH}")
+message(STATUS "库目录: ${NARNAT_LIB_DIR}")
 
 # ---------------------------------------------------------------------------
 # 验证所有必需的静态库存在
@@ -17,10 +50,13 @@ function(validate_static_libraries)
     )
     foreach(LIB ${REQUIRED_LIBS})
         if(NOT EXISTS "${NARNAT_LIB_DIR}/${LIB}")
-            message(FATAL_ERROR "缺少静态库: ${NARNAT_LIB_DIR}/${LIB}")
+            message(FATAL_ERROR
+                "缺少静态库: ${NARNAT_LIB_DIR}/${LIB}\n"
+                "请确保 lib/${NARNAT_TARGET_ARCH}/ 目录下包含所需的预编译库"
+            )
         endif()
     endforeach()
-    message(STATUS "所有静态库验证通过")
+    message(STATUS "所有静态库验证通过 (${NARNAT_TARGET_ARCH})")
 endfunction()
 
 # ---------------------------------------------------------------------------

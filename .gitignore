@@ -37,3 +37,5 @@ dist
 build-aarch64-Release
 .arts/
 build-native-Release
+build-x86_64-Release
+.codeartsdoer

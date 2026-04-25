@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # NarMusic 构建脚本
-# 支持: 交叉编译 / 本地编译 / 消毒器 / LTO / 打包
+# 支持: 本地编译 / 交叉编译 (aarch64|x86_64) / 消毒器 / LTO / 打包
 # ============================================================================
 
 set -euo pipefail
@@ -13,8 +13,6 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_NAME="NarMusic"
 readonly PROJECT_VERSION="1.0.0"
 readonly DEFAULT_BUILD_TYPE="Release"
-readonly DEFAULT_ARCH="aarch64"
-readonly TOOLCHAIN_PREFIX="aarch64-linux-gnu"
 
 # ============================================================================
 # 颜色
@@ -33,6 +31,28 @@ die()    { err "$1"; exit 1; }
 debug()  { [[ "${VERBOSE:-0}" == 1 ]] && echo -e "${C}[DBG]${N} $1"; }
 
 # ============================================================================
+# 工具
+# ============================================================================
+detect_host_arch() {
+    case "$(uname -m)" in
+        x86_64|amd64)  echo "x86_64" ;;
+        aarch64|arm64) echo "aarch64" ;;
+        *)             echo "unknown" ;;
+    esac
+}
+
+nproc_fallback() {
+    if command -v nproc &>/dev/null; then nproc
+    elif [[ "$(uname)" == "Darwin" ]]; then sysctl -n hw.ncpu
+    else echo 4
+    fi
+}
+
+# 默认架构 = 本机架构
+readonly HOST_ARCH="$(detect_host_arch)"
+readonly DEFAULT_ARCH="${HOST_ARCH}"
+
+# ============================================================================
 # 参数
 # ============================================================================
 BUILD_TYPE="${DEFAULT_BUILD_TYPE}"
@@ -47,7 +67,6 @@ CC="" CXX=""
 TOOLCHAIN_FILE="" SYSROOT_DIR=""
 INSTALL_PREFIX="/usr/local"
 CMAKE_EXTRA=()
-# CMake 选项开关
 OPT_LTO=0 OPT_ASAN=0 OPT_TSAN=0 OPT_UBSAN=0 OPT_WERROR=0 OPT_STATIC=0
 
 usage() {
@@ -58,8 +77,8 @@ ${PROJECT_NAME} v${PROJECT_VERSION} 构建脚本
 
 构建:
   -t, --type TYPE       构建类型 (Release|Debug|RelWithDebInfo|MinSizeRel) [默认: ${DEFAULT_BUILD_TYPE}]
-  -a, --arch ARCH       目标架构 (aarch64|native) [默认: ${DEFAULT_ARCH}]
-  --toolchain FILE      CMake 工具链文件
+  -a, --arch ARCH       目标架构 (native|x86_64|aarch64) [默认: ${DEFAULT_ARCH} (本机架构)]
+  --toolchain FILE      CMake 工具链文件 (交叉编译时自动选择)
   --cc CC               C 编译器
   --cxx CXX             C++ 编译器
   --sysroot DIR         Sysroot 目录
@@ -85,8 +104,10 @@ ${PROJECT_NAME} v${PROJECT_VERSION} 构建脚本
   -V, --version         显示版本
 
 示例:
-  $0                          # 默认 Release + ARM64 交叉编译
-  $0 -t Debug -a native       # 本地 Debug 构建
+  $0                          # 默认: 本机架构 Release 编译
+  $0 -a aarch64               # 交叉编译 ARM64
+  $0 -a x86_64                # 交叉编译 x86_64 (在 ARM 主机上)
+  $0 -t Debug -a native       # 本机 Debug 构建
   $0 --asan -t Debug          # Debug + ASan
   $0 --lto -t Release         # Release + LTO
   $0 -p                       # 构建并打包
@@ -126,38 +147,46 @@ parse_args() {
 }
 
 # ============================================================================
-# 工具
+# 检查
 # ============================================================================
-nproc_fallback() {
-    if command -v nproc &>/dev/null; then nproc
-    elif [[ "$(uname)" == "Darwin" ]]; then sysctl -n hw.ncpu
-    else echo 4
+resolve_arch() {
+    # native → 使用本机架构名
+    if [[ "${ARCH}" == "native" ]]; then
+        ARCH="${HOST_ARCH}"
+    fi
+
+    # 如果在 ARM64 主机上指定 aarch64，视为本机编译
+    if [[ "${ARCH}" == "aarch64" && "${HOST_ARCH}" == "aarch64" ]]; then
+        log "本机即为 aarch64，使用本机编译"
+    fi
+
+    # 如果在 x86_64 主机上指定 x86_64，视为本机编译
+    if [[ "${ARCH}" == "x86_64" && "${HOST_ARCH}" == "x86_64" ]]; then
+        log "本机即为 x86_64，使用本机编译"
     fi
 }
 
-detect_host_arch() {
-    case "$(uname -m)" in
-        x86_64|amd64)  echo "x86_64" ;;
-        aarch64|arm64) echo "aarch64" ;;
-        *)             echo "unknown" ;;
-    esac
+is_cross_compile() {
+    [[ "${ARCH}" != "${HOST_ARCH}" ]]
 }
 
-# ============================================================================
-# 检查
-# ============================================================================
 check_requirements() {
     local missing=()
     for cmd in cmake make; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
 
-    # 编译器
-    if [[ "${ARCH}" == "native" ]]; then
-        CC="${CC:-gcc}"; CXX="${CXX:-g++}"
+    if is_cross_compile; then
+        local prefix
+        case "${ARCH}" in
+            aarch64)  prefix="aarch64-linux-gnu" ;;
+            x86_64)   prefix="x86_64-linux-gnu" ;;
+            *)        prefix="${ARCH}-linux-gnu" ;;
+        esac
+        CC="${CC:-${prefix}-gcc}"
+        CXX="${CXX:-${prefix}-g++}"
     else
-        CC="${CC:-${TOOLCHAIN_PREFIX}-gcc}"
-        CXX="${CXX:-${TOOLCHAIN_PREFIX}-g++}"
+        CC="${CC:-gcc}"; CXX="${CXX:-g++}"
     fi
 
     command -v "${CC}"  &>/dev/null || missing+=("${CC}")
@@ -165,12 +194,20 @@ check_requirements() {
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         err "缺少工具: ${missing[*]}"
-        echo "安装交叉编译器 (Ubuntu):"
-        echo "  sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make"
+        if is_cross_compile; then
+            echo "安装交叉编译器 (Ubuntu):"
+            case "${ARCH}" in
+                aarch64) echo "  sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make" ;;
+                x86_64)  echo "  sudo apt install gcc-x86-64-linux-gnu g++-x86-64-linux-gnu cmake make" ;;
+            esac
+        else
+            echo "安装编译器 (Ubuntu):"
+            echo "  sudo apt install gcc g++ cmake make"
+        fi
         exit 1
     fi
 
-    ok "环境检查通过"
+    ok "环境检查通过 (目标: ${ARCH}, 模式: $(is_cross_compile && echo 交叉编译 || echo 本机编译))"
 }
 
 # ============================================================================
@@ -189,12 +226,6 @@ configure_and_build() {
     BUILD_DIR="$(get_build_dir)"
     JOBS="${JOBS:-$(nproc_fallback)}"
 
-    # 如果在 ARM64 主机上指定 aarch64，切换为 native
-    if [[ "${ARCH}" == "aarch64" && "$(detect_host_arch)" == "aarch64" ]]; then
-        ARCH="native"; CC="gcc"; CXX="g++"
-        BUILD_DIR="$(get_build_dir)"
-    fi
-
     mkdir -p "${BUILD_DIR}"
     cd "${BUILD_DIR}"
 
@@ -209,17 +240,22 @@ configure_and_build() {
         -DCMAKE_CXX_COMPILER="${CXX}"
     )
 
-    # 交叉编译
-    if [[ "${ARCH}" == "aarch64" ]]; then
-        cmake_args+=(-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64)
+    # 交叉编译设置
+    if is_cross_compile; then
+        cmake_args+=(-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR="${ARCH}")
+
+        # 自动选择工具链文件
         if [[ -n "${TOOLCHAIN_FILE}" ]]; then
             cmake_args+=(-DCMAKE_TOOLCHAIN_FILE="${TOOLCHAIN_FILE}")
-        elif [[ -f "${SCRIPT_DIR}/toolchain-aarch64.cmake" ]]; then
-            cmake_args+=(-DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/toolchain-aarch64.cmake")
+        elif [[ -f "${SCRIPT_DIR}/toolchain-${ARCH}.cmake" ]]; then
+            cmake_args+=(-DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/toolchain-${ARCH}.cmake")
         fi
+
         if [[ -n "${SYSROOT_DIR}" ]]; then
             cmake_args+=(-DNARNAT_SYSROOT="${SYSROOT_DIR}")
         fi
+    else
+        cmake_args+=(-DCMAKE_SYSTEM_PROCESSOR="${ARCH}")
     fi
 
     # 选项开关
@@ -275,10 +311,16 @@ configure_and_build() {
 main() {
     cd "${SCRIPT_DIR}"
     parse_args "$@"
+    resolve_arch
 
     echo "=========================================="
     echo "  ${PROJECT_NAME} v${PROJECT_VERSION}"
     echo "  构建: ${BUILD_TYPE} | 架构: ${ARCH}"
+    if is_cross_compile; then
+    echo "  模式: 交叉编译 (主机: ${HOST_ARCH} → 目标: ${ARCH})"
+    else
+    echo "  模式: 本机编译 (${ARCH})"
+    fi
     echo "=========================================="
 
     if (( CLEAN )); then
