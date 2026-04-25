@@ -81,6 +81,7 @@ void DownloadService::executeDownload(const std::string& taskId,
             if (req.delayMs != 0 && metadata.hasLyrics) {
                 metadata.lyrics = LyricsAggregator::adjustLyricsTiming(metadata.lyrics, req.delayMs);
             }
+            metadata.delayMs = req.delayMs;
 
             // 双语合并
             if (metadata.hasTranslation && !metadata.translationLyrics.empty()) {

@@ -799,7 +799,9 @@ localDownloadBtn.addEventListener('click', async function() {
             let filename = 'downloaded_music';
             if (contentDisposition) {
                 const matches = /filename="?([^"]+)"?/i.exec(contentDisposition);
-                if (matches && matches[1]) filename = matches[1];
+                if (matches && matches[1]) {
+                    try { filename = decodeURIComponent(matches[1]); } catch { filename = matches[1]; }
+                }
             }
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -1029,7 +1031,9 @@ async function downloadMusicFile(systemFilename) {
 
             if (contentDisposition) {
                 const matches = /filename="?([^"]+)"?/i.exec(contentDisposition);
-                if (matches && matches[1]) downloadFilename = matches[1];
+                if (matches && matches[1]) {
+                    try { downloadFilename = decodeURIComponent(matches[1]); } catch { downloadFilename = matches[1]; }
+                }
             }
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);

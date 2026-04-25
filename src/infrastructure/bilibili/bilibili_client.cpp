@@ -35,7 +35,11 @@ static std::string urlEncodeWbi(const std::string& s) {
     escaped.fill('0');
     escaped << std::hex << std::uppercase;
     for (unsigned char c : s) {
-        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+        if (c < 128 && isalnum(c)) {
+            escaped << c;
+            continue;
+        }
+        if (c == '-' || c == '_' || c == '.' || c == '~') {
             escaped << c;
             continue;
         }
@@ -70,10 +74,29 @@ bool BilibiliClient::initialize() {
 }
 
 std::string BilibiliClient::fetchAnonymousCookie() {
-    // 简化：通过nav接口获取cookie
-    auto resp = httpClient_->get("https://api.bilibili.com/x/web-interface/nav",
+    // 先访问B站主页提取Cookie
+    auto resp = httpClient_->get("https://www.bilibili.com/", {
+        "Referer: https://www.bilibili.com/",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8"
+    });
+
+    std::string cookie;
+    // 从响应头中无法直接获取Set-Cookie（CurlClient未暴露），
+    // 尝试通过nav接口获取
+    resp = httpClient_->get("https://api.bilibili.com/x/web-interface/nav",
         {"Referer: https://www.bilibili.com/"});
-    // cookie由curl自动处理，这里返回空使用fallback
+
+    if (!resp.success || resp.body.empty()) return "";
+
+    try {
+        json j = json::parse(resp.body);
+        if (j.contains("data") && j["data"].contains("wbi_img")) {
+            // nav接口成功，说明网络正常，使用fallback cookie即可
+            return "";
+        }
+    } catch (...) {}
+
     return "";
 }
 
@@ -233,6 +256,110 @@ std::string BilibiliClient::resolveUrl(const std::string& input) {
     return url;
 }
 
+std::map<std::string, std::string> BilibiliClient::searchSingle(const std::string& keyword) {
+    std::map<std::string, std::string> item;
+    item["name"] = keyword;
+
+    std::map<std::string, std::string> params;
+    params["keyword"] = keyword;
+    params["page"] = "1";
+    params["pagesize"] = "20";
+    auto signedParams = signWbiParams(params);
+
+    std::string url = "https://api.bilibili.com/x/web-interface/wbi/search/all/v2?";
+    for (const auto& p : signedParams) {
+        url += p.first + "=" + urlEncodeWbi(p.second) + "&";
+    }
+    url.pop_back();
+
+    auto resp = httpClient_->get(url, {
+        "Referer: https://www.bilibili.com",
+        "Cookie: " + cookie_
+    });
+
+    if (resp.success && !resp.body.empty()) {
+        try {
+            json j = json::parse(resp.body);
+            if (j.value("code", -1) == 0 && j.contains("data") && j["data"].contains("result")) {
+                std::vector<std::tuple<std::string, std::string, long long>> candidates;
+                for (const auto& resultItem : j["data"]["result"]) {
+                    if (resultItem.value("result_type", "") != "video") continue;
+                    if (!resultItem.contains("data")) continue;
+                    for (const auto& video : resultItem["data"]) {
+                        if (!video.contains("duration")) continue;
+                        // 时长过滤
+                        int dur = 0;
+                        if (video["duration"].is_number()) {
+                            dur = video["duration"].get<int>();
+                        } else if (video["duration"].is_string()) {
+                            std::string durStr = video["duration"].get<std::string>();
+                            if (std::all_of(durStr.begin(), durStr.end(), ::isdigit)) {
+                                try { dur = std::stoi(durStr); } catch (...) {}
+                            } else {
+                                // 解析 "mm:ss" 或 "h:mm:ss" 格式
+                                std::vector<int> parts;
+                                std::string numBuf;
+                                for (char c : durStr) {
+                                    if (isdigit(static_cast<unsigned char>(c))) numBuf += c;
+                                    else if (!numBuf.empty()) {
+                                        try { parts.push_back(std::stoi(numBuf)); } catch (...) {}
+                                        numBuf.clear();
+                                    }
+                                }
+                                if (!numBuf.empty()) {
+                                    try { parts.push_back(std::stoi(numBuf)); } catch (...) {}
+                                }
+                                if (parts.size() == 2) dur = parts[0] * 60 + parts[1];
+                                else if (parts.size() == 3) dur = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                                else if (parts.size() == 1) dur = parts[0];
+                            }
+                        }
+                        if (dur <= 0 || dur > 600) continue;
+
+                        long long play = 0;
+                        if (video.contains("play") && video["play"].is_number())
+                            play = video["play"].get<long long>();
+                        else if (video.contains("play") && video["play"].is_string()) {
+                            try { play = std::stoll(video["play"].get<std::string>()); } catch (...) {}
+                        }
+
+                        std::string link, title;
+                        if (video.contains("bvid") && !video["bvid"].is_null())
+                            link = "https://www.bilibili.com/video/" + video["bvid"].get<std::string>();
+                        if (video.contains("title") && video["title"].is_string())
+                            title = stripHtmlTags(video["title"].get<std::string>());
+
+                        if (!link.empty()) candidates.emplace_back(link, title, play);
+                    }
+                }
+
+                if (!candidates.empty()) {
+                    std::sort(candidates.begin(), candidates.end(),
+                        [](const auto& a, const auto& b) { return std::get<2>(a) > std::get<2>(b); });
+                    item["result"] = "成功";
+                    item["link"] = std::get<0>(candidates[0]);
+                    item["title"] = std::get<1>(candidates[0]);
+                    LOG_I("BiliClient", "搜索成功: " + std::get<1>(candidates[0]) + " -> " + std::get<0>(candidates[0]));
+                    return item;
+                } else {
+                    LOG_W("BiliClient", "搜索无候选结果(可能所有视频时长>600秒或<=0)");
+                }
+            } else {
+                LOG_W("BiliClient", "搜索API返回错误: code=" + std::to_string(j.value("code", -1)));
+            }
+        } catch (const std::exception& e) {
+            LOG_W("BiliClient", std::string("搜索解析失败: ") + e.what());
+        }
+    } else {
+        LOG_W("BiliClient", "搜索请求失败: " + (resp.error.empty() ? "HTTP " + std::to_string(resp.statusCode) : resp.error));
+    }
+
+    item["result"] = "失败";
+    item["link"] = "";
+    item["title"] = "";
+    return item;
+}
+
 std::vector<std::map<std::string, std::string>> BilibiliClient::search(const std::string& keywords) {
     if (!initialized_) {
         LOG_E("BiliClient", "未初始化，无法搜索");
@@ -252,76 +379,17 @@ std::vector<std::map<std::string, std::string>> BilibiliClient::search(const std
     }
 
     for (const auto& kw : kws) {
+        // 先用优化后的关键词搜索
         std::string optimized = optimizeKeyword(kw);
+        auto item = searchSingle(optimized);
 
-        std::map<std::string, std::string> params;
-        params["keyword"] = optimized;
-        params["page"] = "1";
-        params["pagesize"] = "20";
-        auto signedParams = signWbiParams(params);
-
-        std::string url = "https://api.bilibili.com/x/web-interface/wbi/search/all/v2?";
-        for (const auto& p : signedParams) {
-            url += p.first + "=" + urlEncodeWbi(p.second) + "&";
+        // 降级：优化词失败则用原始关键词重试
+        if (item["link"].empty() && optimized != kw) {
+            LOG_W("BiliClient", "优化词搜索失败，降级使用原始关键词: " + kw);
+            item = searchSingle(kw);
         }
-        url.pop_back();
 
-        auto resp = httpClient_->get(url, {
-            "Referer: https://www.bilibili.com",
-            "Cookie: " + cookie_
-        });
-
-        std::map<std::string, std::string> item;
         item["name"] = kw;
-
-        if (resp.success && !resp.body.empty()) {
-            try {
-                json j = json::parse(resp.body);
-                if (j.value("code", -1) == 0 && j.contains("data") && j["data"].contains("result")) {
-                    // 查找最佳视频
-                    std::vector<std::tuple<std::string, std::string, long long>> candidates;
-                    for (const auto& resultItem : j["data"]["result"]) {
-                        if (resultItem.value("result_type", "") != "video") continue;
-                        if (!resultItem.contains("data")) continue;
-                        for (const auto& video : resultItem["data"]) {
-                            if (!video.contains("duration")) continue;
-                            // 时长过滤
-                            int dur = 0;
-                            if (video["duration"].is_number()) dur = video["duration"].get<int>();
-                            if (dur <= 0 || dur > 600) continue;
-
-                            long long play = 0;
-                            if (video.contains("play") && video["play"].is_number())
-                                play = video["play"].get<long long>();
-
-                            std::string link, title;
-                            if (video.contains("bvid") && !video["bvid"].is_null())
-                                link = "https://www.bilibili.com/video/" + video["bvid"].get<std::string>();
-                            if (video.contains("title") && video["title"].is_string())
-                                title = stripHtmlTags(video["title"].get<std::string>());
-
-                            if (!link.empty()) candidates.emplace_back(link, title, play);
-                        }
-                    }
-
-                    if (!candidates.empty()) {
-                        std::sort(candidates.begin(), candidates.end(),
-                            [](const auto& a, const auto& b) { return std::get<2>(a) > std::get<2>(b); });
-                        item["result"] = "成功";
-                        item["link"] = std::get<0>(candidates[0]);
-                        item["title"] = std::get<1>(candidates[0]);
-                    }
-                }
-            } catch (const std::exception& e) {
-                LOG_W("BiliClient", std::string("搜索解析失败: ") + e.what());
-            }
-        }
-
-        if (item.find("result") == item.end()) {
-            item["result"] = "失败";
-            item["link"] = "";
-            item["title"] = "";
-        }
         results.push_back(item);
     }
 

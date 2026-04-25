@@ -40,6 +40,30 @@ std::vector<MusicFileInfo> FsMusicFileRepository::scanLibrary(const std::string&
             ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
         info.downloadTime = std::chrono::system_clock::to_time_t(sctp);
 
+        // 从M4A元数据读取延迟和自定义文件名
+        if (ext == ".m4a") {
+            try {
+                TagLib::MP4::File m4aFile(entry.path().c_str());
+                if (m4aFile.isValid()) {
+                    auto* tag = m4aFile.tag();
+                    if (tag) {
+                        // 读取延迟
+                        auto delayKey = tag->itemMap().find("----:com.narnat:delayMs");
+                        if (delayKey != tag->itemMap().end()) {
+                            try {
+                                info.delayMs = std::stoi(delayKey->second.toStringList().front().toCString(true));
+                            } catch (...) {}
+                        }
+                        // 读取标题作为自定义文件名
+                        auto title = tag->title();
+                        if (!title.isEmpty()) {
+                            info.customFilename = title.toCString(true) + ext;
+                        }
+                    }
+                }
+            } catch (...) {}
+        }
+
         files.push_back(info);
     }
 
@@ -102,6 +126,12 @@ bool FsMusicFileRepository::writeMetadata(const std::string& filePath,
     if (!metadata.lyrics.empty()) {
         tag->setItem("\xA9lyr",
             TagLib::MP4::Item(TagLib::String(metadata.lyrics, TagLib::String::UTF8)));
+    }
+
+    // 写入延迟信息到自定义tag
+    if (metadata.delayMs != 0) {
+        tag->setItem("----:com.narnat:delayMs",
+            TagLib::MP4::Item(TagLib::String(std::to_string(metadata.delayMs), TagLib::String::UTF8)));
     }
 
     // 写入封面

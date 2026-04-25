@@ -27,6 +27,9 @@ public:
     // 搜索视频
     std::vector<std::map<std::string, std::string>> search(const std::string& keyword);
 
+    // 单关键词搜索（含降级重试）
+    std::map<std::string, std::string> searchSingle(const std::string& keyword);
+
     // 从URL提取链接（兼容短链接）
     std::string resolveUrl(const std::string& input);
 

@@ -3,6 +3,25 @@
 
 namespace narnat {
 
+// RFC 5987 percent-encoding for filename* parameter
+static std::string urlEncodeUtf8(const std::string& s) {
+    std::ostringstream escaped;
+    escaped.fill('0');
+    escaped << std::hex << std::uppercase;
+    for (unsigned char c : s) {
+        if (c < 128 && isalnum(c)) {
+            escaped << c;
+            continue;
+        }
+        if (c == '-' || c == '_' || c == '.' || c == '~') {
+            escaped << c;
+            continue;
+        }
+        escaped << '%' << std::setw(2) << static_cast<int>(c);
+    }
+    return escaped.str();
+}
+
 Response Response::json(int status, const std::string& statusText,
                          const nlohmann::json& body) {
     Response r;
@@ -40,7 +59,7 @@ Response Response::download(const std::vector<char>& fileData,
     r.body_.assign(fileData.begin(), fileData.end());
     r.isBinary_ = true;
     r.headers_["Content-Type"] = "application/octet-stream";
-    r.headers_["Content-Disposition"] = "attachment; filename=\"" + displayName + "\"; filename*=UTF-8''" + displayName;
+    r.headers_["Content-Disposition"] = "attachment; filename=\"" + urlEncodeUtf8(displayName) + "\"; filename*=UTF-8''" + urlEncodeUtf8(displayName);
     return r;
 }
 

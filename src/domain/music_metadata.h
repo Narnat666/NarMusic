@@ -22,6 +22,7 @@ struct MusicMetadata {
     bool hasCover = false;
     bool hasAlbum = false;
     int coverSize = 0;
+    int delayMs = 0;             // 歌词延迟（毫秒）
 };
 
 struct SearchResult {
