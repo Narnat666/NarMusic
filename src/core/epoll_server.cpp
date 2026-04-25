@@ -195,7 +195,6 @@ void EpollServer::handleRead(int fd) {
         if (n > 0) {
             requestData.append(buffer, static_cast<size_t>(n));
         } else if (n == 0) {
-            // 连接关闭
             close(fd);
             std::lock_guard<std::mutex> lock(connMutex_);
             connections_.erase(fd);
@@ -216,7 +215,6 @@ void EpollServer::handleRead(int fd) {
 
     if (requestData.empty()) return;
 
-    // 更新活跃时间
     {
         std::lock_guard<std::mutex> lock(connMutex_);
         auto it = connections_.find(fd);
@@ -224,10 +222,10 @@ void EpollServer::handleRead(int fd) {
             it->second.lastActive = std::chrono::steady_clock::now();
             it->second.readBuffer += requestData;
             requestData = it->second.readBuffer;
+            it->second.readBuffer.clear();
         }
     }
 
-    // 提交到线程池处理
     pool_.detach_task([this, fd, requestData]() {
         Request req;
         if (!req.parse(requestData)) {

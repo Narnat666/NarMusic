@@ -16,7 +16,10 @@ Response DownloadController::createTask(const Request& req) {
         json body = json::parse(req.body());
 
         DownloadService::CreateTaskRequest taskReq;
-        taskReq.url = body.value("content", "");
+        taskReq.url = body.value("url", "");
+        if (taskReq.url.empty()) {
+            taskReq.url = body.value("content", "");
+        }
         taskReq.filename = body.value("filename", "");
         taskReq.platform = body.value("platform", "酷狗音乐");
         taskReq.delayMs = body.value("offsetMs", 0);
@@ -29,7 +32,8 @@ Response DownloadController::createTask(const Request& req) {
 
         json result;
         result["task_id"] = taskId;
-        result["status"] = "created";
+        result["message"] = "download_started";
+        result["url"] = taskReq.url;
         return Response::json(200, "OK", result);
 
     } catch (const std::exception& e) {
@@ -67,8 +71,12 @@ Response DownloadController::downloadFile(const Request& req) {
     }
 
     std::string displayName = downloadService_->getTaskDisplayName(id);
-    if (displayName.empty()) displayName = id;
-    displayName += ".m4a";
+    if (displayName.empty()) {
+        displayName = id;
+    }
+    if (displayName.find('.') == std::string::npos) {
+        displayName += ".m4a";
+    }
 
     return Response::download(fileData, displayName);
 }

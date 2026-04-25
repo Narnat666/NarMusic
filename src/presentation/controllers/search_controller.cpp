@@ -17,13 +17,16 @@ Response SearchController::search(const Request& req) {
 
     auto results = searchService_->search(keyword);
 
-    json result = json::array();
-    for (const auto& item : results) {
-        json j;
-        for (const auto& [k, v] : item) {
-            j[k] = v;
-        }
-        result.push_back(j);
+    json result;
+    result["keyword"] = keyword;
+
+    if (!results.empty()) {
+        const auto& first = results[0];
+        result["link"] = first.count("link") ? first.at("link") : "";
+        result["title"] = first.count("title") ? first.at("title") : "";
+    } else {
+        result["link"] = "";
+        result["title"] = "";
     }
 
     return Response::json(200, "OK", result);

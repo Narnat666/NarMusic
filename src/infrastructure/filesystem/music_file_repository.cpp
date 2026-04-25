@@ -2,6 +2,8 @@
 #include "core/logger.h"
 #include <filesystem>
 #include <fstream>
+#include <chrono>
+#include <algorithm>
 #include <taglib/mp4/mp4file.h>
 #include <taglib/mp4/mp4tag.h>
 #include <taglib/mp4/mp4coverart.h>
@@ -15,17 +17,35 @@ std::vector<MusicFileInfo> FsMusicFileRepository::scanLibrary(const std::string&
 
     if (!fs::exists(directory)) return files;
 
+    static const std::vector<std::string> musicExts = {
+        ".m4a", ".mp3", ".flac", ".wav", ".aac", ".ogg"
+    };
+
     for (const auto& entry : fs::directory_iterator(directory)) {
         if (!entry.is_regular_file()) continue;
-        std::string path = entry.path().string();
-        if (path.size() < 4 || path.substr(path.size() - 4) != ".m4a") continue;
+        std::string ext = entry.path().extension().string();
+        bool isMusic = false;
+        for (const auto& e : musicExts) {
+            if (ext == e) { isMusic = true; break; }
+        }
+        if (!isMusic) continue;
 
         MusicFileInfo info;
         info.systemFilename = entry.path().filename().string();
+        info.customFilename = info.systemFilename;
         info.fileSize = static_cast<long long>(fs::file_size(entry.path()));
-        info.downloadTime = fs::last_write_time(entry.path()).time_since_epoch().count();
+
+        auto ftime = fs::last_write_time(entry.path());
+        auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+        info.downloadTime = std::chrono::system_clock::to_time_t(sctp);
+
         files.push_back(info);
     }
+
+    std::sort(files.begin(), files.end(), [](const MusicFileInfo& a, const MusicFileInfo& b) {
+        return a.downloadTime > b.downloadTime;
+    });
 
     return files;
 }

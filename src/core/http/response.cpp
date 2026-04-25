@@ -40,7 +40,7 @@ Response Response::download(const std::vector<char>& fileData,
     r.body_.assign(fileData.begin(), fileData.end());
     r.isBinary_ = true;
     r.headers_["Content-Type"] = "application/octet-stream";
-    r.headers_["Content-Disposition"] = "attachment; filename*=UTF-8''" + displayName;
+    r.headers_["Content-Disposition"] = "attachment; filename=\"" + displayName + "\"; filename*=UTF-8''" + displayName;
     return r;
 }
 
@@ -83,9 +83,12 @@ std::string Response::serialize() const {
         oss << key << ": " << value << "\r\n";
     }
 
-    // Content-Length（如果未手动设置）
     if (headers_.find("Content-Length") == headers_.end()) {
         oss << "Content-Length: " << body_.size() << "\r\n";
+    }
+
+    if (headers_.find("Connection") == headers_.end()) {
+        oss << "Connection: close\r\n";
     }
 
     oss << "\r\n";

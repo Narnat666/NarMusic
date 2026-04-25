@@ -18,7 +18,7 @@ bool StreamSender::parseRangeHeader(const std::string& rangeHeader,
                                      long long& start, long long& end) {
     if (rangeHeader.empty() || fileSize <= 0) {
         start = 0;
-        end = std::min(bufferSize_, fileSize) - 1;
+        end = fileSize - 1;
         return false;
     }
 
@@ -35,15 +35,9 @@ bool StreamSender::parseRangeHeader(const std::string& rangeHeader,
                 LOG_W("StreamSender", "无效起始位置: " + std::to_string(start));
                 return false;
             }
-            if (end > fileSize) end = fileSize - 1;
+            if (end >= fileSize) end = fileSize - 1;
             if (start > end) return false;
 
-            // 限制单次传输大小
-            long long requestSize = end - start + 1;
-            if (requestSize > bufferSize_) {
-                end = start + bufferSize_ - 1;
-                if (end >= fileSize) end = fileSize - 1;
-            }
             return true;
         } catch (const std::exception& e) {
             LOG_W("StreamSender", std::string("Range解析失败: ") + e.what());
@@ -51,9 +45,8 @@ bool StreamSender::parseRangeHeader(const std::string& rangeHeader,
         }
     }
 
-    // 无Range头
     start = 0;
-    end = std::min(bufferSize_, fileSize) - 1;
+    end = fileSize - 1;
     return false;
 }
 

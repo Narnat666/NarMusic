@@ -1,5 +1,6 @@
 #include "task.h"
 #include "nlohmann/json.hpp"
+#include <filesystem>
 
 namespace narnat {
 
@@ -16,6 +17,19 @@ nlohmann::json Task::toJson() const {
     j["is_finished"] = isFinished();
     j["is_success"] = (status_ == TaskStatus::Finished);
     j["downloaded_bytes"] = downloadedBytes_;
+
+    if (status_ == TaskStatus::Finished) {
+        nlohmann::json info;
+        std::string fileName = displayName_;
+        if (!filePath_.empty()) {
+            namespace fs = std::filesystem;
+            fileName = fs::path(filePath_).filename().string();
+        }
+        info["filename"] = fileName;
+        info["filesize"] = downloadedBytes_;
+        j["file_info"] = info;
+    }
+
     return j;
 }
 

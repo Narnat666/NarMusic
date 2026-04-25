@@ -14,8 +14,11 @@ nlohmann::json LibraryService::listFiles() {
     nlohmann::json result = nlohmann::json::array();
     for (const auto& f : files) {
         nlohmann::json item;
-        item["filename"] = f.systemFilename;
-        item["size"] = f.fileSize;
+        item["custom_filename"] = f.customFilename;
+        item["system_filename"] = f.systemFilename;
+        item["download_time"] = f.downloadTime;
+        item["delay_ms"] = f.delayMs;
+        item["file_size"] = f.fileSize;
         result.push_back(item);
     }
 
