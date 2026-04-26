@@ -18,7 +18,7 @@
     },
     "lyrics": {
         "default_platform": "酷狗音乐",
-        "platforms": ["酷狗音乐", "网易云音乐", "QQ音乐"]
+        "platforms": ["酷狗音乐", "网易云音乐", "QQ音乐", "汽水音乐"]
     },
     "logging": {
         "level": "info",

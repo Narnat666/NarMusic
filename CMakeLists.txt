@@ -81,6 +81,7 @@ set(NARNAT_SOURCES
     src/infrastructure/lyrics/kugou_provider.cpp
     src/infrastructure/lyrics/netease_provider.cpp
     src/infrastructure/lyrics/qqmusic_provider.cpp
+    src/infrastructure/lyrics/qishui_provider.cpp
 
     # Infrastructure 层 - 音频
     src/infrastructure/audio/audio_downloader.cpp
@@ -137,6 +138,7 @@ set_source_files_properties(
     src/infrastructure/lyrics/kugou_provider.cpp
     src/infrastructure/lyrics/netease_provider.cpp
     src/infrastructure/lyrics/qqmusic_provider.cpp
+    src/infrastructure/lyrics/qishui_provider.cpp
     src/presentation/controllers/download_controller.cpp
     src/core/http/response.cpp
     PROPERTIES COMPILE_FLAGS "-Wno-null-dereference -Wno-sign-conversion"

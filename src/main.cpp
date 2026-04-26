@@ -14,6 +14,7 @@
 #include "infrastructure/lyrics/kugou_provider.h"
 #include "infrastructure/lyrics/netease_provider.h"
 #include "infrastructure/lyrics/qqmusic_provider.h"
+#include "infrastructure/lyrics/qishui_provider.h"
 #include "infrastructure/audio/audio_downloader.h"
 #include "infrastructure/streaming/stream_sender.h"
 #include "infrastructure/filesystem/music_file_repository.h"
@@ -126,6 +127,7 @@ int main(int argc, char* argv[]) {
     lyricsAggregator->addProvider(std::make_shared<KugouProvider>(curlClient));
     lyricsAggregator->addProvider(std::make_shared<NeteaseProvider>(curlClient));
     lyricsAggregator->addProvider(std::make_shared<QQMusicProvider>(curlClient));
+    lyricsAggregator->addProvider(std::make_shared<QishuiProvider>(curlClient));
 
     auto downloadService = std::make_shared<DownloadService>(
         taskRepo, libraryRepo, fileRepo, audioDownloader, lyricsAggregator, config.download);
