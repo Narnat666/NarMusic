@@ -1,25 +1,21 @@
 #ifndef NARNAT_LIBRARY_SERVICE_H
 #define NARNAT_LIBRARY_SERVICE_H
 
-#include <string>
-#include <vector>
 #include <memory>
 #include "nlohmann/json.hpp"
-#include "domain/repository/music_file_repository.h"
-#include "config/config.h"
+#include "domain/repository/music_library_repository.h"
 
 namespace narnat {
 
 class LibraryService {
 public:
-    LibraryService(std::shared_ptr<IMusicFileRepository> fileRepo,
-                   const DownloadConfig& config);
+    explicit LibraryService(std::shared_ptr<IMusicLibraryRepository> libraryRepo);
 
     nlohmann::json listFiles();
+    bool deleteFile(int id);
 
 private:
-    std::shared_ptr<IMusicFileRepository> fileRepo_;
-    DownloadConfig config_;
+    std::shared_ptr<IMusicLibraryRepository> libraryRepo_;
 };
 
 } // namespace narnat

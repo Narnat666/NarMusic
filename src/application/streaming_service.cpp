@@ -5,39 +5,37 @@
 namespace narnat {
 
 StreamingService::StreamingService(std::shared_ptr<ITaskRepository> taskRepo,
+                                    std::shared_ptr<IMusicLibraryRepository> libraryRepo,
                                     const DownloadConfig& config)
-    : taskRepo_(std::move(taskRepo)), config_(config) {}
+    : taskRepo_(std::move(taskRepo))
+    , libraryRepo_(std::move(libraryRepo))
+    , config_(config) {}
 
 std::string StreamingService::getFilePath(const std::string& taskIdOrFilename) {
-    // 先尝试按task_id查找
     auto task = taskRepo_->findById(taskIdOrFilename);
     if (task && task->isFinished()) return task->filePath();
 
-    // 按文件名查找
-    auto tasks = taskRepo_->findAll();
-    for (const auto& t : tasks) {
-        if (t.displayName() == taskIdOrFilename || t.filePath().find(taskIdOrFilename) != std::string::npos) {
-            return t.filePath();
-        }
+    auto libEntry = libraryRepo_->findBySystemFilename(taskIdOrFilename);
+    if (libEntry) {
+        libraryRepo_->markUsed(libEntry->id);
+        return libEntry->filePath;
     }
 
-    // 直接作为文件路径
-    return config_.path + taskIdOrFilename;
+    LOG_W("StreamSvc", "文件未在数据库中找到: " + taskIdOrFilename);
+    return "";
 }
 
 StreamData StreamingService::stream(const std::string& taskIdOrFilename,
                                      const std::string& rangeHeader) {
     std::string filePath = getFilePath(taskIdOrFilename);
-    if (filePath.empty()) {
-        LOG_W("StreamSvc", "文件未找到: " + taskIdOrFilename);
-        return {};
-    }
+    if (filePath.empty()) return {};
 
     return streamSender_.read(filePath, rangeHeader);
 }
 
 std::vector<char> StreamingService::getFileData(const std::string& taskIdOrFilename) {
     std::string filePath = getFilePath(taskIdOrFilename);
+    if (filePath.empty()) return {};
 
     std::ifstream file(filePath, std::ios::binary | std::ios::ate);
     if (!file) return {};

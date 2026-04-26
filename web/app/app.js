@@ -954,6 +954,8 @@ function renderMusicLibrary() {
         const title = customFilename.replace(/\.[^/.]+$/, '') || '未知歌曲';
         const indexNum = String(index + 1).padStart(2, '0');
 
+        const musicId = music.id;
+
         html += `
         <div class="music-item" data-index="${index}">
             <div class="music-index">
@@ -972,6 +974,9 @@ function renderMusicLibrary() {
             <div class="music-actions-cell">
                 <button class="music-action-btn" title="下载" onclick="downloadMusicFile('${systemFilename}')">
                     <span class="material-symbols-rounded">download</span>
+                </button>
+                <button class="music-action-btn" title="删除" onclick="deleteMusicFromLibrary(${musicId}, '${systemFilename}')">
+                    <span class="material-symbols-rounded">delete</span>
                 </button>
             </div>
         </div>
@@ -1017,13 +1022,11 @@ async function downloadMusicFile(systemFilename) {
     showToast('准备下载文件...', 'info');
 
     try {
-        // 使用系统文件名作为参数
         const response = await fetch(`/api/download/file?filename=${encodeURIComponent(systemFilename)}`);
         if (response.ok) {
             const contentDisposition = response.headers.get('Content-Disposition');
             let downloadFilename = systemFilename;
 
-            // 尝试获取自定义文件名作为下载时的显示文件名
             const musicItem = musicLibrary.find(item => item.system_filename === systemFilename);
             if (musicItem && musicItem.custom_filename) {
                 downloadFilename = musicItem.custom_filename;
@@ -1051,6 +1054,29 @@ async function downloadMusicFile(systemFilename) {
         }
     } catch (error) {
         showToast('下载错误: ' + error.message, 'warning');
+    }
+}
+
+async function deleteMusicFromLibrary(musicId, systemFilename) {
+    if (!musicId) {
+        showToast('文件ID无效', 'warning');
+        return;
+    }
+
+    const title = systemFilename.replace(/\.[^/.]+$/, '') || '该文件';
+    if (!confirm(`确定要删除「${title}」吗？此操作不可恢复。`)) return;
+
+    try {
+        const response = await fetch(`/api/library/delete?id=${musicId}`, { method: 'DELETE' });
+        if (response.ok) {
+            showToast('已删除', 'success');
+            loadMusicLibrary();
+        } else {
+            const errorData = await response.json();
+            showToast('删除失败: ' + (errorData.error || '未知错误'), 'warning');
+        }
+    } catch (error) {
+        showToast('删除错误: ' + error.message, 'warning');
     }
 }
 

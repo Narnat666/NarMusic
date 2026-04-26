@@ -68,6 +68,7 @@ set(NARNAT_SOURCES
     # Infrastructure 层 - 持久化
     src/infrastructure/persistence/database.cpp
     src/infrastructure/persistence/sqlite_task_repository.cpp
+    src/infrastructure/persistence/sqlite_music_library_repository.cpp
 
     # Infrastructure 层 - HTTP 客户端
     src/infrastructure/http_client/curl_client.cpp

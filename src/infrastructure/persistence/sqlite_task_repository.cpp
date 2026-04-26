@@ -147,6 +147,8 @@ void SqliteTaskRepository::remove(const std::string& id) {
 }
 
 void SqliteTaskRepository::removeOlderThan(int seconds) {
+    if (seconds <= 0) return;
+
     std::lock_guard<std::mutex> lock(db_->mutex());
 
     auto now = std::chrono::duration_cast<std::chrono::seconds>(

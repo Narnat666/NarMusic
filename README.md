@@ -152,11 +152,6 @@ NarMusic/
 | nlohmann/json | JSON 处理 (header-only) |
 | BS_thread_pool | 线程池 (header-only) |
 
-## 🐧 在 ARM64 设备上部署
-
-```bash
-./build.sh --cc /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc  --cxx /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-g++ -a aarch64 -p # 配置自己的交叉工具链
-```
 
 ## 其他
 
@@ -193,4 +188,19 @@ sudo patchelf --set-rpath '/opt/glibc-2.33/lib:/usr/lib/aarch64-linux-gnu' ./Nar
 
 ### 3. 运行
 ./NarMusic
+```
+
+### 3.在86_64架构windows上为aarch64 linux编译
+
+```bash
+echo 'export CMAKE_GENERATOR="Unix Makefiles"' >> ~/.bashrc
+source ~/.bashrc
+
+./build.sh -a aarch64            --cc aarch64-none-linux-gnu-gcc            --cxx aarch64-none-linux-gnu-g++            --sysroot /d/wtoa/toolchain/aarch64-none-linux-gnu/libc            -j $(nproc)
+```
+
+### 4.x86_64架构ubuntu上为aarch64 linux编译
+
+```bash
+./build.sh --cc /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc  --cxx /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-g++ -a aarch64 -p # 配置自己的交叉工具链
 ```

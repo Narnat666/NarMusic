@@ -5,9 +5,9 @@
 #include "core/http/request.h"
 #include "core/http/response.h"
 
-// Infrastructure
 #include "infrastructure/persistence/database.h"
 #include "infrastructure/persistence/sqlite_task_repository.h"
+#include "infrastructure/persistence/sqlite_music_library_repository.h"
 #include "infrastructure/http_client/curl_client.h"
 #include "infrastructure/bilibili/bilibili_client.h"
 #include "infrastructure/lyrics/lyrics_aggregator.h"
@@ -18,13 +18,11 @@
 #include "infrastructure/streaming/stream_sender.h"
 #include "infrastructure/filesystem/music_file_repository.h"
 
-// Application
 #include "application/download_service.h"
 #include "application/search_service.h"
 #include "application/library_service.h"
 #include "application/streaming_service.h"
 
-// Presentation
 #include "presentation/controllers/download_controller.h"
 #include "presentation/controllers/search_controller.h"
 #include "presentation/controllers/library_controller.h"
@@ -46,19 +44,16 @@ void signalHandler(int) {
 }
 
 int main(int argc, char* argv[]) {
-    // 忽略SIGPIPE
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
 
-    // 初始化curl
     if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
         std::cerr << "curl全局初始化失败" << std::endl;
         return 1;
     }
     atexit([]() { curl_global_cleanup(); });
 
-    // 解析命令行参数
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
         if (arg == "--version") {
@@ -86,7 +81,6 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // 加载配置（自动查找配置文件路径）
     namespace fs = std::filesystem;
     if (!fs::exists(configPath)) {
         try {
@@ -98,7 +92,6 @@ int main(int argc, char* argv[]) {
     Config config = Config::load(configPath);
     config.applyOverrides(port, downloadPath, extension, debug);
 
-    // 初始化日志
     Logger::Config logCfg;
     logCfg.level = debug ? Logger::Level::DEBUG : Logger::Level::INFO;
     if (config.logging.level == "debug") logCfg.level = Logger::Level::DEBUG;
@@ -111,24 +104,13 @@ int main(int argc, char* argv[]) {
 
     LOG_I("Main", "NarMusic 启动中...");
 
-    // 清理旧文件
-    if (fs::exists(config.download.path) && fs::is_directory(config.download.path)) {
-        int count = 0;
-        for (const auto& entry : fs::directory_iterator(config.download.path)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".m4a") {
-                fs::remove(entry.path());
-                count++;
-            }
-        }
-        if (count > 0) LOG_I("Main", "已清理 " + std::to_string(count) + " 个旧文件");
-    }
     fs::create_directories(config.download.path);
 
     // ===== 依赖注入 =====
 
-    // Infrastructure层
     auto db = std::make_shared<Database>(config.database.path);
     auto taskRepo = std::make_shared<SqliteTaskRepository>(db);
+    auto libraryRepo = std::make_shared<SqliteMusicLibraryRepository>(db);
     auto fileRepo = std::make_shared<FsMusicFileRepository>();
 
     CurlClient::Options curlOpts;
@@ -145,14 +127,12 @@ int main(int argc, char* argv[]) {
     lyricsAggregator->addProvider(std::make_shared<NeteaseProvider>(curlClient));
     lyricsAggregator->addProvider(std::make_shared<QQMusicProvider>(curlClient));
 
-    // Application层
     auto downloadService = std::make_shared<DownloadService>(
-        taskRepo, fileRepo, audioDownloader, lyricsAggregator, config.download);
+        taskRepo, libraryRepo, fileRepo, audioDownloader, lyricsAggregator, config.download);
     auto searchService = std::make_shared<SearchService>(biliClient);
-    auto libraryService = std::make_shared<LibraryService>(fileRepo, config.download);
-    auto streamingService = std::make_shared<StreamingService>(taskRepo, config.download);
+    auto libraryService = std::make_shared<LibraryService>(libraryRepo);
+    auto streamingService = std::make_shared<StreamingService>(taskRepo, libraryRepo, config.download);
 
-    // Presentation层
     auto downloadCtrl = std::make_shared<DownloadController>(downloadService, streamingService);
     auto searchCtrl = std::make_shared<SearchController>(searchService);
     auto libraryCtrl = std::make_shared<LibraryController>(libraryService);
@@ -171,7 +151,6 @@ int main(int argc, char* argv[]) {
     // ===== 路由注册 =====
     Router router;
 
-    // API路由
     router.addRoute(Request::Method::POST, "/api/message",
         [downloadCtrl](const Request& req) { return downloadCtrl->createTask(req); });
 
@@ -190,7 +169,9 @@ int main(int argc, char* argv[]) {
     router.addRoute(Request::Method::GET, "/api/library/list",
         [libraryCtrl](const Request& req) { return libraryCtrl->list(req); });
 
-    // 静态文件兜底路由（所有GET请求）
+    router.addRoute(Request::Method::DELETE, "/api/library/delete",
+        [libraryCtrl](const Request& req) { return libraryCtrl->remove(req); });
+
     router.addCatchAllRoute(Request::Method::GET,
         [staticHandler](const Request& req) { return staticHandler->handle(req); });
 
@@ -198,7 +179,6 @@ int main(int argc, char* argv[]) {
     EpollServer server(config.server, router);
     gServer = &server;
 
-    // 启动定时清理线程
     std::atomic<bool> running{true};
     std::thread cleanupThread([&]() {
         while (running) {

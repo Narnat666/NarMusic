@@ -12,8 +12,8 @@ class LibraryController {
 public:
     explicit LibraryController(std::shared_ptr<LibraryService> libraryService);
 
-    // GET /api/library/list - 获取音乐库列表
     Response list(const Request& req);
+    Response remove(const Request& req);
 
 private:
     std::shared_ptr<LibraryService> libraryService_;
