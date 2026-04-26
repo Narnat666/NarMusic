@@ -11,6 +11,8 @@ let taskSuccessNotified = false;
 // 音乐库相关变量
 let musicLibrary = [];
 let isLibraryLoading = false;
+let isBatchMode = false;
+let selectedMusicIds = new Set();
 
 const urlInput = document.getElementById('urlInput');
 const filenameInput = document.getElementById('filenameInput');
@@ -935,6 +937,7 @@ function renderMusicLibrary() {
     if (!musicLibrary || musicLibrary.length === 0) {
         musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">library_music</span><div style="font-size: 16px; font-weight: 500;">音乐库为空</div><div style="font-size: 14px; margin-top: 8px;">前往下载页面添加音乐</div></div>';
         musicCountEl.textContent = '0';
+        if (isBatchMode) toggleBatchMode();
         return;
     }
 
@@ -955,12 +958,16 @@ function renderMusicLibrary() {
         const indexNum = String(index + 1).padStart(2, '0');
 
         const musicId = music.id;
+        const isSelected = selectedMusicIds.has(musicId);
+
+        const escapedSystemFilename = systemFilename.replace(/'/g, "\\'").replace(/\\/g, "\\\\");
 
         html += `
-        <div class="music-item" data-index="${index}">
+        <div class="music-item${isSelected ? ' batch-selected' : ''}" data-index="${index}" data-id="${musicId}">
             <div class="music-index">
+                <input type="checkbox" class="music-checkbox" data-id="${musicId}" ${isSelected ? 'checked' : ''} onchange="toggleMusicSelect(${musicId}, this.checked)">
                 <span class="music-index-num">${indexNum}</span>
-                <button class="music-index-play" title="播放" onclick="playMusicFromLibrary('${systemFilename}')">
+                <button class="music-index-play" title="播放" onclick="playMusicFromLibrary('${escapedSystemFilename}')">
                     <span class="material-symbols-rounded">play_arrow</span>
                 </button>
             </div>
@@ -972,10 +979,10 @@ function renderMusicLibrary() {
             <div class="music-size">${sizeText}</div>
             <div class="music-time">${timeText}</div>
             <div class="music-actions-cell">
-                <button class="music-action-btn" title="下载" onclick="downloadMusicFile('${systemFilename}')">
+                <button class="music-action-btn" title="下载" onclick="downloadMusicFile('${escapedSystemFilename}')">
                     <span class="material-symbols-rounded">download</span>
                 </button>
-                <button class="music-action-btn" title="删除" onclick="deleteMusicFromLibrary(${musicId}, '${systemFilename}')">
+                <button class="music-action-btn" title="删除" onclick="deleteMusicFromLibrary(${musicId}, '${escapedSystemFilename}')">
                     <span class="material-symbols-rounded">delete</span>
                 </button>
             </div>
@@ -984,6 +991,10 @@ function renderMusicLibrary() {
     });
 
     musicLibraryEl.innerHTML = html;
+
+    if (isBatchMode) {
+        musicLibraryEl.classList.add('batch-mode');
+    }
 }
 
 function formatDownloadTime(date) {
@@ -1183,3 +1194,191 @@ async function playMusicFromLibrary(systemFilename) {
 urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); sendBtn.click(); } });
 filenameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); } });
 window.addEventListener('beforeunload', () => stopPolling());
+
+// ==================== 批量操作功能 ====================
+function toggleBatchMode() {
+    isBatchMode = !isBatchMode;
+    selectedMusicIds.clear();
+
+    const musicLibraryEl = document.getElementById('musicLibrary');
+    const batchToolbar = document.getElementById('batchToolbar');
+    const batchSelectBtn = document.getElementById('batchSelectBtn');
+
+    if (isBatchMode) {
+        musicLibraryEl.classList.add('batch-mode');
+        batchToolbar.style.display = 'flex';
+        batchSelectBtn.innerHTML = '<span class="material-symbols-rounded">checklist</span> 取消批量';
+        batchSelectBtn.classList.add('active');
+    } else {
+        musicLibraryEl.classList.remove('batch-mode');
+        batchToolbar.style.display = 'none';
+        batchSelectBtn.innerHTML = '<span class="material-symbols-rounded">checklist</span> 批量选择';
+        batchSelectBtn.classList.remove('active');
+    }
+
+    updateBatchUI();
+    renderMusicLibrary();
+}
+
+function toggleMusicSelect(musicId, checked) {
+    if (checked) {
+        selectedMusicIds.add(musicId);
+    } else {
+        selectedMusicIds.delete(musicId);
+    }
+
+    const item = document.querySelector(`.music-item[data-id="${musicId}"]`);
+    if (item) {
+        if (checked) {
+            item.classList.add('batch-selected');
+        } else {
+            item.classList.remove('batch-selected');
+        }
+    }
+
+    updateBatchUI();
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const allIds = musicLibrary.map(m => m.id);
+
+    if (selectAllCheckbox.checked) {
+        allIds.forEach(id => selectedMusicIds.add(id));
+    } else {
+        selectedMusicIds.clear();
+    }
+
+    document.querySelectorAll('.music-checkbox').forEach(cb => {
+        const id = parseInt(cb.dataset.id);
+        cb.checked = selectAllCheckbox.checked;
+        const item = cb.closest('.music-item');
+        if (item) {
+            if (selectAllCheckbox.checked) {
+                item.classList.add('batch-selected');
+            } else {
+                item.classList.remove('batch-selected');
+            }
+        }
+    });
+
+    updateBatchUI();
+}
+
+function updateBatchUI() {
+    const selectedCountEl = document.getElementById('selectedCount');
+    const batchDownloadBtn = document.getElementById('batchDownloadBtn');
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+
+    const count = selectedMusicIds.size;
+    selectedCountEl.textContent = `已选 ${count} 项`;
+
+    batchDownloadBtn.disabled = count === 0;
+    batchDeleteBtn.disabled = count === 0;
+
+    const allIds = musicLibrary.map(m => m.id);
+    if (allIds.length > 0 && count === allIds.length) {
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.checked = false;
+    }
+}
+
+async function batchDownload() {
+    const ids = Array.from(selectedMusicIds);
+    if (ids.length === 0) {
+        showToast('请先选择要下载的文件', 'warning');
+        return;
+    }
+
+    showToast(`正在准备 ${ids.length} 个文件...`, 'info');
+
+    const batchDownloadBtn = document.getElementById('batchDownloadBtn');
+    batchDownloadBtn.disabled = true;
+    const originalContent = batchDownloadBtn.innerHTML;
+    batchDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 准备中...';
+
+    try {
+        const response = await fetch('/api/library/batch-download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids })
+        });
+
+        if (response.ok) {
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'NarMusic_download.zip';
+            if (contentDisposition) {
+                const utf8Match = /filename\*=UTF-8''(.+)/i.exec(contentDisposition);
+                if (utf8Match && utf8Match[1]) {
+                    try { filename = decodeURIComponent(utf8Match[1]); } catch { filename = utf8Match[1]; }
+                } else {
+                    const matches = /filename="?([^"]+)"?/i.exec(contentDisposition);
+                    if (matches && matches[1]) {
+                        try { filename = decodeURIComponent(matches[1]); } catch { filename = matches[1]; }
+                    }
+                }
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            showToast(`${ids.length === 1 ? '文件' : ids.length + ' 个文件打包'}下载已开始`, 'success');
+        } else {
+            const errorData = await response.json();
+            showToast('下载失败: ' + (errorData.message || '未知错误'), 'warning');
+        }
+    } catch (error) {
+        showToast('下载错误: ' + error.message, 'warning');
+    } finally {
+        batchDownloadBtn.disabled = false;
+        batchDownloadBtn.innerHTML = originalContent;
+    }
+}
+
+async function batchDelete() {
+    const ids = Array.from(selectedMusicIds);
+    if (ids.length === 0) {
+        showToast('请先选择要删除的文件', 'warning');
+        return;
+    }
+
+    if (!confirm(`确定要删除选中的 ${ids.length} 个文件吗？此操作不可恢复。`)) return;
+
+    showToast(`正在删除 ${ids.length} 个文件...`, 'info');
+
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    batchDeleteBtn.disabled = true;
+    const originalContent = batchDeleteBtn.innerHTML;
+    batchDeleteBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 删除中...';
+
+    try {
+        const response = await fetch('/api/library/batch-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: ids })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            showToast(`已删除 ${data.count || ids.length} 个文件`, 'success');
+            selectedMusicIds.clear();
+            loadMusicLibrary();
+        } else {
+            const errorData = await response.json();
+            showToast('删除失败: ' + (errorData.message || '未知错误'), 'warning');
+        }
+    } catch (error) {
+        showToast('删除错误: ' + error.message, 'warning');
+    } finally {
+        batchDeleteBtn.disabled = false;
+        batchDeleteBtn.innerHTML = originalContent;
+    }
+}

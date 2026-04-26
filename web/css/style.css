@@ -285,6 +285,11 @@ body {
     cursor: not-allowed;
 }
 
+.btn-secondary.active {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+}
+
 /* 状态卡片 */
 .status-card {
     background-color: var(--md-sys-color-background);
@@ -577,6 +582,151 @@ body {
 /* ===== 音乐库 - 酷狗歌单风格 ===== */
 .music-library {
     width: 100%;
+}
+
+/* 批量操作工具栏 */
+.batch-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    margin-bottom: 16px;
+    background-color: var(--md-sys-color-primary-container);
+    border-radius: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.batch-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.batch-select-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--md-sys-color-on-primary-container);
+    user-select: none;
+}
+
+.batch-select-all input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--md-sys-color-primary);
+    cursor: pointer;
+}
+
+.batch-selected-count {
+    font-size: 13px;
+    color: var(--md-sys-color-on-primary-container);
+    opacity: 0.8;
+}
+
+.batch-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-batch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-batch .material-symbols-rounded {
+    font-size: 18px;
+}
+
+.btn-batch-download {
+    background-color: var(--md-sys-color-primary);
+    color: white;
+}
+
+.btn-batch-download:hover:not(:disabled) {
+    background-color: #1A8AE6;
+}
+
+.btn-batch-delete {
+    background-color: var(--md-sys-color-error);
+    color: white;
+}
+
+.btn-batch-delete:hover:not(:disabled) {
+    background-color: #B71C1C;
+}
+
+.btn-batch-cancel {
+    background-color: rgba(0, 0, 0, 0.08);
+    color: var(--md-sys-color-on-surface);
+}
+
+.btn-batch-cancel:hover {
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+.btn-batch:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* 音乐列表中的复选框 */
+.music-checkbox {
+    display: none;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--md-sys-color-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.batch-mode .music-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.batch-mode .music-index-num {
+    display: none !important;
+}
+
+.batch-mode .music-index-play {
+    display: none !important;
+}
+
+.batch-mode .music-item:hover .music-index-num {
+    display: none !important;
+}
+
+.batch-mode .music-item:hover .music-index-play {
+    display: none !important;
+}
+
+.batch-mode .music-item .music-actions-cell {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.music-item.batch-selected {
+    background-color: var(--md-sys-color-primary-container) !important;
+}
+
+.music-item.batch-selected .music-title {
+    color: var(--md-sys-color-on-primary-container);
 }
 
 .music-list-header {
@@ -932,12 +1082,51 @@ body {
         display: none;
     }
 
+    .batch-toolbar {
+        padding: 10px 14px;
+        border-radius: 12px;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .batch-toolbar-left {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .batch-toolbar-right {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .btn-batch {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .btn-batch .material-symbols-rounded {
+        font-size: 16px;
+    }
+
     .music-item {
         grid-template-columns: 36px 1fr auto auto;
         height: auto;
         min-height: 56px;
         padding: 10px 12px;
         border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    }
+
+    .batch-mode .music-item {
+        grid-template-columns: 28px 1fr auto;
+    }
+
+    .batch-mode .music-time {
+        display: none;
+    }
+
+    .batch-mode .music-checkbox {
+        width: 22px;
+        height: 22px;
     }
 
     .music-delay,

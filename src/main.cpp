@@ -174,6 +174,12 @@ int main(int argc, char* argv[]) {
     router.addRoute(Request::Method::DELETE, "/api/library/delete",
         [libraryCtrl](const Request& req) { return libraryCtrl->remove(req); });
 
+    router.addRoute(Request::Method::POST, "/api/library/batch-delete",
+        [libraryCtrl](const Request& req) { return libraryCtrl->batchRemove(req); });
+
+    router.addRoute(Request::Method::POST, "/api/library/batch-download",
+        [libraryCtrl](const Request& req) { return libraryCtrl->batchDownload(req); });
+
     router.addCatchAllRoute(Request::Method::GET,
         [staticHandler](const Request& req) { return staticHandler->handle(req); });
 

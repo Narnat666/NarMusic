@@ -1,5 +1,6 @@
 #include "library_service.h"
 #include "core/logger.h"
+#include <fstream>
 
 namespace narnat {
 
@@ -22,6 +23,42 @@ bool LibraryService::deleteFile(int id) {
     libraryRepo_->remove(id);
     LOG_I("LibrarySvc", "已删除音乐文件: id=" + std::to_string(id));
     return true;
+}
+
+bool LibraryService::deleteFiles(const std::vector<int>& ids) {
+    for (int id : ids) {
+        libraryRepo_->remove(id);
+        LOG_I("LibrarySvc", "已删除音乐文件: id=" + std::to_string(id));
+    }
+    return true;
+}
+
+std::vector<std::pair<std::string, std::vector<char>>> LibraryService::getFilesData(const std::vector<int>& ids) {
+    std::vector<std::pair<std::string, std::vector<char>>> result;
+    for (int id : ids) {
+        auto entry = libraryRepo_->findById(id);
+        if (!entry) continue;
+        if (entry->filePath.empty()) continue;
+
+        std::ifstream file(entry->filePath, std::ios::binary | std::ios::ate);
+        if (!file) continue;
+
+        auto size = file.tellg();
+        file.seekg(0, std::ios::beg);
+
+        std::vector<char> data(static_cast<size_t>(size));
+        file.read(data.data(), size);
+
+        if (!data.empty()) {
+            std::string displayName = entry->songName.empty() ? entry->systemFilename : entry->songName;
+            if (displayName.find('.') == std::string::npos) {
+                displayName += ".m4a";
+            }
+            libraryRepo_->markUsed(id);
+            result.emplace_back(std::move(displayName), std::move(data));
+        }
+    }
+    return result;
 }
 
 } // namespace narnat

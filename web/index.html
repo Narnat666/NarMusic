@@ -123,10 +123,40 @@
                     <div style="color: var(--md-sys-color-on-surface-variant); font-size: 14px;">
                         已下载 <span id="musicCount">0</span> 首音乐
                     </div>
-                    <button class="btn-secondary" id="refreshLibraryBtn">
-                        <span class="material-symbols-rounded">refresh</span>
-                        刷新
-                    </button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <button class="btn-secondary" id="batchSelectBtn" onclick="toggleBatchMode()">
+                            <span class="material-symbols-rounded">checklist</span>
+                            批量选择
+                        </button>
+                        <button class="btn-secondary" id="refreshLibraryBtn">
+                            <span class="material-symbols-rounded">refresh</span>
+                            刷新
+                        </button>
+                    </div>
+                </div>
+                <!-- 批量操作工具栏 -->
+                <div id="batchToolbar" class="batch-toolbar" style="display: none;">
+                    <div class="batch-toolbar-left">
+                        <label class="batch-select-all">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            <span>全选</span>
+                        </label>
+                        <span id="selectedCount" class="batch-selected-count">已选 0 项</span>
+                    </div>
+                    <div class="batch-toolbar-right">
+                        <button class="btn-batch btn-batch-download" id="batchDownloadBtn" onclick="batchDownload()" disabled>
+                            <span class="material-symbols-rounded">download</span>
+                            批量下载
+                        </button>
+                        <button class="btn-batch btn-batch-delete" id="batchDeleteBtn" onclick="batchDelete()" disabled>
+                            <span class="material-symbols-rounded">delete</span>
+                            批量删除
+                        </button>
+                        <button class="btn-batch btn-batch-cancel" onclick="toggleBatchMode()">
+                            <span class="material-symbols-rounded">close</span>
+                            取消
+                        </button>
+                    </div>
                 </div>
                 <div class="music-library" id="musicLibrary">
                     <!-- 音乐文件列表将在这里动态生成 -->

@@ -91,6 +91,7 @@ set(NARNAT_SOURCES
 
     # Infrastructure 层 - 文件系统
     src/infrastructure/filesystem/music_file_repository.cpp
+    src/infrastructure/filesystem/zip_writer.cpp
 
     # Application 层
     src/application/download_service.cpp

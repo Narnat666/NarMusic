@@ -59,6 +59,8 @@ Response Response::download(const std::vector<char>& fileData,
     r.body_.assign(fileData.begin(), fileData.end());
     r.isBinary_ = true;
     r.headers_["Content-Type"] = "application/octet-stream";
+    r.headers_["Access-Control-Allow-Origin"] = "*";
+    r.headers_["Access-Control-Expose-Headers"] = "Content-Disposition";
     r.headers_["Content-Disposition"] = "attachment; filename=\"" + urlEncodeUtf8(displayName) + "\"; filename*=UTF-8''" + urlEncodeUtf8(displayName);
     return r;
 }
