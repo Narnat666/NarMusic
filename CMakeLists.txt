@@ -141,12 +141,17 @@ set_source_files_properties(
     src/infrastructure/lyrics/qqmusic_provider.cpp
     src/infrastructure/lyrics/qishui_provider.cpp
     src/presentation/controllers/download_controller.cpp
+    src/presentation/controllers/search_controller.cpp
     src/core/http/response.cpp
     PROPERTIES COMPILE_FLAGS "-Wno-null-dereference -Wno-sign-conversion"
 )
 set_source_files_properties(
     src/infrastructure/filesystem/music_file_repository.cpp
     PROPERTIES COMPILE_FLAGS "-Wno-shadow -Wno-unused-result"
+)
+set_source_files_properties(
+    src/infrastructure/filesystem/zip_writer.cpp
+    PROPERTIES COMPILE_FLAGS "-Wno-old-style-cast -Wno-useless-cast"
 )
 
 # LTO

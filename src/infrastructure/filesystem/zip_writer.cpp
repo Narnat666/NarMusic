@@ -1,5 +1,17 @@
+// 在包含任何头文件之前抑制zlib的旧式类型转换警告
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wuseless-cast"
+#endif
+
 #include "zip_writer.h"
 #include <zlib.h>
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <cstring>
 #include <cstdint>
 #include <ctime>
@@ -61,33 +73,74 @@ std::vector<char> ZipWriter::create(const std::vector<ZipEntry>& entries) {
     uint16_t modDate = dosDate();
 
     for (const auto& entry : entries) {
-        uint32_t crc = crc32Calc(entry.data.data(), entry.data.size());
         uint32_t uncompressedSize = static_cast<uint32_t>(entry.data.size());
+        uint32_t crc = 0;
+        if (uncompressedSize > 0) {
+            crc = crc32Calc(entry.data.data(), entry.data.size());
+        }
+        
         uint32_t compressedSize = 0;
         uint16_t compression = 0;
         std::vector<char> compressedData;
 
         if (uncompressedSize > 0) {
+            z_stream strm = {};
+            strm.zalloc = Z_NULL;
+            strm.zfree = Z_NULL;
+            strm.opaque = Z_NULL;
+            strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(entry.data.data()));
+            strm.avail_in = uncompressedSize;
             uLongf destLen = compressBound(static_cast<uLong>(uncompressedSize));
             compressedData.resize(destLen);
-            if (compress(reinterpret_cast<Bytef*>(compressedData.data()), &destLen,
-                        reinterpret_cast<const Bytef*>(entry.data.data()),
-                        static_cast<uLong>(uncompressedSize)) == Z_OK) {
-                compressedData.resize(destLen);
-                compressedSize = static_cast<uint32_t>(destLen);
-                compression = 8;
+            strm.next_out = reinterpret_cast<Bytef*>(compressedData.data());
+            strm.avail_out = static_cast<uInt>(destLen);
+
+            // -MAX_WBITS 产生 raw deflate 输出（无 zlib header），符合 ZIP 格式要求
+            if (deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+                            -MAX_WBITS, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) == Z_OK) {
+                int ret = deflate(&strm, Z_FINISH);
+                deflateEnd(&strm);
+                if (ret == Z_STREAM_END) {
+                    compressedData.resize(strm.total_out);
+                    compressedSize = static_cast<uint32_t>(strm.total_out);
+                    compression = 8;  // deflate压缩
+                } else {
+                    // 压缩失败，使用存储模式（不压缩）
+                    compressedData = entry.data;
+                    compressedSize = uncompressedSize;
+                    compression = 0;  // 存储模式
+                }
             } else {
+                // zlib初始化失败，使用存储模式
                 compressedData = entry.data;
                 compressedSize = uncompressedSize;
-                compression = 0;
+                compression = 0;  // 存储模式
             }
+        } else {
+            // 空文件
+            compressedSize = 0;
+            compression = 0;  // 存储模式
         }
 
         uint32_t localHeaderOffset = static_cast<uint32_t>(result.size());
 
-        writeU32LE(result, 0x04034b50);
-        writeU16LE(result, 20);
-        writeU16LE(result, 0);
+        // 检查文件名是否包含非ASCII字符，决定是否使用UTF-8编码
+        bool hasNonAscii = false;
+        for (char c : entry.filename) {
+            if (static_cast<unsigned char>(c) > 127) {
+                hasNonAscii = true;
+                break;
+            }
+        }
+        
+        // 通用位标志：第11位(0x0800)表示使用UTF-8编码
+        uint16_t flags = hasNonAscii ? 0x0800 : 0;
+        // 版本需要提取：20 = 2.0，支持UTF-8
+        uint16_t versionNeeded = 20;
+
+        writeU32LE(result, 0x04034b50);  // 本地文件头签名
+        writeU16LE(result, versionNeeded);  // 版本需要提取
+        writeU16LE(result, flags);  // 通用位标志
         writeU16LE(result, compression);
         writeU16LE(result, modTime);
         writeU16LE(result, modDate);
@@ -95,14 +148,14 @@ std::vector<char> ZipWriter::create(const std::vector<ZipEntry>& entries) {
         writeU32LE(result, compressedSize);
         writeU32LE(result, uncompressedSize);
         writeU16LE(result, static_cast<uint16_t>(entry.filename.size()));
-        writeU16LE(result, 0);
+        writeU16LE(result, 0);  // 额外字段长度
         result.insert(result.end(), entry.filename.begin(), entry.filename.end());
         result.insert(result.end(), compressedData.begin(), compressedData.end());
 
         CentralDirEntry cd;
         cd.versionMadeBy = 20;
-        cd.versionNeeded = 20;
-        cd.flags = 0;
+        cd.versionNeeded = versionNeeded;
+        cd.flags = flags;
         cd.compression = compression;
         cd.modTime = modTime;
         cd.modDate = modDate;

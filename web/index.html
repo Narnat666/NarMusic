@@ -23,6 +23,10 @@
             <span class="material-symbols-rounded">download</span>
             下载
         </button>
+        <button class="nav-item" onclick="switchTab('batchDownload')">
+            <span class="material-symbols-rounded">playlist_add</span>
+            批量下载
+        </button>
         <button class="nav-item" onclick="switchTab('library')">
             <span class="material-symbols-rounded">library_music</span>
             库
@@ -112,6 +116,105 @@
                         </div>
 
 
+                    </div>
+                </div>
+            </div>
+
+            <!-- 批量下载页面 -->
+            <div id="batchDownloadTab" class="tab-content" style="display: none;">
+                <h2 class="section-title">批量下载</h2>
+                <div class="batch-download-section">
+                    <div class="batch-input-mode">
+                        <button class="batch-mode-tab active" id="pasteModeBtn" onclick="switchBatchInputMode('paste')">
+                            <span class="material-symbols-rounded">content_paste</span>
+                            粘贴歌单
+                        </button>
+                        <button class="batch-mode-tab" id="importModeBtn" onclick="switchBatchInputMode('import')">
+                            <span class="material-symbols-rounded">upload_file</span>
+                            导入歌单
+                        </button>
+                    </div>
+
+                    <div class="batch-input-area">
+                        <div id="pasteModeArea" class="batch-mode-area">
+                            <div class="input-group">
+                                <label class="input-label">粘贴歌单内容</label>
+                                <textarea class="md-input batch-textarea" id="batchPasteInput" rows="8" placeholder="每行一首歌曲，格式：歌曲名 - 歌手&#10;例如：&#10;晴天 - 周杰伦&#10;七里香 - 周杰伦&#10;平凡之路 - 朴树"></textarea>
+                            </div>
+                        </div>
+                        <div id="importModeArea" class="batch-mode-area" style="display: none;">
+                            <div class="batch-file-upload" id="batchFileUpload">
+                                <span class="material-symbols-rounded" style="font-size: 48px; color: var(--md-sys-color-primary);">cloud_upload</span>
+                                <div class="batch-upload-text">点击或拖拽文件到此处</div>
+                                <div style="font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">支持 .txt 文件，每行一首歌曲</div>
+                                <input type="file" id="batchFileInput" accept=".txt" style="display: none;">
+                            </div>
+                            <div id="batchFileName" class="batch-file-name" style="display: none;">
+                                <span class="material-symbols-rounded" style="font-size: 18px; color: var(--md-sys-color-primary);">description</span>
+                                <span id="batchFileNameText"></span>
+                                <button class="batch-file-remove" onclick="clearBatchFile()">
+                                    <span class="material-symbols-rounded">close</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap;">
+                        <button class="btn-primary" id="batchParseBtn" onclick="parseBatchPlaylist()">
+                            <span class="material-symbols-rounded">search</span>
+                            解析歌单
+                        </button>
+                        <button class="btn-secondary" id="batchClearBtn" onclick="clearBatchInput()">
+                            <span class="material-symbols-rounded">backspace</span>
+                            清空
+                        </button>
+                    </div>
+
+                    <div class="batch-parse-progress" id="batchParseProgress" style="display: none;">
+                        <div class="batch-progress-header">
+                            <span class="material-symbols-rounded" style="animation: spin 1s linear infinite; color: var(--md-sys-color-primary);">progress_activity</span>
+                            <span id="batchProgressText">正在解析歌单...</span>
+                        </div>
+                        <div class="batch-progress-bar">
+                            <div class="batch-progress-fill" id="batchProgressFill" style="width: 0%;"></div>
+                        </div>
+                        <div class="batch-progress-stats">
+                            <span id="batchProgressStats">0 / 0</span>
+                        </div>
+                    </div>
+
+                    <div id="batchResultsArea" style="display: none;">
+                        <div class="batch-results-header">
+                            <div class="batch-results-summary">
+                                <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary);">queue_music</span>
+                                <span>解析结果：<strong id="batchTotalCount">0</strong> 首</span>
+                                <span class="batch-result-badge batch-found-badge" id="batchFoundBadge">已找到 <span id="batchFoundCount">0</span></span>
+                                <span class="batch-result-badge batch-notfound-badge" id="batchNotFoundBadge">未找到 <span id="batchNotFoundCount">0</span></span>
+                            </div>
+                        </div>
+
+                        <div class="batch-edit-toolbar" id="batchEditToolbar">
+                            <div class="batch-edit-toolbar-left">
+                                <label class="batch-select-all">
+                                    <input type="checkbox" id="batchSelectAllCheckbox" onchange="toggleBatchSelectAll()">
+                                    <span>全选</span>
+                                </label>
+                                <span id="batchSelectedCount" class="batch-selected-count">已选 0 项</span>
+                            </div>
+                            <div class="batch-edit-toolbar-right">
+                                <button class="btn-batch btn-batch-download" id="batchDownloadServerBtn" onclick="batchDownloadToServer()" disabled>
+                                    <span class="material-symbols-rounded">cloud_download</span>
+                                    下载到服务器
+                                </button>
+                                <button class="btn-batch btn-batch-delete" id="batchDeleteSelectedBtn" onclick="batchDeleteSelected()" disabled>
+                                    <span class="material-symbols-rounded">delete</span>
+                                    删除选中
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="batch-results-list" id="batchResultsList">
+                        </div>
                     </div>
                 </div>
             </div>

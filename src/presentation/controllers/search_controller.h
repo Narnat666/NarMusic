@@ -12,8 +12,9 @@ class SearchController {
 public:
     explicit SearchController(std::shared_ptr<SearchService> searchService);
 
-    // GET /api/search - 搜索B站视频
     Response search(const Request& req);
+
+    Response batchSearch(const Request& req);
 
 private:
     std::shared_ptr<SearchService> searchService_;

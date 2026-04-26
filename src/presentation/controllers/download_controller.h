@@ -14,16 +14,14 @@ public:
     DownloadController(std::shared_ptr<DownloadService> downloadService,
                        std::shared_ptr<StreamingService> streamingService);
 
-    // POST /api/message - 创建下载任务
     Response createTask(const Request& req);
 
-    // GET /api/download/status - 查询任务状态
+    Response batchCreateTasks(const Request& req);
+
     Response getStatus(const Request& req);
 
-    // GET /api/download/file - 下载完整文件
     Response downloadFile(const Request& req);
 
-    // GET /api/download/stream - 流式播放
     Response stream(const Request& req);
 
 private:

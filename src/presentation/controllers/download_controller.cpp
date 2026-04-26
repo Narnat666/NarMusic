@@ -42,6 +42,81 @@ Response DownloadController::createTask(const Request& req) {
     }
 }
 
+Response DownloadController::batchCreateTasks(const Request& req) {
+    try {
+        json body = json::parse(req.body());
+
+        if (!body.contains("tasks") || !body["tasks"].is_array()) {
+            return Response::error(400, "Bad Request", "missing_tasks", "tasks数组参数缺失");
+        }
+
+        auto tasksArray = body["tasks"];
+        if (tasksArray.empty()) {
+            return Response::error(400, "Bad Request", "empty_tasks", "tasks数组不能为空");
+        }
+
+        if (tasksArray.size() > 100) {
+            return Response::error(400, "Bad Request", "too_many_tasks", "单次批量下载不能超过100个任务");
+        }
+
+        std::string defaultPlatform = body.value("platform", "酷狗音乐");
+        int defaultDelayMs = body.value("offsetMs", 0);
+
+        json results = json::array();
+        int successCount = 0;
+        int failCount = 0;
+
+        for (const auto& taskObj : tasksArray) {
+            DownloadService::CreateTaskRequest taskReq;
+            taskReq.url = taskObj.value("url", "");
+            if (taskReq.url.empty()) {
+                taskReq.url = taskObj.value("content", "");
+            }
+            taskReq.filename = taskObj.value("filename", "");
+            taskReq.platform = taskObj.value("platform", defaultPlatform);
+            taskReq.delayMs = taskObj.value("offsetMs", defaultDelayMs);
+
+            json taskResult;
+            taskResult["keyword"] = taskObj.value("keyword", "");
+            taskResult["title"] = taskObj.value("title", "");
+            taskResult["url"] = taskReq.url;
+
+            if (taskReq.url.empty()) {
+                taskResult["success"] = false;
+                taskResult["error"] = "URL不能为空";
+                failCount++;
+                results.push_back(taskResult);
+                continue;
+            }
+
+            try {
+                std::string taskId = downloadService_->createTask(taskReq);
+                taskResult["success"] = true;
+                taskResult["task_id"] = taskId;
+                successCount++;
+            } catch (const std::exception& e) {
+                taskResult["success"] = false;
+                taskResult["error"] = e.what();
+                failCount++;
+            }
+
+            results.push_back(taskResult);
+        }
+
+        json result;
+        result["results"] = results;
+        result["total"] = static_cast<int>(tasksArray.size());
+        result["success"] = successCount;
+        result["failed"] = failCount;
+
+        return Response::json(200, "OK", result);
+
+    } catch (const std::exception& e) {
+        LOG_E("DownloadCtrl", std::string("批量创建任务失败: ") + e.what());
+        return Response::error(400, "Bad Request", "parse_error", e.what());
+    }
+}
+
 Response DownloadController::getStatus(const Request& req) {
     std::string taskId = req.queryParam("task_id");
     if (taskId.empty()) {

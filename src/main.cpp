@@ -168,6 +168,12 @@ int main(int argc, char* argv[]) {
     router.addRoute(Request::Method::GET, "/api/search",
         [searchCtrl](const Request& req) { return searchCtrl->search(req); });
 
+    router.addRoute(Request::Method::POST, "/api/search/batch",
+        [searchCtrl](const Request& req) { return searchCtrl->batchSearch(req); });
+
+    router.addRoute(Request::Method::POST, "/api/download/batch",
+        [downloadCtrl](const Request& req) { return downloadCtrl->batchCreateTasks(req); });
+
     router.addRoute(Request::Method::GET, "/api/library/list",
         [libraryCtrl](const Request& req) { return libraryCtrl->list(req); });
 

@@ -2,7 +2,20 @@
 #include "lyrics_aggregator.h"
 #include "core/logger.h"
 #include "nlohmann/json.hpp"
+
+// 在包含任何头文件之前抑制zlib的旧式类型转换警告
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#pragma GCC diagnostic ignored "-Wuseless-cast"
+#endif
+
 #include <zlib.h>
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 #include <random>
 #include <regex>
 #include <algorithm>
