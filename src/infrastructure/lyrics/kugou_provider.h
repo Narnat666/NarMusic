@@ -18,6 +18,7 @@ private:
     std::string fetchAlbumCover(const std::string& albumId);
     bool decryptKRC(const std::vector<uint8_t>& krcData, std::string& outLyrics,
                     std::string& outTranslation);
+    static std::string base64Decode(const std::string& encoded);
 
     std::shared_ptr<CurlClient> httpClient_;
 };

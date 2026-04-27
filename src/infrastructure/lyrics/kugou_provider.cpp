@@ -18,6 +18,7 @@
 
 #include <random>
 #include <regex>
+#include <cstdio>
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
@@ -276,9 +277,108 @@ bool KugouProvider::decryptKRC(const std::vector<uint8_t>& krcData, std::string&
     if (ret != Z_OK) return false;
     decompressed.resize(destLen);
 
-    outLyrics = std::string(decompressed.begin(), decompressed.end());
-    outTranslation.clear();
+    std::string fullText(decompressed.begin(), decompressed.end());
+
+    std::vector<long long> krcTimestamps;
+    std::regex krcTsRegex(R"(\[(\d+),\d+\])");
+    std::sregex_iterator tsIt(fullText.begin(), fullText.end(), krcTsRegex);
+    std::sregex_iterator tsEnd;
+    for (; tsIt != tsEnd; ++tsIt) {
+        krcTimestamps.push_back(std::stoll((*tsIt)[1].str()));
+    }
+
+    auto langPos = fullText.find("[language:");
+    if (langPos != std::string::npos) {
+        outLyrics = fullText.substr(0, langPos);
+        auto b64Start = langPos + 10;
+        auto b64End = fullText.find(']', b64Start);
+        if (b64End != std::string::npos) {
+            std::string langB64 = fullText.substr(b64Start, b64End - b64Start);
+            std::string langJson = base64Decode(langB64);
+            if (!langJson.empty()) {
+                try {
+                    json langData = json::parse(langJson);
+                    auto& contentArr = langData["content"];
+
+                    int bestIdx = -1;
+                    double bestRatio = 0.0;
+                    std::vector<std::vector<std::string>> allTransLines;
+
+                    for (int ci = 0; ci < static_cast<int>(contentArr.size()); ci++) {
+                        auto& item = contentArr[ci];
+                        if (!item.contains("lyricContent")) continue;
+                        auto& lyricContent = item["lyricContent"];
+                        std::vector<std::string> transLines;
+                        int totalAlpha = 0;
+                        int chineseCount = 0;
+                        for (auto& lineArr : lyricContent) {
+                            std::string line;
+                            for (auto& part : lineArr) {
+                                line += part.get<std::string>();
+                            }
+                            for (unsigned char c : line) {
+                                if ((c & 0x80) == 0) continue;
+                                if (c >= 0xE4 && c <= 0xE9) {
+                                    chineseCount++;
+                                    totalAlpha++;
+                                }
+                            }
+                            totalAlpha += static_cast<int>(line.size());
+                            transLines.push_back(line);
+                        }
+                        double ratio = totalAlpha > 0 ? static_cast<double>(chineseCount) / totalAlpha : 0.0;
+                        allTransLines.push_back(transLines);
+                        if (ratio > bestRatio) {
+                            bestRatio = ratio;
+                            bestIdx = static_cast<int>(allTransLines.size()) - 1;
+                        }
+                    }
+
+                    if (bestIdx >= 0 && bestRatio > 0.01) {
+                        auto& transLines = allTransLines[bestIdx];
+                        std::string transLrc;
+                        size_t tsIdx = 0;
+                        for (auto& tl : transLines) {
+                            if (tsIdx >= krcTimestamps.size()) break;
+                            long long ms = krcTimestamps[tsIdx++];
+                            if (tl.empty() || tl == " ") continue;
+                            int min = static_cast<int>(ms / 60000);
+                            int sec = static_cast<int>((ms % 60000) / 1000);
+                            int cs = static_cast<int>((ms % 1000) / 10);
+                            char buf[32];
+                            std::snprintf(buf, sizeof(buf), "[%02d:%02d.%02d]", min, sec, cs);
+                            transLrc += std::string(buf) + tl + "\n";
+                        }
+                        if (!transLrc.empty()) {
+                            outTranslation = transLrc;
+                        }
+                    }
+                } catch (const std::exception& e) {
+                    LOG_W("Kugou", std::string("KRC翻译解析失败: ") + e.what());
+                }
+            }
+        }
+    } else {
+        outLyrics = fullText;
+    }
+
     return true;
+}
+
+std::string KugouProvider::base64Decode(const std::string& encoded) {
+    static const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string decoded;
+    int val = 0, bits = -8;
+    for (unsigned char c : encoded) {
+        if (c == '=') break;
+        if (std::isspace(c)) continue;
+        size_t idx = chars.find(c);
+        if (idx == std::string::npos) break;
+        val = (val << 6) + static_cast<int>(idx);
+        bits += 6;
+        if (bits >= 0) { decoded.push_back(static_cast<char>((val >> bits) & 0xFF)); bits -= 8; }
+    }
+    return decoded;
 }
 
 } // namespace narnat

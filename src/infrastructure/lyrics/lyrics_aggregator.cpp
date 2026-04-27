@@ -16,6 +16,109 @@ void LyricsAggregator::addProvider(std::shared_ptr<ILyricsProvider> provider) {
     providers_.push_back(std::move(provider));
 }
 
+bool LyricsAggregator::hasCoreData(const MusicMetadata& d) {
+    return d.hasLyrics && d.hasTranslation && !d.translationLyrics.empty();
+}
+
+bool LyricsAggregator::isComplete(const MusicMetadata& d) {
+    return hasCoreData(d) && d.hasCover;
+}
+
+int LyricsAggregator::missingScore(const MusicMetadata& d) {
+    int score = 0;
+    if (hasCoreData(d)) score += 100;
+    if (!d.album.empty()) score += 10;
+    if (d.hasCover) score += 1;
+    return score;
+}
+
+std::vector<std::string> LyricsAggregator::buildPlatformOrder(const std::string& preferredPlatform) {
+    static const std::vector<std::string> defaultOrder = {"酷狗音乐", "网易云音乐", "QQ音乐", "汽水音乐"};
+    if (preferredPlatform.empty()) return defaultOrder;
+
+    std::vector<std::string> order;
+    order.push_back(preferredPlatform);
+    for (auto& p : defaultOrder) {
+        if (p != preferredPlatform) order.push_back(p);
+    }
+    return order;
+}
+
+const MusicMetadata* LyricsAggregator::findPlatform(const std::vector<MusicMetadata>& allData,
+                                                      const std::string& platform) {
+    for (auto& d : allData) {
+        if (d.source == platform) return &d;
+    }
+    return nullptr;
+}
+
+void LyricsAggregator::supplementMissing(MusicMetadata& best,
+                                           const std::vector<MusicMetadata>& allData,
+                                           const std::vector<std::string>& platformOrder) {
+    if (!best.hasCover) {
+        for (auto& d : allData) {
+            if (d.hasCover && !d.coverData.empty()) {
+                best.coverData = d.coverData;
+                best.hasCover = true;
+                best.coverSize = d.coverSize;
+                LOG_I("LyricsAgg", "补封面: 从 " + d.source + " 补充");
+                break;
+            }
+        }
+    }
+
+    if (best.album.empty()) {
+        for (auto& d : allData) {
+            if (!d.album.empty()) {
+                best.album = d.album;
+                best.hasAlbum = true;
+                LOG_I("LyricsAgg", "补专辑: 从 " + d.source + " 补充");
+                break;
+            }
+        }
+    }
+
+    if (best.artist.empty()) {
+        for (auto& d : allData) {
+            if (!d.artist.empty()) { best.artist = d.artist; break; }
+        }
+    }
+    if (best.songName.empty()) {
+        for (auto& d : allData) {
+            if (!d.songName.empty()) { best.songName = d.songName; break; }
+        }
+    }
+
+    if (!best.hasLyrics) {
+        for (auto& plat : platformOrder) {
+            auto* d = findPlatform(allData, plat);
+            if (d && d->hasLyrics) {
+                best.lyrics = cleanLyrics(d->lyrics);
+                best.hasLyrics = true;
+                LOG_W("LyricsAgg", "补歌词: 从 " + d->source + " 补充");
+                if (d->hasTranslation && !d->translationLyrics.empty()) {
+                    best.translationLyrics = d->translationLyrics;
+                    best.hasTranslation = true;
+                    LOG_I("LyricsAgg", "补翻译: 与歌词同源 " + d->source);
+                }
+                break;
+            }
+        }
+    }
+
+    if (best.hasLyrics && !best.hasTranslation) {
+        for (auto& plat : platformOrder) {
+            auto* d = findPlatform(allData, plat);
+            if (d && d->hasTranslation && !d->translationLyrics.empty()) {
+                best.translationLyrics = d->translationLyrics;
+                best.hasTranslation = true;
+                LOG_W("LyricsAgg", "补翻译: 从 " + d->source + " 补充 (可能与歌词不同源)");
+                break;
+            }
+        }
+    }
+}
+
 MusicMetadata LyricsAggregator::fetchBest(const std::string& keyword,
                                            const std::string& preferredPlatform) {
     if (providers_.empty()) {
@@ -23,7 +126,6 @@ MusicMetadata LyricsAggregator::fetchBest(const std::string& keyword,
         return {};
     }
 
-    // 并发调用所有平台
     std::vector<std::future<MusicMetadata>> futures;
     for (auto& provider : providers_) {
         futures.push_back(std::async(std::launch::async, [&provider, &keyword]() {
@@ -47,104 +149,66 @@ MusicMetadata LyricsAggregator::fetchBest(const std::string& keyword,
         allData.push_back(f.get());
     }
 
-    MusicMetadata best;
-    best.songName = keyword;
+    auto platformOrder = buildPlatformOrder(preferredPlatform);
 
-    auto [lyrics, _] = getBestLyrics(allData, preferredPlatform);
-    if (!lyrics.empty()) {
-        best.lyrics = cleanLyrics(lyrics);
-        best.hasLyrics = true;
+    // 第一级：指定平台有歌词+翻译 → 直接选，缺封面/专辑从其他平台补
+    if (!preferredPlatform.empty()) {
+        auto* d = findPlatform(allData, preferredPlatform);
+        if (d && hasCoreData(*d)) {
+            LOG_I("LyricsAgg", "第一级: 指定平台 " + preferredPlatform + " 有歌词+翻译，直接选取");
+            MusicMetadata best = *d;
+            if (!best.lyrics.empty()) best.lyrics = cleanLyrics(best.lyrics);
+            supplementMissing(best, allData, platformOrder);
+            return best;
+        }
+        LOG_W("LyricsAgg", "第一级: 指定平台 " + preferredPlatform + " 缺少歌词或翻译，跳过");
     }
 
-    best.coverData = getBestCover(allData, preferredPlatform);
-    best.hasCover = !best.coverData.empty();
-
-    best.translationLyrics = getBestTranslation(allData, preferredPlatform);
-    best.hasTranslation = !best.translationLyrics.empty();
-
-    for (auto& d : allData) {
-        if (d.source == preferredPlatform) {
-            if (!d.artist.empty()) best.artist = d.artist;
-            if (!d.album.empty()) best.album = d.album;
-            if (!d.songName.empty()) best.songName = d.songName;
+    // 第二级：按平台优先级找第一个完整平台（歌词+翻译+封面）
+    for (auto& plat : platformOrder) {
+        auto* d = findPlatform(allData, plat);
+        if (d && isComplete(*d)) {
+            LOG_I("LyricsAgg", "第二级: 整体选取平台 " + plat + " (完整)");
+            MusicMetadata best = *d;
+            if (!best.lyrics.empty()) best.lyrics = cleanLyrics(best.lyrics);
+            supplementMissing(best, allData, platformOrder);
+            return best;
         }
     }
 
-    for (auto& d : allData) {
-        if (!d.artist.empty() && best.artist.empty()) best.artist = d.artist;
-        if (!d.album.empty() && best.album.empty()) best.album = d.album;
-        if (!d.songName.empty() && best.songName == keyword) best.songName = d.songName;
+    // 第三级：兜底拼接——所有平台都不完整
+    LOG_W("LyricsAgg", "第三级: 所有平台均不完整，启用兜底拼接策略");
+
+    const MusicMetadata* primary = nullptr;
+    int bestScore = -1;
+    for (auto& plat : platformOrder) {
+        auto* d = findPlatform(allData, plat);
+        if (!d) continue;
+        int score = missingScore(*d);
+        if (score > bestScore) {
+            bestScore = score;
+            primary = d;
+        }
     }
 
+    if (!primary) {
+        LOG_E("LyricsAgg", "所有平台均无有效数据");
+        MusicMetadata empty;
+        empty.songName = keyword;
+        return empty;
+    }
+
+    MusicMetadata best = *primary;
+    if (!best.lyrics.empty()) best.lyrics = cleanLyrics(best.lyrics);
+
+    LOG_I("LyricsAgg", "拼接主平台: " + best.source + " (歌词="
+          + std::string(best.hasLyrics ? "Y" : "N")
+          + " 翻译=" + std::string(best.hasTranslation ? "Y" : "N")
+          + " 封面=" + std::string(best.hasCover ? "Y" : "N")
+          + " 专辑=" + std::string(!best.album.empty() ? "Y" : "N") + ")");
+
+    supplementMissing(best, allData, platformOrder);
     return best;
-}
-
-std::vector<uint8_t> LyricsAggregator::getBestCover(
-    const std::vector<MusicMetadata>& allData,
-    const std::string& preferredSource) {
-
-    const MusicMetadata* best = nullptr;
-    for (auto& d : allData) {
-        if (!d.hasCover) continue;
-        if (!preferredSource.empty() && d.source == preferredSource) {
-            best = &d;
-            break;
-        }
-        if (!best || d.coverSize > best->coverSize) {
-            best = &d;
-        }
-    }
-    return best ? best->coverData : std::vector<uint8_t>{};
-}
-
-std::pair<std::string, bool> LyricsAggregator::getBestLyrics(
-    const std::vector<MusicMetadata>& allData,
-    const std::string& preferredPlatform) {
-
-    // 优先使用指定平台
-    if (!preferredPlatform.empty()) {
-        for (auto& d : allData) {
-            if (d.source == preferredPlatform && d.hasLyrics) {
-                return {d.lyrics, d.hasTranslation};
-            }
-        }
-    }
-
-    // 按平台顺序选择
-    static const std::vector<std::string> priority = {"酷狗音乐", "网易云音乐", "QQ音乐", "汽水音乐"};
-    for (auto& plat : priority) {
-        for (auto& d : allData) {
-            if (d.source == plat && d.hasLyrics) {
-                return {d.lyrics, d.hasTranslation};
-            }
-        }
-    }
-
-    return {"", false};
-}
-
-std::string LyricsAggregator::getBestTranslation(
-    const std::vector<MusicMetadata>& allData,
-    const std::string& preferredPlatform) {
-
-    if (!preferredPlatform.empty()) {
-        for (auto& d : allData) {
-            if (d.source == preferredPlatform && d.hasTranslation && !d.translationLyrics.empty()) {
-                return d.translationLyrics;
-            }
-        }
-    }
-
-    static const std::vector<std::string> priority = {"酷狗音乐", "网易云音乐", "QQ音乐", "汽水音乐"};
-    for (auto& plat : priority) {
-        for (auto& d : allData) {
-            if (d.source == plat && d.hasTranslation && !d.translationLyrics.empty()) {
-                return d.translationLyrics;
-            }
-        }
-    }
-
-    return "";
 }
 
 std::string LyricsAggregator::adjustLyricsTiming(const std::string& lyrics, int offsetMs) {

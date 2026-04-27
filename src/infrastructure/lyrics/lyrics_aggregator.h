@@ -36,19 +36,15 @@ public:
 private:
     std::vector<std::shared_ptr<ILyricsProvider>> providers_;
 
-    // 选择最佳封面（按文件大小）
-    std::vector<uint8_t> getBestCover(
-        const std::vector<MusicMetadata>& allData,
-        const std::string& preferredSource);
-
-    // 选择最佳歌词（按平台优先级）
-    std::pair<std::string, bool> getBestLyrics(
-        const std::vector<MusicMetadata>& allData,
-        const std::string& preferredPlatform);
-
-    std::string getBestTranslation(
-        const std::vector<MusicMetadata>& allData,
-        const std::string& preferredPlatform);
+    static bool hasCoreData(const MusicMetadata& d);
+    static bool isComplete(const MusicMetadata& d);
+    static int missingScore(const MusicMetadata& d);
+    static std::vector<std::string> buildPlatformOrder(const std::string& preferredPlatform);
+    static const MusicMetadata* findPlatform(const std::vector<MusicMetadata>& allData,
+                                               const std::string& platform);
+    static void supplementMissing(MusicMetadata& best,
+                                    const std::vector<MusicMetadata>& allData,
+                                    const std::vector<std::string>& platformOrder);
 };
 
 } // namespace narnat
