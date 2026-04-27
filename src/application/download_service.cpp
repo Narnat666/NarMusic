@@ -76,6 +76,9 @@ void DownloadService::executeDownload(const std::string& taskId,
     metadata.songName = req.filename;
     metadata.delayMs = req.delayMs;
 
+    std::string delayStr = (req.delayMs >= 0 ? "+" : "") + std::to_string(req.delayMs);
+    metadata.narmeta = req.url + "|" + req.platform + "|" + delayStr + "|" + req.filename;
+
     if (lyricsAggregator_) {
         try {
             auto fetched = lyricsAggregator_->fetchBest(req.filename, req.platform);

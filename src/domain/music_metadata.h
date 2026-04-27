@@ -23,6 +23,7 @@ struct MusicMetadata {
     bool hasAlbum = false;
     int coverSize = 0;
     int delayMs = 0;             // 歌词延迟（毫秒）
+    std::string narmeta;         // 自定义元数据: url|platform|delayMs|filename
 };
 
 struct SearchResult {

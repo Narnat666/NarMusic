@@ -34,9 +34,46 @@
 #include <unistd.h>
 #include <curl/curl.h>
 #include <filesystem>
+#include <taglib/mp4/mp4file.h>
+#include <taglib/mp4/mp4tag.h>
 #include "version.h"
 
 using namespace narnat;
+
+static int analyzePlaylist(const std::string& dirPath) {
+    namespace fs = std::filesystem;
+    if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
+        std::cerr << "目录不存在: " << dirPath << std::endl;
+        return 1;
+    }
+
+    int count = 0;
+    for (const auto& entry : fs::recursive_directory_iterator(dirPath)) {
+        if (!entry.is_regular_file()) continue;
+        std::string ext = entry.path().extension().string();
+        for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (ext != ".m4a") continue;
+
+        TagLib::MP4::File file(entry.path().c_str());
+        if (!file.isValid()) continue;
+        auto* tag = file.tag();
+        if (!tag) continue;
+
+        if (tag->contains("----:com.narnat:narmeta")) {
+            auto item = tag->item("----:com.narnat:narmeta");
+            std::string val = item.toStringList().toString().to8Bit(true);
+            if (!val.empty()) {
+                std::cout << val << std::endl;
+                count++;
+            }
+        }
+    }
+
+    if (count == 0) {
+        std::cerr << "未找到包含narmeta信息的m4a文件" << std::endl;
+    }
+    return 0;
+}
 
 static EpollServer* gServer = nullptr;
 
@@ -61,6 +98,9 @@ int main(int argc, char* argv[]) {
             std::cout << NARNAT_VERSION << " (" << NARNAT_TARGET_ARCH << ")" << std::endl;
             return 0;
         }
+        if (arg == "-a" && i + 1 < argc) {
+            return analyzePlaylist(argv[i + 1]);
+        }
     }
 
     int port = 0;
@@ -77,7 +117,8 @@ int main(int argc, char* argv[]) {
             case 'c': configPath = optarg; break;
             case 'd': debug = true; break;
             case 'h':
-                std::cout << "用法: NarMusic [-p path] [-e ext] [-o port] [-c config] [-d]" << std::endl;
+                std::cout << "用法: NarMusic [-p path] [-e ext] [-o port] [-c config] [-d] [-a dir]" << std::endl;
+                std::cout << "  -a dir   解析目录下m4a文件的narmeta信息并输出歌单" << std::endl;
                 return 0;
         }
     }

@@ -1488,6 +1488,32 @@ function parsePlaylistText(text) {
     const songs = [];
 
     for (const line of lines) {
+        if (line.includes('|')) {
+            const parts = line.split('|');
+            if (parts.length >= 4 && parts[0].match(/^https?:\/\//)) {
+                const url = parts[0].trim();
+                const platform = parts[1].trim();
+                const delayStr = parts[2].trim();
+                const filename = parts.slice(3).join('|').trim();
+                const delayMs = parseInt(delayStr) || 0;
+                let title = '';
+                let artist = '';
+                if (filename.includes(' - ')) {
+                    const fparts = filename.split(' - ');
+                    title = fparts[0].trim();
+                    artist = fparts.slice(1).join(' - ').trim();
+                } else {
+                    title = filename;
+                }
+                const keyword = artist ? `${title} ${artist}` : title;
+                songs.push({
+                    title, artist, keyword, original: line,
+                    narmeta: true, url, platform, delayMs, filename
+                });
+                continue;
+            }
+        }
+
         let title = '';
         let artist = '';
 
@@ -1506,7 +1532,7 @@ function parsePlaylistText(text) {
 
         if (title) {
             const keyword = artist ? `${title} ${artist}` : title;
-            songs.push({ title, artist, keyword, original: line });
+            songs.push({ title, artist, keyword, original: line, narmeta: false });
         }
     }
 
@@ -1550,44 +1576,86 @@ async function parseBatchPlaylist() {
     progressEl.style.display = 'block';
     document.getElementById('batchResultsArea').style.display = 'none';
 
-    progressText.textContent = '正在批量搜索歌单...';
-    progressFill.style.width = '50%';
-    progressStats.textContent = `0 / ${songs.length}`;
+    const narmetaSongs = songs.filter(s => s.narmeta);
+    const searchSongs = songs.filter(s => !s.narmeta);
 
-    try {
-        const keywords = songs.map(s => s.keyword);
-        const response = await fetch('/api/search/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keywords: keywords })
+    let foundCount = 0;
+    let notFoundCount = 0;
+
+    for (const song of narmetaSongs) {
+        batchResults.push({
+            index: batchResults.length,
+            title: song.title,
+            artist: song.artist,
+            original: song.original,
+            keyword: song.keyword,
+            found: true,
+            link: song.url,
+            searchTitle: song.title,
+            status: 'found',
+            narmeta: true,
+            narmetaPlatform: song.platform,
+            narmetaDelayMs: song.delayMs,
+            narmetaFilename: song.filename
         });
+        foundCount++;
+    }
 
-        const data = await response.json();
+    if (searchSongs.length > 0) {
+        progressText.textContent = '正在批量搜索歌单...';
+        progressFill.style.width = '30%';
+        progressStats.textContent = `0 / ${searchSongs.length}`;
 
-        if (response.ok && data.results) {
-            let foundCount = 0;
-            let notFoundCount = 0;
+        try {
+            const keywords = searchSongs.map(s => s.keyword);
+            const response = await fetch('/api/search/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keywords: keywords })
+            });
 
-            for (let i = 0; i < data.results.length; i++) {
-                const result = data.results[i];
-                const song = songs[i];
+            const data = await response.json();
 
-                if (result.found) {
+            if (response.ok && data.results) {
+                for (let i = 0; i < data.results.length; i++) {
+                    const result = data.results[i];
+                    const song = searchSongs[i];
+
+                    if (result.found) {
+                        batchResults.push({
+                            index: batchResults.length,
+                            title: song.title,
+                            artist: song.artist,
+                            original: song.original,
+                            keyword: song.keyword,
+                            found: true,
+                            link: result.link,
+                            searchTitle: result.title || song.title,
+                            status: 'found',
+                            narmeta: false
+                        });
+                        foundCount++;
+                    } else {
+                        batchResults.push({
+                            index: batchResults.length,
+                            title: song.title,
+                            artist: song.artist,
+                            original: song.original,
+                            keyword: song.keyword,
+                            found: false,
+                            link: '',
+                            searchTitle: '',
+                            status: 'notfound',
+                            narmeta: false
+                        });
+                        notFoundCount++;
+                    }
+                }
+            } else {
+                showToast('批量搜索失败: ' + (data.message || data.error || '未知错误'), 'warning');
+                for (const song of searchSongs) {
                     batchResults.push({
-                        index: i,
-                        title: song.title,
-                        artist: song.artist,
-                        original: song.original,
-                        keyword: song.keyword,
-                        found: true,
-                        link: result.link,
-                        searchTitle: result.title || song.title,
-                        status: 'found'
-                    });
-                    foundCount++;
-                } else {
-                    batchResults.push({
-                        index: i,
+                        index: batchResults.length,
                         title: song.title,
                         artist: song.artist,
                         original: song.original,
@@ -1595,28 +1663,45 @@ async function parseBatchPlaylist() {
                         found: false,
                         link: '',
                         searchTitle: '',
-                        status: 'notfound'
+                        status: 'notfound',
+                        narmeta: false
                     });
                     notFoundCount++;
                 }
             }
-
-            progressFill.style.width = '100%';
-            progressStats.textContent = `${songs.length} / ${songs.length}`;
-
-            document.getElementById('batchTotalCount').textContent = batchResults.length;
-            document.getElementById('batchFoundCount').textContent = foundCount;
-            document.getElementById('batchNotFoundCount').textContent = notFoundCount;
-            document.getElementById('batchResultsArea').style.display = 'block';
-
-            renderBatchResults();
-            showToast(`解析完成: 找到 ${foundCount} 首, 未找到 ${notFoundCount} 首`, foundCount > 0 ? 'success' : 'warning');
-        } else {
-            showToast('批量搜索失败: ' + (data.message || data.error || '未知错误'), 'warning');
+        } catch (error) {
+            showToast('批量搜索失败: ' + error.message, 'warning');
+            for (const song of searchSongs) {
+                batchResults.push({
+                    index: batchResults.length,
+                    title: song.title,
+                    artist: song.artist,
+                    original: song.original,
+                    keyword: song.keyword,
+                    found: false,
+                    link: '',
+                    searchTitle: '',
+                    status: 'notfound',
+                    narmeta: false
+                });
+                notFoundCount++;
+            }
         }
-    } catch (error) {
-        showToast('批量搜索失败: ' + error.message, 'warning');
     }
+
+    progressFill.style.width = '100%';
+    progressStats.textContent = `${songs.length} / ${songs.length}`;
+
+    document.getElementById('batchTotalCount').textContent = batchResults.length;
+    document.getElementById('batchFoundCount').textContent = foundCount;
+    document.getElementById('batchNotFoundCount').textContent = notFoundCount;
+    document.getElementById('batchResultsArea').style.display = 'block';
+
+    renderBatchResults();
+    const narmetaCount = narmetaSongs.length;
+    let msg = `解析完成: 找到 ${foundCount} 首, 未找到 ${notFoundCount} 首`;
+    if (narmetaCount > 0) msg += ` (含 ${narmetaCount} 首精确匹配)`;
+    showToast(msg, foundCount > 0 ? 'success' : 'warning');
 
     progressEl.style.display = 'none';
     parseBtn.disabled = false;
@@ -1642,11 +1727,17 @@ function renderBatchResults() {
 
         let statusHtml = '';
         if (item.status === 'found') {
-            statusHtml = '<span class="batch-item-status found"><span class="material-symbols-rounded" style="font-size: 14px;">check_circle</span>已找到</span>';
+            if (item.narmeta) {
+                statusHtml = '<span class="batch-item-status found"><span class="material-symbols-rounded" style="font-size: 14px;">verified</span>精确匹配</span>';
+            } else {
+                statusHtml = '<span class="batch-item-status found"><span class="material-symbols-rounded" style="font-size: 14px;">check_circle</span>已找到</span>';
+            }
         } else if (item.status === 'downloading') {
             statusHtml = '<span class="batch-item-status downloading"><span class="material-symbols-rounded" style="font-size: 14px; animation: spin 1s linear infinite;">progress_activity</span>下载中</span>';
         } else if (item.status === 'downloaded') {
             statusHtml = '<span class="batch-item-status downloaded"><span class="material-symbols-rounded" style="font-size: 14px;">cloud_done</span>已下载</span>';
+        } else if (item.status === 'failed') {
+            statusHtml = '<span class="batch-item-status notfound"><span class="material-symbols-rounded" style="font-size: 14px;">error</span>失败</span>';
         } else {
             statusHtml = '<span class="batch-item-status notfound"><span class="material-symbols-rounded" style="font-size: 14px;">cancel</span>未找到</span>';
         }
@@ -1659,7 +1750,7 @@ function renderBatchResults() {
             </div>
             <div class="batch-item-info">
                 <div class="batch-item-title" title="${item.searchTitle || item.title}">${item.searchTitle || item.title}</div>
-                <div class="batch-item-artist">${item.artist || '未知歌手'}</div>
+                <div class="batch-item-artist">${item.narmeta ? (item.narmetaPlatform + ' · ' + (item.narmetaDelayMs >= 0 ? '+' : '') + item.narmetaDelayMs + 'ms') : (item.artist || '未知歌手')}</div>
             </div>
             ${statusHtml}
             <div class="batch-item-actions">
@@ -1808,6 +1899,17 @@ async function batchDownloadToServer() {
 
     const tasks = indexes.map(idx => {
         const item = batchResults[idx];
+        if (item.narmeta) {
+            return {
+                url: item.link,
+                content: item.link,
+                filename: item.narmetaFilename || (item.title + (item.artist ? ' - ' + item.artist : '')),
+                keyword: item.keyword,
+                title: item.searchTitle || item.title,
+                platform: item.narmetaPlatform,
+                offsetMs: item.narmetaDelayMs
+            };
+        }
         return {
             url: item.link,
             content: item.link,
@@ -1852,11 +1954,13 @@ async function batchDownloadToServer() {
                         pollTasks.push({ idx, taskId: results[i].task_id });
                         submitCount++;
                     } else {
-                        batchResults[idx].status = 'found';
+                        batchResults[idx].status = 'failed';
+                        batchResults[idx].errorMsg = results[i].error || '提交失败';
                         failCount++;
                     }
                 } else {
-                    batchResults[idx].status = 'found';
+                    batchResults[idx].status = 'failed';
+                    batchResults[idx].errorMsg = '提交失败';
                     failCount++;
                 }
             }
@@ -1872,14 +1976,16 @@ async function batchDownloadToServer() {
             }
         } else {
             indexes.forEach(idx => {
-                batchResults[idx].status = 'found';
+                batchResults[idx].status = 'failed';
+                batchResults[idx].errorMsg = data.error || '请求失败';
             });
             renderBatchResults();
             showToast('批量下载失败: ' + (data.message || data.error || '未知错误'), 'warning');
         }
     } catch (error) {
         indexes.forEach(idx => {
-            batchResults[idx].status = 'found';
+            batchResults[idx].status = 'failed';
+            batchResults[idx].errorMsg = error.message;
         });
         renderBatchResults();
         showToast('批量下载错误: ' + error.message, 'warning');
@@ -1924,10 +2030,10 @@ function pollBatchDownloadStatus(pollTasks) {
             try {
                 const resp = await fetch('/api/download/status?task_id=' + taskId);
                 if (!resp.ok) {
-                    // 任务不存在，标记失败
                     const idx = taskMap[taskId];
                     if (idx !== undefined && batchResults[idx]) {
-                        batchResults[idx].status = 'found';
+                        batchResults[idx].status = 'failed';
+                        batchResults[idx].errorMsg = '任务不存在';
                         hasUpdates = true;
                     }
                     pending.delete(taskId);
@@ -1937,7 +2043,16 @@ function pollBatchDownloadStatus(pollTasks) {
                 if (status.is_finished) {
                     const idx = taskMap[taskId];
                     if (idx !== undefined && batchResults[idx]) {
-                        const newStatus = status.is_success ? 'downloaded' : 'found';
+                        let newStatus;
+                        if (status.is_success) {
+                            newStatus = 'downloaded';
+                        } else if (status.error) {
+                            newStatus = 'failed';
+                            batchResults[idx].errorMsg = status.error;
+                        } else {
+                            newStatus = 'failed';
+                            batchResults[idx].errorMsg = 'download_failed';
+                        }
                         if (batchResults[idx].status !== newStatus) {
                             batchResults[idx].status = newStatus;
                             hasUpdates = true;

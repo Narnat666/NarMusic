@@ -150,6 +150,10 @@ set_source_files_properties(
     PROPERTIES COMPILE_FLAGS "-Wno-shadow -Wno-unused-result"
 )
 set_source_files_properties(
+    src/main.cpp
+    PROPERTIES COMPILE_FLAGS "-Wno-shadow"
+)
+set_source_files_properties(
     src/infrastructure/filesystem/zip_writer.cpp
     PROPERTIES COMPILE_FLAGS "-Wno-old-style-cast -Wno-useless-cast"
 )

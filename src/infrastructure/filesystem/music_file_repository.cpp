@@ -66,6 +66,11 @@ bool FsMusicFileRepository::writeMetadata(const std::string& filePath,
             TagLib::MP4::Item(TagLib::String(std::to_string(metadata.delayMs), TagLib::String::UTF8)));
     }
 
+    if (!metadata.narmeta.empty()) {
+        tag->setItem("----:com.narnat:narmeta",
+            TagLib::MP4::Item(TagLib::String(metadata.narmeta, TagLib::String::UTF8)));
+    }
+
     if (!metadata.coverData.empty()) {
         TagLib::MP4::CoverArt::Format format = TagLib::MP4::CoverArt::JPEG;
         if (metadata.coverData.size() > 8) {
