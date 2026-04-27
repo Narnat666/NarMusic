@@ -84,6 +84,10 @@ void DownloadService::executeDownload(const std::string& taskId,
                 fetched.lyrics = LyricsAggregator::adjustLyricsTiming(fetched.lyrics, req.delayMs);
             }
 
+            if (req.delayMs != 0 && fetched.hasTranslation && !fetched.translationLyrics.empty()) {
+                fetched.translationLyrics = LyricsAggregator::adjustLyricsTiming(fetched.translationLyrics, req.delayMs);
+            }
+
             if (fetched.hasTranslation && !fetched.translationLyrics.empty()) {
                 fetched.lyrics = LyricsAggregator::mergeBilingualLyrics(
                     fetched.lyrics, fetched.translationLyrics);
@@ -107,6 +111,7 @@ void DownloadService::executeDownload(const std::string& taskId,
     MusicLibraryEntry entry;
     entry.songName = metadata.songName;
     entry.artist = metadata.artist;
+    entry.album = metadata.album;
     entry.filePath = filePath;
     entry.systemFilename = fs::path(filePath).filename().string();
     try { entry.fileSize = static_cast<int64_t>(fs::file_size(filePath)); } catch (...) { entry.fileSize = 0; }

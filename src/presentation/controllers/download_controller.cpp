@@ -21,7 +21,7 @@ Response DownloadController::createTask(const Request& req) {
             taskReq.url = body.value("content", "");
         }
         taskReq.filename = body.value("filename", "");
-        taskReq.platform = body.value("platform", "酷狗音乐");
+        taskReq.platform = body.value("platform", "网易云音乐");
         taskReq.delayMs = body.value("offsetMs", 0);
 
         if (taskReq.url.empty()) {
@@ -59,7 +59,7 @@ Response DownloadController::batchCreateTasks(const Request& req) {
             return Response::error(400, "Bad Request", "too_many_tasks", "单次批量下载不能超过100个任务");
         }
 
-        std::string defaultPlatform = body.value("platform", "酷狗音乐");
+        std::string defaultPlatform = body.value("platform", "网易云音乐");
         int defaultDelayMs = body.value("offsetMs", 0);
 
         json results = json::array();

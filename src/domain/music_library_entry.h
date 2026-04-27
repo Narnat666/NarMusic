@@ -12,6 +12,7 @@ struct MusicLibraryEntry {
     int id = 0;
     std::string songName;
     std::string artist;
+    std::string album;
     std::string filePath;
     std::string systemFilename;
     int64_t fileSize = 0;
@@ -26,6 +27,7 @@ struct MusicLibraryEntry {
         j["custom_filename"] = songName.empty() ? systemFilename : songName;
         j["system_filename"] = systemFilename;
         j["artist"] = artist;
+        j["album"] = album;
         j["file_size"] = fileSize;
         j["delay_ms"] = delayMs;
         j["download_time"] = std::chrono::system_clock::to_time_t(downloadedAt);

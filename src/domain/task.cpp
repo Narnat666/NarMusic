@@ -18,6 +18,10 @@ nlohmann::json Task::toJson() const {
     j["is_success"] = (status_ == TaskStatus::Finished);
     j["downloaded_bytes"] = downloadedBytes_;
 
+    if (status_ == TaskStatus::Failed) {
+        j["error"] = "download_failed";
+    }
+
     if (status_ == TaskStatus::Finished) {
         nlohmann::json info;
         std::string fileName = displayName_;

@@ -161,7 +161,9 @@ std::string LyricsAggregator::adjustLyricsTiming(const std::string& lyrics, int 
 
         int min = std::stoi((*it)[1].str());
         int sec = std::stoi((*it)[2].str());
-        int ms = std::stoi((*it)[3].str());
+        std::string msStr = (*it)[3].str();
+        int ms = std::stoi(msStr);
+        if (msStr.length() == 2) ms *= 10;
         long long totalMs = (min * 60 + sec) * 1000 + ms + offsetMs;
         if (totalMs < 0) totalMs = 0;
 
