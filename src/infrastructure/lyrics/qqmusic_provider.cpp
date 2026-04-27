@@ -150,6 +150,7 @@ bool QQMusicProvider::getLyrics(MusicMetadata& data) {
     reqJson["req"]["method"] = "GetPlayLyricInfo";
     reqJson["req"]["module"] = "music.musichallSong.PlayLyricInfo";
     reqJson["req"]["param"]["songMID"] = data.songId;
+    reqJson["req"]["param"]["trans"] = 1;
 
     std::string jsonData = reqJson.dump();
     std::string url = "https://u.y.qq.com/cgi-bin/musicu.fcg?format=json";

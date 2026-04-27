@@ -183,8 +183,7 @@ cd ../..
 
 ### 2. 修改程序动态链接
 
-sudo patchelf --set-interpreter /opt/glibc-2.33/lib/ld-linux-aarch64.so.1 ./NarMusic
-sudo patchelf --set-rpath '/opt/glibc-2.33/lib:/usr/lib/aarch64-linux-gnu' ./NarMusic 
+sudo patchelf --set-interpreter /opt/glibc-2.33/lib/ld-linux-aarch64.so.1 ./NarMusic && sudo patchelf --set-rpath '/opt/glibc-2.33/lib:/usr/lib/aarch64-linux-gnu' ./NarMusic 
 
 ### 3. 运行
 ./NarMusic

@@ -27,6 +27,8 @@ public:
     virtual void removeExpired(int maxAgeSeconds) = 0;
 
     virtual void updateSongInfo(int id, const std::string& songName, const std::string& artist, int delayMs) = 0;
+
+    virtual std::optional<MusicLibraryEntry> findBySongAndArtist(const std::string& songName, const std::string& artist) = 0;
 };
 
 } // namespace narnat

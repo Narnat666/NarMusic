@@ -54,6 +54,7 @@ void SqliteMusicLibraryRepository::initSchema() {
         );
         CREATE INDEX IF NOT EXISTS idx_music_files_downloaded ON music_files(downloaded_at);
         CREATE INDEX IF NOT EXISTS idx_music_files_filename ON music_files(system_filename);
+        CREATE INDEX IF NOT EXISTS idx_music_files_song_artist ON music_files(song_name, artist);
     )";
     db_->execute(sql);
 
@@ -312,6 +313,30 @@ void SqliteMusicLibraryRepository::updateSongInfo(int id, const std::string& son
 
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
+}
+
+std::optional<MusicLibraryEntry> SqliteMusicLibraryRepository::findBySongAndArtist(
+    const std::string& songName, const std::string& artist) {
+    std::lock_guard<std::mutex> lock(db_->mutex());
+
+    const char* sql = "SELECT id, song_name, artist, album, file_path, system_filename, "
+        "file_size, delay_ms, in_use, downloaded_at, last_used_at FROM music_files "
+        "WHERE song_name = ? AND artist = ? ORDER BY downloaded_at DESC LIMIT 1";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db_->handle(), sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return std::nullopt;
+
+    sqlite3_bind_text(stmt, 1, songName.c_str(), -1, kSqliteTransient);
+    sqlite3_bind_text(stmt, 2, artist.c_str(), -1, kSqliteTransient);
+
+    std::optional<MusicLibraryEntry> result;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        result = readRow(stmt);
+    }
+
+    sqlite3_finalize(stmt);
+    return result;
 }
 
 } // namespace narnat

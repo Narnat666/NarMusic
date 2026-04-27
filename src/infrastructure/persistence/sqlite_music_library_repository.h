@@ -27,6 +27,8 @@ public:
 
     void updateSongInfo(int id, const std::string& songName, const std::string& artist, int delayMs) override;
 
+    std::optional<MusicLibraryEntry> findBySongAndArtist(const std::string& songName, const std::string& artist) override;
+
 private:
     void initSchema();
 

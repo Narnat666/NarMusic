@@ -123,8 +123,27 @@ void DownloadService::executeDownload(const std::string& taskId,
     entry.downloadedAt = std::chrono::system_clock::now();
     entry.lastUsedAt = entry.downloadedAt;
 
-    int libId = libraryRepo_->save(entry);
-    LOG_I("DownloadSvc", "已注册到音乐库: id=" + std::to_string(libId) + " file=" + entry.systemFilename);
+    int libId = 0;
+    if (!metadata.songName.empty() && !metadata.artist.empty()) {
+        auto existing = libraryRepo_->findBySongAndArtist(metadata.songName, metadata.artist);
+        if (existing) {
+            if (!existing->filePath.empty() && existing->filePath != filePath) {
+                try {
+                    fs::remove(existing->filePath);
+                    LOG_I("DownloadSvc", "删除旧文件: " + existing->filePath);
+                } catch (...) {}
+            }
+            entry.id = existing->id;
+            libraryRepo_->update(entry);
+            libId = existing->id;
+            LOG_I("DownloadSvc", "更新已存在的歌曲: id=" + std::to_string(libId) + " file=" + entry.systemFilename);
+        }
+    }
+
+    if (libId == 0) {
+        libId = libraryRepo_->save(entry);
+        LOG_I("DownloadSvc", "已注册到音乐库: id=" + std::to_string(libId) + " file=" + entry.systemFilename);
+    }
 
     task.setStatus(TaskStatus::Finished);
     taskRepo_->update(task);
