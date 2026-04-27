@@ -50,25 +50,30 @@ MusicMetadata LyricsAggregator::fetchBest(const std::string& keyword,
     MusicMetadata best;
     best.songName = keyword;
 
-    // 选择最佳歌词
-    auto [lyrics, hasTranslation] = getBestLyrics(allData, preferredPlatform);
+    auto [lyrics, _] = getBestLyrics(allData, preferredPlatform);
     if (!lyrics.empty()) {
         best.lyrics = cleanLyrics(lyrics);
         best.hasLyrics = true;
     }
 
-    // 选择最佳封面
     best.coverData = getBestCover(allData, preferredPlatform);
     best.hasCover = !best.coverData.empty();
 
-    // 填充元数据
+    best.translationLyrics = getBestTranslation(allData, preferredPlatform);
+    best.hasTranslation = !best.translationLyrics.empty();
+
+    for (auto& d : allData) {
+        if (d.source == preferredPlatform) {
+            if (!d.artist.empty()) best.artist = d.artist;
+            if (!d.album.empty()) best.album = d.album;
+            if (!d.songName.empty()) best.songName = d.songName;
+        }
+    }
+
     for (auto& d : allData) {
         if (!d.artist.empty() && best.artist.empty()) best.artist = d.artist;
         if (!d.album.empty() && best.album.empty()) best.album = d.album;
-        if (d.hasTranslation && !best.hasTranslation) {
-            best.translationLyrics = d.translationLyrics;
-            best.hasTranslation = true;
-        }
+        if (!d.songName.empty() && best.songName == keyword) best.songName = d.songName;
     }
 
     return best;
@@ -106,7 +111,7 @@ std::pair<std::string, bool> LyricsAggregator::getBestLyrics(
     }
 
     // 按平台顺序选择
-    static const std::vector<std::string> priority = {"酷狗音乐", "网易云音乐", "QQ音乐"};
+    static const std::vector<std::string> priority = {"酷狗音乐", "网易云音乐", "QQ音乐", "汽水音乐"};
     for (auto& plat : priority) {
         for (auto& d : allData) {
             if (d.source == plat && d.hasLyrics) {
@@ -116,6 +121,30 @@ std::pair<std::string, bool> LyricsAggregator::getBestLyrics(
     }
 
     return {"", false};
+}
+
+std::string LyricsAggregator::getBestTranslation(
+    const std::vector<MusicMetadata>& allData,
+    const std::string& preferredPlatform) {
+
+    if (!preferredPlatform.empty()) {
+        for (auto& d : allData) {
+            if (d.source == preferredPlatform && d.hasTranslation && !d.translationLyrics.empty()) {
+                return d.translationLyrics;
+            }
+        }
+    }
+
+    static const std::vector<std::string> priority = {"酷狗音乐", "网易云音乐", "QQ音乐", "汽水音乐"};
+    for (auto& plat : priority) {
+        for (auto& d : allData) {
+            if (d.source == plat && d.hasTranslation && !d.translationLyrics.empty()) {
+                return d.translationLyrics;
+            }
+        }
+    }
+
+    return "";
 }
 
 std::string LyricsAggregator::adjustLyricsTiming(const std::string& lyrics, int offsetMs) {

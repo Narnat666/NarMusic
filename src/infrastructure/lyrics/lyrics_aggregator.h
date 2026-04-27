@@ -45,6 +45,10 @@ private:
     std::pair<std::string, bool> getBestLyrics(
         const std::vector<MusicMetadata>& allData,
         const std::string& preferredPlatform);
+
+    std::string getBestTranslation(
+        const std::vector<MusicMetadata>& allData,
+        const std::string& preferredPlatform);
 };
 
 } // namespace narnat

@@ -23,7 +23,10 @@ public:
 private:
     bool searchSong(const std::string& keyword, MusicMetadata& data, QishuiContext& ctx);
     bool getLyrics(QishuiContext& ctx, MusicMetadata& data);
-    std::string krcToLrc(const std::string& krcJson);
+    bool getLyricsViaApi(QishuiContext& ctx, MusicMetadata& data);
+    bool getLyricsViaSharePage(QishuiContext& ctx, MusicMetadata& data);
+    std::string krcStringToLrc(const std::string& krcContent);
+    std::pair<std::string, std::string> krcJsonToLrc(const std::string& krcJson);
     std::string extractJsonObject(const std::string& html, const std::string& fieldName);
 
     std::shared_ptr<CurlClient> httpClient_;

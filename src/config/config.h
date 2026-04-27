@@ -29,7 +29,7 @@ struct BilibiliConfig {
 
 struct LyricsConfig {
     std::string default_platform = "酷狗音乐";
-    std::vector<std::string> platforms = {"酷狗音乐", "网易云音乐", "QQ音乐"};
+    std::vector<std::string> platforms = {"酷狗音乐", "网易云音乐", "QQ音乐", "汽水音乐"};
 };
 
 struct LogConfig {

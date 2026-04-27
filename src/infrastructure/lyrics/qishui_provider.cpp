@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <sstream>
 #include <iomanip>
+#include <utility>
 
 namespace narnat {
 
@@ -180,6 +181,95 @@ std::string QishuiProvider::extractJsonObject(const std::string& html, const std
 bool QishuiProvider::getLyrics(QishuiContext& ctx, MusicMetadata& data) {
     if (ctx.trackId.empty()) return false;
 
+    if (getLyricsViaApi(ctx, data)) return data.hasLyrics;
+
+    return getLyricsViaSharePage(ctx, data);
+}
+
+bool QishuiProvider::getLyricsViaApi(QishuiContext& ctx, MusicMetadata& data) {
+    std::string url = "https://api.qishui.com/luna/pc/track_v2?track_id="
+        + ctx.trackId + "&media_type=track&queue_type=";
+
+    std::vector<std::string> headers = {
+        "User-Agent: LunaPC/3.0.0(290101097)",
+        "Content-Type: application/json; charset=utf-8",
+        "X-Helios: SicAACJWDNiSHEX4DSBVXo3+TNXAHXt9Af6CkPaMTmSX1Jcg",
+        "X-Medusa: GBR+aez8IZPMw6JSzT62GUzbH3GODwMBg7ZESAAAAQk/GduVkAZWRUCTX0SGSLVDDQ/gYOFKM/adGsI29F3FyR/OAoj+AK7fOY1Pe1po0w3w850g3Y0xvZOEl35RaWIynTM+dvmKmsQLoBG2LPT9eoaLqF8pi6MjvRdIJK8PMnnwDYrreh4OQ85zqzZdCFytOf6cXPH4NImgdUgBceuFfUtCN8ZdI3bRTDD28J8OxDK8vsWjdzimSPNTIe6C2EKel/U+PcqXfkbs/ZWCvHyxmqgrLfu5tHAtnXuEbQf6J53G8I6wdY8JQ5wm8+7o37XUiWC8FCB6y+09/aB9q4LTwNEMOlv50fAQg/bT9RgB6+7jF+7RXZyIuNkXAuJb2uZeBSzfJVvw6VITls5AFSOdNu376GqKGm4T6M8V9HzT2L8cW8smYgNG6HJPjd3iVVcv8fjeJeAGolEPMBbBvbAjJCSQAOY6jo/RGbRvOUsDyZgJ6fEp8ncjXIcK6Nw1GSPOv7AXWILqyt5sBpFDvPlpJTqih5TWbmWSEBc52+OPX2DJKknmz4qBPrRdJ7QvtxA5nrLDBjc3doDJa2iv1FE/7nUQoGJ5njCFw2BYfT9LE3kxDVUtWzmYLtxzkFGpuhGdAuRYSSC2LiCgbGcaqIkDrUpa2yaVZNimFJi3s08+OCUllT5aQQIh/mv02EEXGXi1IV7UCWqTNEdzjZrat6P2rNQbG0DYXvj3sbTJX8+7mS/c6LD5sWZ4UjKiVo4PMRknYHv3syjwX4VuvF49u/+fHYWtv72Y+buTO0iuGDxIiOk6kNElV895F40J6WpZ59nPpg7Qum8ndQHko5xqtdAXIB/l//3/v+/3//8AAA==",
+    };
+
+    auto resp = httpClient_->get(url, headers);
+    if (!resp.success || resp.body.empty()) {
+        LOG_W("Qishui", "track_v2 API请求失败");
+        return false;
+    }
+
+    try {
+        json j = json::parse(resp.body);
+
+        if (!j.contains("lyric") || !j["lyric"].is_object()) {
+            LOG_W("Qishui", "track_v2无lyric字段");
+            return false;
+        }
+
+        auto& lyric = j["lyric"];
+        std::string content = lyric.value("content", "");
+        if (content.empty()) {
+            LOG_W("Qishui", "track_v2歌词content为空");
+            return false;
+        }
+
+        std::string type = lyric.value("type", "");
+        std::string lrcText;
+
+        if (type == "krc") {
+            lrcText = krcStringToLrc(content);
+        } else if (type == "lrc") {
+            lrcText = content;
+        } else {
+            lrcText = krcStringToLrc(content);
+            if (lrcText.empty()) lrcText = content;
+        }
+
+        data.lyrics = lrcText;
+        data.hasLyrics = !data.lyrics.empty();
+
+        if (lyric.contains("lang_translations") && lyric["lang_translations"].is_object()) {
+            auto& trans = lyric["lang_translations"];
+            for (auto& [lang, transData] : trans.items()) {
+                if (!transData.is_object()) continue;
+                std::string transContent = transData.value("content", "");
+                if (transContent.empty()) continue;
+
+                std::string transType = transData.value("type", "");
+                std::string transLrc;
+
+                if (transType == "lrc") {
+                    transLrc = transContent;
+                } else if (transType == "krc") {
+                    transLrc = krcStringToLrc(transContent);
+                } else {
+                    transLrc = transContent;
+                }
+
+                if (!transLrc.empty()) {
+                    data.translationLyrics = transLrc;
+                    data.hasTranslation = true;
+                    LOG_I("Qishui", "翻译歌词获取成功: " + lang);
+                    break;
+                }
+            }
+        }
+
+        LOG_I("Qishui", "track_v2歌词获取成功: " + data.songName + (data.hasTranslation ? " (含翻译)" : ""));
+        return true;
+
+    } catch (const std::exception& e) {
+        LOG_W("Qishui", std::string("track_v2解析失败: ") + e.what());
+    }
+    return false;
+}
+
+bool QishuiProvider::getLyricsViaSharePage(QishuiContext& ctx, MusicMetadata& data) {
     std::string url = "https://music.douyin.com/qishui/share/track?track_id=" + ctx.trackId;
 
     auto resp = httpClient_->get(url, {
@@ -230,8 +320,14 @@ bool QishuiProvider::getLyrics(QishuiContext& ctx, MusicMetadata& data) {
         }
 
         std::string lyricsJson = lyrics.dump();
-        data.lyrics = krcToLrc(lyricsJson);
+        auto [lrcText, transText] = krcJsonToLrc(lyricsJson);
+        data.lyrics = lrcText;
         data.hasLyrics = !data.lyrics.empty();
+
+        if (!transText.empty()) {
+            data.translationLyrics = transText;
+            data.hasTranslation = true;
+        }
 
         std::string ssCoverUrl = awo.value("coverURL", "");
         if (!ssCoverUrl.empty() && ssCoverUrl.find("http") == 0) {
@@ -241,7 +337,7 @@ bool QishuiProvider::getLyrics(QishuiContext& ctx, MusicMetadata& data) {
             ctx.coverUrl = ssCoverUrl;
         }
 
-        LOG_I("Qishui", "歌词获取成功: " + data.songName + " (" + std::to_string(lyrics["sentences"].size()) + "行)");
+        LOG_I("Qishui", "分享页歌词获取成功: " + data.songName + " (" + std::to_string(lyrics["sentences"].size()) + "行)");
         return data.hasLyrics;
 
     } catch (const std::exception& e) {
@@ -250,13 +346,43 @@ bool QishuiProvider::getLyrics(QishuiContext& ctx, MusicMetadata& data) {
     return false;
 }
 
-std::string QishuiProvider::krcToLrc(const std::string& krcJson) {
+std::string QishuiProvider::krcStringToLrc(const std::string& krcContent) {
+    std::ostringstream lrc;
+    std::istringstream stream(krcContent);
+    std::string line;
+    std::regex lineRegex(R"(\[(\d+),(\d+)\](.*))");
+    std::regex wordRegex(R"(<[^>]*>)");
+
+    while (std::getline(stream, line)) {
+        std::smatch match;
+        if (std::regex_match(line, match, lineRegex)) {
+            int64_t startMs = std::stoll(match[1].str());
+            std::string text = std::regex_replace(match[3].str(), wordRegex, "");
+            if (text.empty()) continue;
+
+            int min = static_cast<int>(startMs / 60000);
+            int sec = static_cast<int>((startMs % 60000) / 1000);
+            int ms = static_cast<int>(startMs % 1000);
+
+            lrc << "[" << std::setfill('0') << std::setw(2) << min
+                << ":" << std::setw(2) << sec
+                << "." << std::setw(3) << ms << "]"
+                << text << "\n";
+        }
+    }
+
+    return lrc.str();
+}
+
+std::pair<std::string, std::string> QishuiProvider::krcJsonToLrc(const std::string& krcJson) {
     try {
         json krc = json::parse(krcJson);
-        if (!krc.contains("sentences") || !krc["sentences"].is_array()) return "";
+        if (!krc.contains("sentences") || !krc["sentences"].is_array()) return {"", ""};
 
         std::ostringstream lrc;
+        std::ostringstream transLrc;
         auto& sentences = krc["sentences"];
+        bool hasTrans = false;
 
         for (auto& s : sentences) {
             if (!s.is_object()) continue;
@@ -293,13 +419,36 @@ std::string QishuiProvider::krcToLrc(const std::string& krcJson) {
                 << ":" << std::setw(2) << sec
                 << "." << std::setw(3) << ms << "]"
                 << text << "\n";
+
+            std::string transText;
+            if (s.contains("translatedWords") && s["translatedWords"].is_array() && !s["translatedWords"].empty()) {
+                for (auto& w : s["translatedWords"]) {
+                    if (w.contains("text") && w["text"].is_string()) {
+                        transText += w["text"].get<std::string>();
+                    }
+                }
+            } else if (s.contains("translation") && s["translation"].is_string()) {
+                transText = s["translation"].get<std::string>();
+            } else if (s.contains("trans") && s["trans"].is_string()) {
+                transText = s["trans"].get<std::string>();
+            } else if (s.contains("translatedText") && s["translatedText"].is_string()) {
+                transText = s["translatedText"].get<std::string>();
+            }
+
+            if (!transText.empty()) {
+                hasTrans = true;
+                transLrc << "[" << std::setfill('0') << std::setw(2) << min
+                         << ":" << std::setw(2) << sec
+                         << "." << std::setw(3) << ms << "]"
+                         << transText << "\n";
+            }
         }
 
-        return lrc.str();
+        return {lrc.str(), hasTrans ? transLrc.str() : ""};
     } catch (const std::exception& e) {
         LOG_W("Qishui", std::string("KRC转LRC失败: ") + e.what());
     }
-    return "";
+    return {"", ""};
 }
 
 } // namespace narnat
