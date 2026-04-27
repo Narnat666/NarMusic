@@ -19,19 +19,19 @@
             <span class="material-symbols-rounded" style="color: var(--md-sys-color-primary); font-size: 28px;">music_note</span>
             纳儿音乐
         </div>
-        <button class="nav-item active" onclick="switchTab('download')">
+        <button class="nav-item active" data-tab="download">
             <span class="material-symbols-rounded">download</span>
             下载
         </button>
-        <button class="nav-item" onclick="switchTab('batchDownload')">
+        <button class="nav-item" data-tab="batchDownload">
             <span class="material-symbols-rounded">playlist_add</span>
             批量下载
         </button>
-        <button class="nav-item" onclick="switchTab('library')">
+        <button class="nav-item" data-tab="library">
             <span class="material-symbols-rounded">library_music</span>
             库
         </button>
-        <button class="nav-item" onclick="switchTab('settings')">
+        <button class="nav-item" data-tab="settings">
             <span class="material-symbols-rounded">settings</span>
             设置
         </button>
@@ -125,11 +125,11 @@
                 <h2 class="section-title">批量下载</h2>
                 <div class="batch-download-section">
                     <div class="batch-input-mode">
-                        <button class="batch-mode-tab active" id="pasteModeBtn" onclick="switchBatchInputMode('paste')">
+                        <button class="batch-mode-tab active" id="pasteModeBtn">
                             <span class="material-symbols-rounded">content_paste</span>
                             粘贴歌单
                         </button>
-                        <button class="batch-mode-tab" id="importModeBtn" onclick="switchBatchInputMode('import')">
+                        <button class="batch-mode-tab" id="importModeBtn">
                             <span class="material-symbols-rounded">upload_file</span>
                             导入歌单
                         </button>
@@ -152,7 +152,7 @@
                             <div id="batchFileName" class="batch-file-name" style="display: none;">
                                 <span class="material-symbols-rounded" style="font-size: 18px; color: var(--md-sys-color-primary);">description</span>
                                 <span id="batchFileNameText"></span>
-                                <button class="batch-file-remove" onclick="clearBatchFile()">
+                                <button class="batch-file-remove">
                                     <span class="material-symbols-rounded">close</span>
                                 </button>
                             </div>
@@ -160,11 +160,11 @@
                     </div>
 
                     <div style="display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap;">
-                        <button class="btn-primary" id="batchParseBtn" onclick="parseBatchPlaylist()">
+                        <button class="btn-primary" id="batchParseBtn">
                             <span class="material-symbols-rounded">search</span>
                             解析歌单
                         </button>
-                        <button class="btn-secondary" id="batchClearBtn" onclick="clearBatchInput()">
+                        <button class="btn-secondary" id="batchClearBtn">
                             <span class="material-symbols-rounded">backspace</span>
                             清空
                         </button>
@@ -196,17 +196,17 @@
                         <div class="batch-edit-toolbar" id="batchEditToolbar">
                             <div class="batch-edit-toolbar-left">
                                 <label class="batch-select-all">
-                                    <input type="checkbox" id="batchSelectAllCheckbox" onchange="toggleBatchSelectAll()">
+                                    <input type="checkbox" id="batchSelectAllCheckbox">
                                     <span>全选</span>
                                 </label>
                                 <span id="batchSelectedCount" class="batch-selected-count">已选 0 项</span>
                             </div>
                             <div class="batch-edit-toolbar-right">
-                                <button class="btn-batch btn-batch-download" id="batchDownloadServerBtn" onclick="batchDownloadToServer()" disabled>
+                                <button class="btn-batch btn-batch-download" id="batchDownloadServerBtn" disabled>
                                     <span class="material-symbols-rounded">cloud_download</span>
                                     下载到服务器
                                 </button>
-                                <button class="btn-batch btn-batch-delete" id="batchDeleteSelectedBtn" onclick="batchDeleteSelected()" disabled>
+                                <button class="btn-batch btn-batch-delete" id="batchDeleteSelectedBtn" disabled>
                                     <span class="material-symbols-rounded">delete</span>
                                     删除选中
                                 </button>
@@ -227,7 +227,7 @@
                         已下载 <span id="musicCount">0</span> 首音乐
                     </div>
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <button class="btn-secondary" id="batchSelectBtn" onclick="toggleBatchMode()">
+                        <button class="btn-secondary" id="batchSelectBtn">
                             <span class="material-symbols-rounded">checklist</span>
                             批量选择
                         </button>
@@ -241,21 +241,21 @@
                 <div id="batchToolbar" class="batch-toolbar" style="display: none;">
                     <div class="batch-toolbar-left">
                         <label class="batch-select-all">
-                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            <input type="checkbox" id="selectAllCheckbox">
                             <span>全选</span>
                         </label>
                         <span id="selectedCount" class="batch-selected-count">已选 0 项</span>
                     </div>
                     <div class="batch-toolbar-right">
-                        <button class="btn-batch btn-batch-download" id="batchDownloadBtn" onclick="batchDownload()" disabled>
+                        <button class="btn-batch btn-batch-download" id="batchDownloadBtn" disabled>
                             <span class="material-symbols-rounded">download</span>
                             批量下载
                         </button>
-                        <button class="btn-batch btn-batch-delete" id="batchDeleteBtn" onclick="batchDelete()" disabled>
+                        <button class="btn-batch btn-batch-delete" id="batchDeleteBtn" disabled>
                             <span class="material-symbols-rounded">delete</span>
                             批量删除
                         </button>
-                        <button class="btn-batch btn-batch-cancel" onclick="toggleBatchMode()">
+                        <button class="btn-batch btn-batch-cancel" id="cancelBatchBtn">
                             <span class="material-symbols-rounded">close</span>
                             取消
                         </button>
@@ -354,6 +354,6 @@
     <!-- Toast提示 -->
     <div class="toast" id="toast"></div>
 
-    <script src="app/app.js"></script>
+    <script type="module" src="app/main.js"></script>
 </body>
 </html>
