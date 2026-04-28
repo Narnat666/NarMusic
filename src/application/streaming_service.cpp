@@ -48,4 +48,17 @@ std::vector<char> StreamingService::getFileData(const std::string& taskIdOrFilen
     return data;
 }
 
+std::string StreamingService::getDisplayName(const std::string& taskIdOrFilename) {
+    auto task = taskRepo_->findById(taskIdOrFilename);
+    if (task) return task->displayName();
+
+    auto libEntry = libraryRepo_->findBySystemFilename(taskIdOrFilename);
+    if (libEntry) {
+        if (!libEntry->originalFilename.empty()) return libEntry->originalFilename;
+        if (!libEntry->songName.empty()) return libEntry->songName;
+    }
+
+    return "";
+}
+
 } // namespace narnat

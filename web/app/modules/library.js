@@ -121,6 +121,7 @@ function renderMusicLibrary() {
 
     musicLibrary.forEach((music, index) => {
         const customFilename = music.custom_filename || '未知文件';
+        const originalFilename = music.original_filename || '';
         const systemFilename = music.system_filename || customFilename;
         const fileSize = music.file_size || 0;
         const downloadTime = music.download_time ? new Date(music.download_time * 1000) : new Date();
@@ -182,8 +183,12 @@ async function downloadMusicFile(systemFilename) {
             const contentDisposition = response.headers.get('Content-Disposition');
             let downloadFilename = systemFilename;
             const musicItem = musicLibrary.find(item => item.system_filename === systemFilename);
-            if (musicItem && musicItem.custom_filename) {
-                downloadFilename = musicItem.custom_filename;
+            if (musicItem) {
+                if (musicItem.original_filename) {
+                    downloadFilename = musicItem.original_filename;
+                } else if (musicItem.custom_filename) {
+                    downloadFilename = musicItem.custom_filename;
+                }
             }
             if (contentDisposition) {
                 downloadFilename = parseFilenameFromContentDisposition(contentDisposition, downloadFilename);

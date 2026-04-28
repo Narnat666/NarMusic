@@ -118,6 +118,7 @@ void DownloadService::executeDownload(const std::string& taskId,
     entry.album = metadata.album;
     entry.filePath = filePath;
     entry.systemFilename = fs::path(filePath).filename().string();
+    entry.originalFilename = req.filename;
     try { entry.fileSize = static_cast<int64_t>(fs::file_size(filePath)); } catch (...) { entry.fileSize = 0; }
     entry.delayMs = req.delayMs;
     entry.platform = req.platform;

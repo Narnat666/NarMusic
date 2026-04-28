@@ -19,20 +19,23 @@ MusicLibraryEntry readRow(sqlite3_stmt* stmt, int baseCol = 0) {
     entry.album = reinterpret_cast<const char*>(sqlite3_column_text(stmt, baseCol + 3));
     entry.filePath = reinterpret_cast<const char*>(sqlite3_column_text(stmt, baseCol + 4));
     entry.systemFilename = reinterpret_cast<const char*>(sqlite3_column_text(stmt, baseCol + 5));
-    entry.fileSize = sqlite3_column_int64(stmt, baseCol + 6);
-    entry.delayMs = sqlite3_column_int(stmt, baseCol + 7);
-    entry.platform = reinterpret_cast<const char*>(sqlite3_column_text(stmt, baseCol + 8));
-    entry.inUse = sqlite3_column_int(stmt, baseCol + 9) != 0;
+    if (sqlite3_column_type(stmt, baseCol + 6) != SQLITE_NULL) {
+        entry.originalFilename = reinterpret_cast<const char*>(sqlite3_column_text(stmt, baseCol + 6));
+    }
+    entry.fileSize = sqlite3_column_int64(stmt, baseCol + 7);
+    entry.delayMs = sqlite3_column_int(stmt, baseCol + 8);
+    entry.platform = reinterpret_cast<const char*>(sqlite3_column_text(stmt, baseCol + 9));
+    entry.inUse = sqlite3_column_int(stmt, baseCol + 10) != 0;
 
-    int64_t dlAt = sqlite3_column_int64(stmt, baseCol + 10);
-    int64_t luAt = sqlite3_column_int64(stmt, baseCol + 11);
+    int64_t dlAt = sqlite3_column_int64(stmt, baseCol + 11);
+    int64_t luAt = sqlite3_column_int64(stmt, baseCol + 12);
     entry.downloadedAt = std::chrono::system_clock::from_time_t(dlAt);
     entry.lastUsedAt = std::chrono::system_clock::from_time_t(luAt);
     return entry;
 }
 
 static const char* kSelectColumns =
-    "id, song_name, artist, album, file_path, system_filename, "
+    "id, song_name, artist, album, file_path, system_filename, original_filename, "
     "file_size, delay_ms, platform, in_use, downloaded_at, last_used_at";
 
 }
@@ -81,14 +84,23 @@ void SqliteMusicLibraryRepository::initSchema() {
     if (!hasAlbumColumn) {
         db_->execute("ALTER TABLE music_files ADD COLUMN album TEXT NOT NULL DEFAULT ''");
     }
+
+    checkStmt = nullptr;
+    checkSql = "SELECT original_filename FROM music_files LIMIT 0";
+    bool hasOriginalFilenameColumn = (sqlite3_prepare_v2(db_->handle(), checkSql, -1, &checkStmt, nullptr) == SQLITE_OK);
+    if (checkStmt) sqlite3_finalize(checkStmt);
+
+    if (!hasOriginalFilenameColumn) {
+        db_->execute("ALTER TABLE music_files ADD COLUMN original_filename TEXT DEFAULT NULL");
+    }
 }
 
 int SqliteMusicLibraryRepository::save(const MusicLibraryEntry& entry) {
     std::lock_guard<std::mutex> lock(db_->mutex());
 
     const char* sql = "INSERT INTO music_files "
-        "(song_name, artist, album, file_path, system_filename, file_size, delay_ms, platform, in_use, downloaded_at, last_used_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        "(song_name, artist, album, file_path, system_filename, original_filename, file_size, delay_ms, platform, in_use, downloaded_at, last_used_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_->handle(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -104,12 +116,17 @@ int SqliteMusicLibraryRepository::save(const MusicLibraryEntry& entry) {
     sqlite3_bind_text(stmt, 3, entry.album.c_str(), -1, kSqliteTransient);
     sqlite3_bind_text(stmt, 4, entry.filePath.c_str(), -1, kSqliteTransient);
     sqlite3_bind_text(stmt, 5, entry.systemFilename.c_str(), -1, kSqliteTransient);
-    sqlite3_bind_int64(stmt, 6, entry.fileSize);
-    sqlite3_bind_int(stmt, 7, entry.delayMs);
-    sqlite3_bind_text(stmt, 8, entry.platform.c_str(), -1, kSqliteTransient);
-    sqlite3_bind_int(stmt, 9, entry.inUse ? 1 : 0);
-    sqlite3_bind_int64(stmt, 10, dlSec);
-    sqlite3_bind_int64(stmt, 11, luSec);
+    if (entry.originalFilename.empty()) {
+        sqlite3_bind_null(stmt, 6);
+    } else {
+        sqlite3_bind_text(stmt, 6, entry.originalFilename.c_str(), -1, kSqliteTransient);
+    }
+    sqlite3_bind_int64(stmt, 7, entry.fileSize);
+    sqlite3_bind_int(stmt, 8, entry.delayMs);
+    sqlite3_bind_text(stmt, 9, entry.platform.c_str(), -1, kSqliteTransient);
+    sqlite3_bind_int(stmt, 10, entry.inUse ? 1 : 0);
+    sqlite3_bind_int64(stmt, 11, dlSec);
+    sqlite3_bind_int64(stmt, 12, luSec);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         LOG_E("MusicLibRepo", std::string("save失败: ") + sqlite3_errmsg(db_->handle()));
@@ -204,7 +221,7 @@ void SqliteMusicLibraryRepository::update(const MusicLibraryEntry& entry) {
     std::lock_guard<std::mutex> lock(db_->mutex());
 
     const char* sql = "UPDATE music_files SET song_name=?, artist=?, album=?, file_path=?, "
-        "system_filename=?, file_size=?, delay_ms=?, platform=?, in_use=?, downloaded_at=?, last_used_at=? WHERE id=?";
+        "system_filename=?, original_filename=?, file_size=?, delay_ms=?, platform=?, in_use=?, downloaded_at=?, last_used_at=? WHERE id=?";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_->handle(), sql, -1, &stmt, nullptr) != SQLITE_OK)
@@ -218,13 +235,18 @@ void SqliteMusicLibraryRepository::update(const MusicLibraryEntry& entry) {
     sqlite3_bind_text(stmt, 3, entry.album.c_str(), -1, kSqliteTransient);
     sqlite3_bind_text(stmt, 4, entry.filePath.c_str(), -1, kSqliteTransient);
     sqlite3_bind_text(stmt, 5, entry.systemFilename.c_str(), -1, kSqliteTransient);
-    sqlite3_bind_int64(stmt, 6, entry.fileSize);
-    sqlite3_bind_int(stmt, 7, entry.delayMs);
-    sqlite3_bind_text(stmt, 8, entry.platform.c_str(), -1, kSqliteTransient);
-    sqlite3_bind_int(stmt, 9, entry.inUse ? 1 : 0);
-    sqlite3_bind_int64(stmt, 10, dlSec);
-    sqlite3_bind_int64(stmt, 11, luSec);
-    sqlite3_bind_int(stmt, 12, entry.id);
+    if (entry.originalFilename.empty()) {
+        sqlite3_bind_null(stmt, 6);
+    } else {
+        sqlite3_bind_text(stmt, 6, entry.originalFilename.c_str(), -1, kSqliteTransient);
+    }
+    sqlite3_bind_int64(stmt, 7, entry.fileSize);
+    sqlite3_bind_int(stmt, 8, entry.delayMs);
+    sqlite3_bind_text(stmt, 9, entry.platform.c_str(), -1, kSqliteTransient);
+    sqlite3_bind_int(stmt, 10, entry.inUse ? 1 : 0);
+    sqlite3_bind_int64(stmt, 11, dlSec);
+    sqlite3_bind_int64(stmt, 12, luSec);
+    sqlite3_bind_int(stmt, 13, entry.id);
 
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);

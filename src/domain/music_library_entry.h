@@ -15,6 +15,7 @@ struct MusicLibraryEntry {
     std::string album;
     std::string filePath;
     std::string systemFilename;
+    std::string originalFilename;
     int64_t fileSize = 0;
     std::string platform;
     int delayMs = 0;
@@ -26,6 +27,7 @@ struct MusicLibraryEntry {
         nlohmann::json j;
         j["id"] = id;
         j["custom_filename"] = songName.empty() ? systemFilename : songName;
+        j["original_filename"] = originalFilename;
         j["system_filename"] = systemFilename;
         j["artist"] = artist;
         j["album"] = album;

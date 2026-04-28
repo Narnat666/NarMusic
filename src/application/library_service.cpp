@@ -50,7 +50,14 @@ std::vector<std::pair<std::string, std::vector<char>>> LibraryService::getFilesD
         file.read(data.data(), size);
 
         if (!data.empty()) {
-            std::string displayName = entry->songName.empty() ? entry->systemFilename : entry->songName;
+            std::string displayName;
+            if (!entry->originalFilename.empty()) {
+                displayName = entry->originalFilename;
+            } else if (!entry->songName.empty()) {
+                displayName = entry->songName;
+            } else {
+                displayName = entry->systemFilename;
+            }
             if (displayName.find('.') == std::string::npos) {
                 displayName += ".m4a";
             }

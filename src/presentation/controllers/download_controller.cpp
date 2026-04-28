@@ -145,7 +145,7 @@ Response DownloadController::downloadFile(const Request& req) {
         return Response::error(404, "Not Found", "file_not_found", "文件不存在");
     }
 
-    std::string displayName = downloadService_->getTaskDisplayName(id);
+    std::string displayName = streamingService_->getDisplayName(id);
     if (displayName.empty()) {
         displayName = id;
     }

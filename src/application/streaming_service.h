@@ -23,6 +23,8 @@ public:
 
     std::string getFilePath(const std::string& taskIdOrFilename);
 
+    std::string getDisplayName(const std::string& taskIdOrFilename);
+
 private:
     std::shared_ptr<ITaskRepository> taskRepo_;
     std::shared_ptr<IMusicLibraryRepository> libraryRepo_;
