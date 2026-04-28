@@ -15,8 +15,7 @@ public:
     // 从B站URL下载音频到指定路径
     // 返回下载的文件路径，失败返回空
     std::string download(const std::string& url,
-                         const std::string& saveDir,
-                         const std::string& filename,
+                         const std::string& filePath,
                          std::function<void(long long)> progressCallback = nullptr);
 
 private:

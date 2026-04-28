@@ -12,7 +12,7 @@ include(cmake/PreventInSourceBuild.cmake)
 # 项目定义
 # ---------------------------------------------------------------------------
 project(NarMusic
-    VERSION     1.0.0
+    VERSION     2.0.0
     LANGUAGES   C CXX
     DESCRIPTION "纳儿音乐服务器"
 )

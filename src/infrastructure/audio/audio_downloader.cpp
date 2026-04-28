@@ -8,8 +8,7 @@ AudioDownloader::AudioDownloader(std::shared_ptr<BilibiliClient> biliClient)
     : biliClient_(std::move(biliClient)) {}
 
 std::string AudioDownloader::download(const std::string& url,
-                                       const std::string& saveDir,
-                                       const std::string& filename,
+                                       const std::string& filePath,
                                        std::function<void(long long)> progressCallback) {
     // 1. 解析URL
     std::string resolvedUrl = biliClient_->resolveUrl(url);
@@ -36,11 +35,8 @@ std::string AudioDownloader::download(const std::string& url,
 
     // 4. 下载音频文件
     namespace fs = std::filesystem;
-    fs::create_directories(saveDir);
+    fs::create_directories(fs::path(filePath).parent_path());
 
-    std::string filePath = saveDir + filename + ".m4a";
-
-    // 直接使用CurlClient下载
     CurlClient::Options opts;
     opts.connectTimeout = 10;
     opts.requestTimeout = 120;

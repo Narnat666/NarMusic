@@ -3,7 +3,7 @@
 # 从 CMake 变量生成 version.h
 # ============================================================================
 
-set(NARNAT_VERSION_MAJOR 1 CACHE STRING "主版本号")
+set(NARNAT_VERSION_MAJOR 2 CACHE STRING "主版本号")
 set(NARNAT_VERSION_MINOR 0 CACHE STRING "次版本号")
 set(NARNAT_VERSION_PATCH 0 CACHE STRING "补丁版本号")
 

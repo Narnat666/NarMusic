@@ -100,7 +100,7 @@ sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 | `download.cleanup_interval` | 清理检查间隔(秒) | `600` |
 | `download.max_age` | 任务最大存活时间(秒) | `600` |
 | `lyrics.default_platform` | 默认歌词平台 | `酷狗音乐` |
-| `lyrics.platforms` | 启用的歌词平台列表 | 酷狗/网易云/QQ |
+| `lyrics.platforms` | 启用的歌词平台列表 | 酷狗/网易云/QQ/汽水音乐 |
 | `logging.level` | 日志级别 (debug/info/warn/error) | `info` |
 | `logging.file` | 日志文件路径 | `./logs/narnat.log` |
 | `database.path` | SQLite 数据库路径 | `./data/narnat.db` |
@@ -131,8 +131,6 @@ NarMusic/
 ├── web/                    前端界面 (HTML/CSS/JS)
 ├── cmake/                  CMake 模块
 ├── build.sh                构建脚本
-├── Compilation.sh          依赖库编译脚本
-├── upgrade_gcc.sh          GCC 升级脚本
 ├── toolchain-aarch64.cmake ARM64 交叉编译工具链
 ├── config.json             运行时配置
 └── CMakeLists.txt          CMake 构建配置

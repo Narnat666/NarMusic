@@ -59,6 +59,9 @@ async function handleSend() {
     const url = extractUrlFromText(inputText);
     if (!url) { showToast('未找到有效的链接', 'warning'); urlInput.focus(); return; }
 
+    const filename = filenameInput.value.trim();
+    if (!filename) { showToast('请输入自定义文件名', 'warning'); filenameInput.focus(); return; }
+
     const { platform, delayMs, delayError } = getSettingsValues();
     if (delayError) { showToast('延迟参数必须是整数', 'warning'); return; }
 
@@ -71,9 +74,7 @@ async function handleSend() {
     sendBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">refresh</span> 发送中...';
 
     try {
-        const requestData = { content: inputText, url, platform, offsetMs: delayMs };
-        const filename = filenameInput.value.trim();
-        if (filename) requestData.filename = filename;
+        const requestData = { content: inputText, url, platform, offsetMs: delayMs, filename };
 
         const response = await api.createTask(requestData);
         const data = await response.json();

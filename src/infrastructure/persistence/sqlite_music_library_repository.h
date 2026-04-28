@@ -27,7 +27,11 @@ public:
 
     void updateSongInfo(int id, const std::string& songName, const std::string& artist, int delayMs) override;
 
-    std::optional<MusicLibraryEntry> findBySongAndArtist(const std::string& songName, const std::string& artist) override;
+    std::optional<MusicLibraryEntry> findBySongArtistPlatformDelay(
+        const std::string& songName, const std::string& artist,
+        const std::string& platform, int delayMs) override;
+
+    int countByFilePath(const std::string& filePath) override;
 
 private:
     void initSchema();

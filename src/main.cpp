@@ -119,6 +119,7 @@ int main(int argc, char* argv[]) {
             case 'h':
                 std::cout << "用法: NarMusic [-p path] [-e ext] [-o port] [-c config] [-d] [-a dir]" << std::endl;
                 std::cout << "  -a dir   解析目录下m4a文件的narmeta信息并输出歌单" << std::endl;
+                std::cout << "  --version   输出版本信息" << std::endl;
                 return 0;
         }
     }

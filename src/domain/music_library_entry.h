@@ -16,6 +16,7 @@ struct MusicLibraryEntry {
     std::string filePath;
     std::string systemFilename;
     int64_t fileSize = 0;
+    std::string platform;
     int delayMs = 0;
     bool inUse = false;
     std::chrono::system_clock::time_point downloadedAt;
@@ -28,6 +29,7 @@ struct MusicLibraryEntry {
         j["system_filename"] = systemFilename;
         j["artist"] = artist;
         j["album"] = album;
+        j["platform"] = platform;
         j["file_size"] = fileSize;
         j["delay_ms"] = delayMs;
         j["download_time"] = std::chrono::system_clock::to_time_t(downloadedAt);

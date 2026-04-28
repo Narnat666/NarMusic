@@ -28,7 +28,11 @@ public:
 
     virtual void updateSongInfo(int id, const std::string& songName, const std::string& artist, int delayMs) = 0;
 
-    virtual std::optional<MusicLibraryEntry> findBySongAndArtist(const std::string& songName, const std::string& artist) = 0;
+    virtual std::optional<MusicLibraryEntry> findBySongArtistPlatformDelay(
+        const std::string& songName, const std::string& artist,
+        const std::string& platform, int delayMs) = 0;
+
+    virtual int countByFilePath(const std::string& filePath) = 0;
 };
 
 } // namespace narnat

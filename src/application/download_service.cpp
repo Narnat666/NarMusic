@@ -32,7 +32,8 @@ std::string DownloadService::createTask(const CreateTaskRequest& req) {
     std::string filename = req.filename;
     if (filename.empty()) filename = "music_" + std::to_string(ms);
 
-    std::string filePath = config_.path + filename + config_.extension;
+    std::string fileSuffix = "_" + std::to_string(ms);
+    std::string filePath = config_.path + filename + fileSuffix + config_.extension;
 
     Task task(taskId, req.url, filePath, filename, req.delayMs);
     task.setStatus(TaskStatus::Pending);
@@ -59,7 +60,7 @@ void DownloadService::executeDownload(const std::string& taskId,
     taskRepo_->update(task);
 
     std::string filePath = audioDownloader_->download(
-        req.url, config_.path, req.filename,
+        req.url, task.filePath(),
         [&task, this](long long bytes) {
             task.setDownloadedBytes(bytes);
             taskRepo_->update(task);
@@ -119,13 +120,15 @@ void DownloadService::executeDownload(const std::string& taskId,
     entry.systemFilename = fs::path(filePath).filename().string();
     try { entry.fileSize = static_cast<int64_t>(fs::file_size(filePath)); } catch (...) { entry.fileSize = 0; }
     entry.delayMs = req.delayMs;
+    entry.platform = req.platform;
     entry.inUse = false;
     entry.downloadedAt = std::chrono::system_clock::now();
     entry.lastUsedAt = entry.downloadedAt;
 
     int libId = 0;
     if (!metadata.songName.empty() && !metadata.artist.empty()) {
-        auto existing = libraryRepo_->findBySongAndArtist(metadata.songName, metadata.artist);
+        auto existing = libraryRepo_->findBySongArtistPlatformDelay(
+            metadata.songName, metadata.artist, req.platform, req.delayMs);
         if (existing) {
             if (!existing->filePath.empty() && existing->filePath != filePath) {
                 try {
