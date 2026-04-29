@@ -42,7 +42,7 @@
         <header class="topbar">
             <div class="search-bar" id="searchBar">
                 <span class="material-symbols-rounded" id="searchIcon">search</span>
-                <input type="text" placeholder="搜索歌曲、歌手..." id="searchInput" enterkeyhint="search">
+                <input type="text" placeholder="模糊搜索歌曲、歌手..." id="searchInput" enterkeyhint="search">
             </div>
             <div class="user-profile">
                 <img src="img/nar-logo.svg" alt="NAR" class="user-profile-img">
@@ -139,14 +139,14 @@
                         <div id="pasteModeArea" class="batch-mode-area">
                             <div class="input-group">
                                 <label class="input-label">粘贴歌单内容</label>
-                                <textarea class="md-input batch-textarea" id="batchPasteInput" rows="8" placeholder="每行一首歌曲，格式：歌曲名 - 歌手&#10;例如：&#10;晴天 - 周杰伦&#10;七里香 - 周杰伦&#10;平凡之路 - 朴树"></textarea>
+                                <textarea class="md-input batch-textarea" id="batchPasteInput" rows="8" placeholder=""></textarea>
                             </div>
                         </div>
                         <div id="importModeArea" class="batch-mode-area" style="display: none;">
                             <div class="batch-file-upload" id="batchFileUpload">
                                 <span class="material-symbols-rounded" style="font-size: 48px; color: var(--md-sys-color-primary);">cloud_upload</span>
                                 <div class="batch-upload-text">点击或拖拽文件到此处</div>
-                                <div style="font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">支持 .txt 文件，每行一首歌曲</div>
+                                <div style="font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 4px;">支持 .txt 文件</div>
                                 <input type="file" id="batchFileInput" accept=".txt" style="display: none;">
                             </div>
                             <div id="batchFileName" class="batch-file-name" style="display: none;">

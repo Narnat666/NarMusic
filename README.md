@@ -5,7 +5,7 @@
 ## ✨ 功能特性
 
 - 🔗 **B站音频提取** — 输入视频链接，自动提取并下载音频
-- 🎤 **多平台歌词** — 并发搜索酷狗音乐、网易云音乐、QQ音乐，智能匹配最佳歌词
+- 🎤 **多平台歌词** — 并发搜索酷狗音乐、网易云音乐、QQ音乐、汽水音乐，智能匹配最佳歌词
 - 🖼️ **封面与元数据嵌入** — 歌词、封面、艺术家信息直接写入 M4A 文件
 - 🎵 **在线播放** — 浏览器端流式播放，实时歌词同步
 - 📱 **响应式界面** — Material Design 3 风格，桌面端和移动端自适应
@@ -36,7 +36,8 @@ src/
 ```bash
 # 安装编译工具
 sudo apt install -y build-essential cmake
-sudo apt install ccache ninja-build # 加速编译工具
+# 加速编译工具（可选）
+sudo apt install ccache ninja-build
 
 # 一键编译
 ./build.sh
@@ -58,14 +59,8 @@ sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 # 开发模式
 ./build-x86/NarMusic
 
-# 查看版本
-./build-x86/NarMusic --version
-
-# 指定配置文件
-./build-x86/NarMusic -c /path/to/config.json
-
-# Debug 模式
-./build-x86/NarMusic -d
+# 查看使用帮助
+./build-x86/NarMusic -h
 ```
 
 启动后访问 `http://localhost:8080`
@@ -114,7 +109,7 @@ sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 ./build.sh -a x86_64    # 交叉编译 x86_64
 ./build.sh -t Debug     # Debug 构建
 ./build.sh -p           # 构建并打包
-./build.sh --asan       # AddressSanitizer
+./build.sh --asan       # ASan 编译模式
 ./build.sh --lto        # 链接时优化
 ./build.sh -c           # 清理构建目录
 ./build.sh -h           # 查看所有选项
@@ -156,9 +151,19 @@ NarMusic/
 
 ### 1.共享文件夹挂载
 ```bash
-1.查看可挂载共享文件夹 
+## 1.安装工具
+sudo apt install open-vm-tools -y
+
+## 2. 查看可用的共享文件夹名称
 vmware-hgfsclient
-2.将windows下的文件挂载到ubantu
+
+## 3. 创建本地挂载点（如果还没有）
+sudo mkdir -p /mnt/hgfs/tanran
+
+## 4.查看可挂载共享文件夹 
+vmware-hgfsclient
+
+## 5.将windows下的文件挂载到ubantu
 vmhgfs-fuse .host:/tanran /mnt/hgfs/tanran/ -o allow_other,uid=$(id -u),gid=$(id -g)
 ```
 
@@ -170,7 +175,7 @@ vmhgfs-fuse .host:/tanran /mnt/hgfs/tanran/ -o allow_other,uid=$(id -u),gid=$(id
 ## 解决
 编译新版 glibc 至独立目录，用 `patchelf` 修改程序动态链接。
 
-### 1. 编译安装 glibc 2.33
+## 1. 编译安装 glibc 2.33
 sudo apt install -y build-essential bison gawk python3 texinfo patchelf
 wget http://ftp.gnu.org/gnu/glibc/glibc-2.33.tar.gz
 tar xf glibc-2.33.tar.gz
@@ -180,30 +185,32 @@ make -j$(nproc)
 sudo make install
 cd ../..
 
-### 2. 修改程序动态链接
-
+## 2. 修改程序动态链接
 sudo patchelf --set-interpreter /opt/glibc-2.33/lib/ld-linux-aarch64.so.1 ./NarMusic && sudo patchelf --set-rpath '/opt/glibc-2.33/lib:/usr/lib/aarch64-linux-gnu' ./NarMusic 
 
-### 3. 运行
+## 3. 运行
 ./NarMusic
 ```
 
 ### 3.在86_64架构windows上为aarch64 linux编译
 
 ```bash
+## 1.配置交叉编译环境
 echo 'export CMAKE_GENERATOR="Unix Makefiles"' >> ~/.bashrc
 source ~/.bashrc
 
+## 2. 编译 aarch64
 ./build.sh -a aarch64            --cc aarch64-none-linux-gnu-gcc            --cxx aarch64-none-linux-gnu-g++            --sysroot /d/wtoa/toolchain/aarch64-none-linux-gnu/libc            -j $(nproc)
 ```
 
 ### 4.x86_64架构ubuntu上为aarch64 linux编译
 
 ```bash
-./build.sh --cc /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc  --cxx /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-g++ -a aarch64 -p # 配置自己的交叉工具链
+## 编译并打包
+./build.sh --cc /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc  --cxx /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-g++ -a aarch64 -p
 ```
 
-### 5.普通编译
+### 5.关于编译加速
 ```bash
 ./build.sh                    # 全部加速开启 (ccache + Ninja + PCH + Unity)
 ./build.sh --no-ccache        # 关闭编译缓存，普通编译
