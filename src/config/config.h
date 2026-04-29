@@ -42,6 +42,14 @@ struct DatabaseConfig {
     std::string path = "./data/narnat.db";
 };
 
+struct CpolarConfig {
+    bool enabled = false;
+    std::string authtoken;
+    std::string subdomain;
+    std::string region = "cn";
+    std::string bin_path = "cpolar";
+};
+
 class Config {
 public:
     static Config load(const std::string& path);
@@ -49,7 +57,8 @@ public:
 
     // 命令行参数覆盖
     void applyOverrides(int port, const std::string& downloadPath,
-                        const std::string& extension, bool debug);
+                        const std::string& extension, bool debug,
+                        const std::string& cpolarToken);
 
     ServerConfig server;
     DownloadConfig download;
@@ -57,6 +66,7 @@ public:
     LyricsConfig lyrics;
     LogConfig logging;
     DatabaseConfig database;
+    CpolarConfig cpolar;
     bool debug_mode = false;
 
 private:

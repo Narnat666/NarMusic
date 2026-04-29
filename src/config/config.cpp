@@ -52,6 +52,15 @@ void Config::fromJson(const nlohmann::json& j) {
         auto& db = j["database"];
         if (db.contains("path")) database.path = db["path"].get<std::string>();
     }
+
+    if (j.contains("cpolar")) {
+        auto& cp = j["cpolar"];
+        if (cp.contains("enabled")) cpolar.enabled = cp["enabled"].get<bool>();
+        if (cp.contains("authtoken")) cpolar.authtoken = cp["authtoken"].get<std::string>();
+        if (cp.contains("subdomain")) cpolar.subdomain = cp["subdomain"].get<std::string>();
+        if (cp.contains("region")) cpolar.region = cp["region"].get<std::string>();
+        if (cp.contains("bin_path")) cpolar.bin_path = cp["bin_path"].get<std::string>();
+    }
 }
 
 Config Config::load(const std::string& path) {
@@ -74,11 +83,16 @@ Config Config::loadDefault() {
 }
 
 void Config::applyOverrides(int port, const std::string& downloadPath,
-                            const std::string& extension, bool debug) {
+                            const std::string& extension, bool debug,
+                            const std::string& cpolarToken) {
     if (port > 0) server.port = port;
     if (!downloadPath.empty()) download.path = downloadPath;
     if (!extension.empty()) download.extension = extension;
     debug_mode = debug;
+    if (!cpolarToken.empty()) {
+        cpolar.authtoken = cpolarToken;
+        cpolar.enabled = true;
+    }
 }
 
 } // namespace narnat

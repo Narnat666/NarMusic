@@ -100,6 +100,9 @@ set(NARNAT_SOURCES
     src/infrastructure/filesystem/music_file_repository.cpp
     src/infrastructure/filesystem/zip_writer.cpp
 
+    # Infrastructure 层 - 内网穿透
+    src/infrastructure/tunnel/cpolar_tunnel.cpp
+
     # Application 层
     src/application/download_service.cpp
     src/application/search_service.cpp

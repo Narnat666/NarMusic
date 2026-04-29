@@ -10,6 +10,7 @@
 - 🎵 **在线播放** — 浏览器端流式播放，实时歌词同步
 - 📱 **响应式界面** — Material Design 3 风格，桌面端和移动端自适应
 - ⚡ **轻量高效** — 自研 Epoll HTTP 服务器，适合 ARM64 嵌入式设备
+- 🌐 **cpolar 内网穿透** — 内置 cpolar 支持，一行命令暴露公网
 
 ## 🏗️ 项目架构
 
@@ -17,7 +18,7 @@
 src/
 ├── domain/          领域层 — 实体和接口定义
 ├── application/     应用层 — 业务逻辑编排
-├── infrastructure/  基础设施层 — 持久化、HTTP、歌词、音频
+├── infrastructure/  基础设施层 — 持久化、HTTP、歌词、音频、内网穿透
 └── presentation/    表现层 — HTTP 控制器和静态文件处理
 ```
 
@@ -100,6 +101,11 @@ sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 | `logging.level` | 日志级别 (debug/info/warn/error) | `info` |
 | `logging.file` | 日志文件路径 | `./logs/narnat.log` |
 | `database.path` | SQLite 数据库路径 | `./data/narnat.db` |
+| `cpolar.enabled` | 启用 cpolar 内网穿透 | `false` |
+| `cpolar.authtoken` | cpolar 认证密钥 | 空 |
+| `cpolar.subdomain` | 固定子域名（付费版） | 空 |
+| `cpolar.region` | cpolar 区域 | `cn` |
+| `cpolar.bin_path` | cpolar 可执行文件路径 | `cpolar` |
 
 ## 🛠️ 构建脚本选项
 
@@ -145,6 +151,45 @@ NarMusic/
 | libgsasl | SASL 认证 |
 | nlohmann/json | JSON 处理 (header-only) |
 | BS_thread_pool | 线程池 (header-only) |
+| cpolar | 内网穿透 (外部命令，需单独安装) |
+
+## 🌐 cpolar 内网穿透
+
+NarMusic 内置 cpolar 内网穿透支持，可将本地服务暴露到公网。
+
+### 前置条件
+
+```bash
+# 安装 cpolar (方式一：自动安装)
+curl -L https://www.cpolar.com/static/downloads/install-release-cpolar.sh | sudo bash
+
+# 方式二：使用打包分发版（cpolar 已内嵌，无需安装）
+# 执行 ./build.sh -p 打包时自动下载 cpolar 二进制到分发包
+```
+
+### 方式一：命令行参数（推荐）
+
+```bash
+# 启动时直接传入 authtoken，自动启用穿透
+./NarMusic -t 你的cpolar_authtoken
+```
+
+### 方式二：配置文件
+
+编辑 `config.json`：
+
+```json
+{
+    "cpolar": {
+        "enabled": true,
+        "authtoken": "你的authtoken",
+        "subdomain": "my-music",
+        "region": "cn"
+    }
+}
+```
+
+启动后会在终端显示公网访问地址。
 
 
 ## 其他

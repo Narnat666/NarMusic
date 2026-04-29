@@ -27,5 +27,12 @@
     },
     "database": {
         "path": "./data/narnat.db"
+    },
+    "cpolar": {
+        "enabled": false,
+        "authtoken": "",
+        "subdomain": "",
+        "region": "cn",
+        "bin_path": "cpolar"
     }
 }

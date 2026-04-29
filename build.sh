@@ -382,7 +382,27 @@ configure_and_build() {
     # 打包
     if (( PACKAGE )); then
         log "打包..."
-        cpack -G ZIP || warn "打包失败"
+
+        local pkg_dir="package/${PROJECT_NAME}"
+        rm -rf "${pkg_dir}"
+        mkdir -p "${pkg_dir}"
+
+        cp "${PROJECT_NAME}" "${pkg_dir}/"
+        cp -r "${SCRIPT_DIR}/web" "${pkg_dir}/"
+        cp "${SCRIPT_DIR}/config.json" "${pkg_dir}/"
+
+        local cpolar_src="${SCRIPT_DIR}/lib/${ARCH}/cpolar"
+        if [[ -f "${cpolar_src}" ]]; then
+            cp "${cpolar_src}" "${pkg_dir}/cpolar"
+            chmod +x "${pkg_dir}/cpolar"
+            ok "cpolar 已打包 (lib/${ARCH}/cpolar)"
+        else
+            warn "未找到 lib/${ARCH}/cpolar，打包将不包含 cpolar"
+        fi
+
+        local pkg_name="${PROJECT_NAME}-${PROJECT_VERSION}-linux-${ARCH}"
+        cd package && zip -r "${pkg_name}.zip" "${PROJECT_NAME}/" && cd ..
+        ok "打包完成: package/${pkg_name}.zip"
     fi
 
     cd "${SCRIPT_DIR}"
