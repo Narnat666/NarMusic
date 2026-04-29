@@ -3,7 +3,7 @@ export function formatBytes(bytes) {
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    if (i === 0) return bytes + ' ' + sizes[i];
+    if (i === 0) return parseFloat(bytes.toFixed(2)) + ' ' + sizes[i];
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
@@ -13,7 +13,7 @@ export function formatSpeed(bytesPerSecond) {
     const sizes = ['B/s', 'KB/s', 'MB/s'];
     let i = Math.floor(Math.log(bytesPerSecond) / Math.log(k));
     if (i >= sizes.length) i = sizes.length - 1;
-    if (i === 0) return bytesPerSecond + ' ' + sizes[i];
+    if (i === 0) return parseFloat(bytesPerSecond.toFixed(2)) + ' ' + sizes[i];
     return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 

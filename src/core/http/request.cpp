@@ -4,6 +4,8 @@
 
 namespace narnat {
 
+static constexpr size_t MAX_CONTENT_LENGTH = 10 * 1024 * 1024;
+
 bool Request::isCompleteRequest(const std::string& data) {
     size_t headerEnd = data.find("\r\n\r\n");
     if (headerEnd == std::string::npos) return false;
@@ -27,6 +29,7 @@ bool Request::isCompleteRequest(const std::string& data) {
                 std::string val = line.substr(colonPos + 2);
                 if (!val.empty() && val.back() == '\r') val.pop_back();
                 try { contentLength = std::stoul(val); } catch (...) {}
+                if (contentLength > MAX_CONTENT_LENGTH) return true;
             }
         }
     }
@@ -91,6 +94,7 @@ bool Request::parse(const std::string& raw) {
     auto it = headers_.find("Content-Length");
     if (it != headers_.end()) {
         try { bodyLength_ = std::stoul(it->second); } catch (...) { bodyLength_ = 0; }
+        if (bodyLength_ > MAX_CONTENT_LENGTH) return false;
     }
 
     // Body

@@ -79,6 +79,7 @@ private:
 
     static constexpr int MAX_EVENTS = 1024;
     static constexpr int READ_BUFFER_SIZE = 8192;
+    static constexpr size_t MAX_REQUEST_SIZE = 10 * 1024 * 1024;
 };
 
 } // namespace narnat

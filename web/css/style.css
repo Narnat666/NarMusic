@@ -406,7 +406,8 @@ body {
 
 /* 弹窗音频播放器 */
 .audio-popup {
-    display: none;
+    visibility: hidden;
+    pointer-events: none;
     position: fixed;
     top: 50%;
     left: 50%;
@@ -419,12 +420,13 @@ body {
     z-index: 1000;
     border: 1px solid var(--md-sys-color-surface-variant);
     overflow: hidden;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    transition: transform 0.3s ease, opacity 0.3s ease, visibility 0.3s;
     opacity: 0;
 }
 
 .audio-popup.show {
-    display: block;
+    visibility: visible;
+    pointer-events: auto;
     opacity: 1;
 }
 

@@ -200,8 +200,11 @@ async function downloadMusicFile(systemFilename) {
 
 async function deleteMusicFromLibrary(musicId, systemFilename) {
     if (!musicId) { showToast('文件ID无效', 'warning'); return; }
-    const title = systemFilename.replace(/\.[^/.]+$/, '') || '该文件';
-    if (!confirm('确定要删除「' + title + '」吗？此操作不可恢复。')) return;
+    const musicItem = musicLibrary.find(item => item.id === musicId);
+    const displayName = musicItem
+        ? (musicItem.custom_filename || musicItem.system_filename || '未知文件').replace(/\.[^/.]+$/, '')
+        : (systemFilename || '该文件').replace(/\.[^/.]+$/, '');
+    if (!confirm('确定要删除「' + displayName + '」吗？此操作不可恢复。')) return;
 
     try {
         const data = await api.libraryDelete(musicId);

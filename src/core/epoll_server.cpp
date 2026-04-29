@@ -245,6 +245,12 @@ void EpollServer::handleRead(int fd) {
         auto it = connections_.find(fd);
         if (it != connections_.end()) {
             it->second.lastActive = std::chrono::steady_clock::now();
+            if (it->second.readBuffer.size() + requestData.size() > MAX_REQUEST_SIZE) {
+                LOG_W("EpollServer", "请求超过大小限制，关闭连接 fd=" + std::to_string(fd));
+                close(fd);
+                connections_.erase(fd);
+                return;
+            }
             it->second.readBuffer += requestData;
         }
     }

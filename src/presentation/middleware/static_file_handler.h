@@ -19,6 +19,7 @@ public:
 
 private:
     std::string webDir_;
+    std::string webDirCanonical_;
 
     std::string contentTypeForPath(const std::string& path) const;
 };

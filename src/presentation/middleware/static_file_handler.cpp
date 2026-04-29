@@ -2,10 +2,18 @@
 #include "core/logger.h"
 #include <fstream>
 #include <algorithm>
+#include <filesystem>
 
 namespace narnat {
 
-StaticFileHandler::StaticFileHandler(const std::string& webDir) : webDir_(webDir) {}
+StaticFileHandler::StaticFileHandler(const std::string& webDir) : webDir_(webDir) {
+    namespace fs = std::filesystem;
+    try {
+        webDirCanonical_ = fs::canonical(webDir_).string();
+    } catch (...) {
+        webDirCanonical_ = fs::absolute(webDir_).string();
+    }
+}
 
 bool StaticFileHandler::isStaticFileRequest(const std::string& path) const {
     if (path == "/" || path == "/index.html") return true;
@@ -24,25 +32,36 @@ bool StaticFileHandler::isStaticFileRequest(const std::string& path) const {
 }
 
 Response StaticFileHandler::handle(const Request& req) {
-    std::string filePath = webDir_;
-    if (req.path() == "/") {
-        filePath += "/index.html";
-    } else {
-        filePath += req.path();
+    namespace fs = std::filesystem;
+
+    fs::path requestedPath = (req.path() == "/")
+        ? fs::path(webDir_) / "index.html"
+        : fs::path(webDir_) / req.path().substr(1);
+
+    fs::path resolvedPath;
+    try {
+        resolvedPath = fs::canonical(requestedPath);
+    } catch (...) {
+        LOG_W("StaticFile", "路径解析失败: " + requestedPath.string());
+        return Response::error(404, "Not Found", "file_not_found", "文件不存在");
     }
 
-    LOG_I("StaticFile", req.path() + " -> " + filePath);
+    if (resolvedPath.string().find(webDirCanonical_) != 0) {
+        LOG_W("StaticFile", "路径越界: " + resolvedPath.string());
+        return Response::error(403, "Forbidden", "forbidden", "禁止访问");
+    }
 
-    std::ifstream file(filePath, std::ios::binary);
+    LOG_I("StaticFile", req.path() + " -> " + resolvedPath.string());
+
+    std::ifstream file(resolvedPath, std::ios::binary);
     if (!file) {
-        LOG_W("StaticFile", "文件不存在: " + filePath);
-        return Response::error(404, "Not Found", "file_not_found", "静态文件不存在: " + filePath);
+        return Response::error(404, "Not Found", "file_not_found", "文件不存在");
     }
 
     std::string content((std::istreambuf_iterator<char>(file)),
                          std::istreambuf_iterator<char>());
 
-    return Response::file(content, contentTypeForPath(filePath));
+    return Response::file(content, contentTypeForPath(resolvedPath.string()));
 }
 
 std::string StaticFileHandler::contentTypeForPath(const std::string& path) const {
