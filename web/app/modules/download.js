@@ -76,10 +76,9 @@ async function handleSend() {
     try {
         const requestData = { content: inputText, url, platform, offsetMs: delayMs, filename };
 
-        const response = await api.createTask(requestData);
-        const data = await response.json();
+        const data = await api.createTask(requestData);
 
-        if (response.ok) {
+        if (data.task_id) {
             currentTaskId = data.task_id;
             showToast('下载任务已创建，开始下载...', 'success');
             updateStatusLight('downloading');
@@ -232,13 +231,13 @@ function startPollingTaskStatus() {
     pollingInterval = setInterval(async () => {
         if (!currentTaskId) { stopPolling(); return; }
         try {
-            const response = await api.getTaskStatus(currentTaskId);
-            if (response.ok) {
-                updateTaskStatus(await response.json());
-            } else if (response.status === 404) {
+            const data = await api.getTaskStatus(currentTaskId);
+            if (data.error === 'task_not_found') {
                 showToast('任务不存在或已过期', 'warning');
                 updateStatusLight('error');
                 stopPolling();
+            } else if (data.task_id) {
+                updateTaskStatus(data);
             }
         } catch (error) {
             console.error('轮询错误:', error);

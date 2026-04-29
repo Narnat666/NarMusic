@@ -5,18 +5,18 @@
 #include <vector>
 #include <map>
 #include <memory>
-#include "infrastructure/bilibili/bilibili_client.h"
+#include "domain/repository/ibilibili_client.h"
 
 namespace narnat {
 
 class SearchService {
 public:
-    explicit SearchService(std::shared_ptr<BilibiliClient> biliClient);
+    explicit SearchService(std::shared_ptr<IBilibiliClient> biliClient);
 
     std::vector<std::map<std::string, std::string>> search(const std::string& keyword);
 
 private:
-    std::shared_ptr<BilibiliClient> biliClient_;
+    std::shared_ptr<IBilibiliClient> biliClient_;
 };
 
 } // namespace narnat

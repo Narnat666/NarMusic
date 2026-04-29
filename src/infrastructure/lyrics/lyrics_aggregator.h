@@ -6,16 +6,16 @@
 #include <string>
 #include "lyrics_provider.h"
 #include "domain/music_metadata.h"
+#include "domain/repository/ilyrics_aggregator.h"
 
 namespace narnat {
 
-class LyricsAggregator {
+class LyricsAggregator : public ILyricsAggregator {
 public:
     void addProvider(std::shared_ptr<ILyricsProvider> provider);
 
-    // 并发从所有平台获取，选择最佳歌词+封面
     MusicMetadata fetchBest(const std::string& keyword,
-                            const std::string& preferredPlatform = "");
+                            const std::string& preferredPlatform = "") override;
 
     // 歌词时间偏移
     static std::string adjustLyricsTiming(const std::string& lyrics, int offsetMs);

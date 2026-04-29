@@ -7,9 +7,10 @@
 #include "domain/repository/task_repository.h"
 #include "domain/repository/music_library_repository.h"
 #include "domain/repository/music_file_repository.h"
-#include "infrastructure/audio/audio_downloader.h"
-#include "infrastructure/lyrics/lyrics_aggregator.h"
+#include "domain/repository/iaudio_downloader.h"
+#include "domain/repository/ilyrics_aggregator.h"
 #include "config/config.h"
+#include "BS_thread_pool.hpp"
 
 namespace narnat {
 
@@ -25,9 +26,11 @@ public:
     DownloadService(std::shared_ptr<ITaskRepository> taskRepo,
                     std::shared_ptr<IMusicLibraryRepository> libraryRepo,
                     std::shared_ptr<IMusicFileRepository> fileRepo,
-                    std::shared_ptr<AudioDownloader> audioDownloader,
-                    std::shared_ptr<LyricsAggregator> lyricsAggregator,
+                    std::shared_ptr<IAudioDownloader> audioDownloader,
+                    std::shared_ptr<ILyricsAggregator> lyricsAggregator,
                     const DownloadConfig& config);
+
+    ~DownloadService();
 
     std::string createTask(const CreateTaskRequest& req);
 
@@ -45,10 +48,11 @@ private:
     std::shared_ptr<ITaskRepository> taskRepo_;
     std::shared_ptr<IMusicLibraryRepository> libraryRepo_;
     std::shared_ptr<IMusicFileRepository> fileRepo_;
-    std::shared_ptr<AudioDownloader> audioDownloader_;
-    std::shared_ptr<LyricsAggregator> lyricsAggregator_;
+    std::shared_ptr<IAudioDownloader> audioDownloader_;
+    std::shared_ptr<ILyricsAggregator> lyricsAggregator_;
     DownloadConfig config_;
     std::atomic<int> taskCounter_{0};
+    BS::thread_pool<BS::tp::priority> downloadPool_;
 };
 
 } // namespace narnat

@@ -3,26 +3,18 @@
 
 #include <string>
 #include <vector>
+#include "core/http/response.h"
 
 namespace narnat {
 
-struct StreamData {
-    std::vector<char> buffer;
-    long long fileSize = 0;
-    long long rangeStart = 0;
-    long long rangeEnd = 0;
-    long long requestSize = 0;
-    bool isPartial = false;
-};
-
 class StreamSender {
 public:
-    explicit StreamSender(long long bufferSize = 288 * 1024);
+    explicit StreamSender(long long bufferSize = 256 * 1024);
 
-    // 解析Range头并读取对应数据
     StreamData read(const std::string& filePath, const std::string& rangeHeader);
 
-    // 获取文件大小
+    FileStreamInfo resolveStreamInfo(const std::string& filePath, const std::string& rangeHeader);
+
     static long long getFileSize(const std::string& filePath);
 
 private:

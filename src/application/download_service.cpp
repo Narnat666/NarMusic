@@ -1,6 +1,5 @@
 #include "download_service.h"
 #include "core/logger.h"
-#include "BS_thread_pool.hpp"
 #include <chrono>
 #include <sstream>
 #include <iomanip>
@@ -8,20 +7,23 @@
 
 namespace narnat {
 
-static BS::thread_pool<BS::tp::priority> gDownloadPool(5);
-
 DownloadService::DownloadService(std::shared_ptr<ITaskRepository> taskRepo,
                                   std::shared_ptr<IMusicLibraryRepository> libraryRepo,
                                   std::shared_ptr<IMusicFileRepository> fileRepo,
-                                  std::shared_ptr<AudioDownloader> audioDownloader,
-                                  std::shared_ptr<LyricsAggregator> lyricsAggregator,
+                                  std::shared_ptr<IAudioDownloader> audioDownloader,
+                                  std::shared_ptr<ILyricsAggregator> lyricsAggregator,
                                   const DownloadConfig& config)
     : taskRepo_(std::move(taskRepo))
     , libraryRepo_(std::move(libraryRepo))
     , fileRepo_(std::move(fileRepo))
     , audioDownloader_(std::move(audioDownloader))
     , lyricsAggregator_(std::move(lyricsAggregator))
-    , config_(config) {}
+    , config_(config)
+    , downloadPool_(5) {}
+
+DownloadService::~DownloadService() {
+    downloadPool_.wait();
+}
 
 std::string DownloadService::createTask(const CreateTaskRequest& req) {
     auto now = std::chrono::system_clock::now();
@@ -43,7 +45,7 @@ std::string DownloadService::createTask(const CreateTaskRequest& req) {
 
     std::string taskIdCopy = taskId;
     CreateTaskRequest reqCopy = req;
-    gDownloadPool.detach_task([this, taskIdCopy, reqCopy]() {
+    downloadPool_.detach_task([this, taskIdCopy, reqCopy]() {
         executeDownload(taskIdCopy, reqCopy);
     });
 
@@ -59,12 +61,29 @@ void DownloadService::executeDownload(const std::string& taskId,
     task.setStatus(TaskStatus::Downloading);
     taskRepo_->update(task);
 
+    std::mutex progressMutex;
+    std::chrono::steady_clock::time_point lastProgressWrite =
+        std::chrono::steady_clock::now() - std::chrono::seconds(10);
+
     std::string filePath = audioDownloader_->download(
         req.url, task.filePath(),
-        [&task, this](long long bytes) {
+        [&task, this, &progressMutex, &lastProgressWrite](long long bytes) {
             task.setDownloadedBytes(bytes);
-            taskRepo_->update(task);
+
+            auto now = std::chrono::steady_clock::now();
+            std::lock_guard<std::mutex> lock(progressMutex);
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                now - lastProgressWrite).count();
+            if (elapsed >= 2) {
+                taskRepo_->update(task);
+                lastProgressWrite = now;
+            }
         });
+
+    {
+        std::lock_guard<std::mutex> lock(progressMutex);
+        taskRepo_->update(task);
+    }
 
     if (filePath.empty()) {
         task.setStatus(TaskStatus::Failed);

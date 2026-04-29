@@ -79,4 +79,23 @@ StreamData StreamSender::read(const std::string& filePath, const std::string& ra
     return result;
 }
 
+FileStreamInfo StreamSender::resolveStreamInfo(const std::string& filePath,
+                                                const std::string& rangeHeader) {
+    FileStreamInfo info;
+    info.filePath = filePath;
+    info.fileSize = getFileSize(filePath);
+
+    if (info.fileSize <= 0) {
+        LOG_W("StreamSender", "文件不存在或为空: " + filePath);
+        return info;
+    }
+
+    long long start = 0, end = info.fileSize - 1;
+    info.isPartial = parseRangeHeader(rangeHeader, info.fileSize, start, end);
+    info.rangeStart = start;
+    info.rangeEnd = end;
+
+    return info;
+}
+
 } // namespace narnat

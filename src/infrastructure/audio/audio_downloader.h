@@ -4,22 +4,21 @@
 #include <string>
 #include <memory>
 #include <functional>
-#include "infrastructure/bilibili/bilibili_client.h"
+#include "domain/repository/ibilibili_client.h"
+#include "domain/repository/iaudio_downloader.h"
 
 namespace narnat {
 
-class AudioDownloader {
+class AudioDownloader : public IAudioDownloader {
 public:
-    explicit AudioDownloader(std::shared_ptr<BilibiliClient> biliClient);
+    explicit AudioDownloader(std::shared_ptr<IBilibiliClient> biliClient);
 
-    // 从B站URL下载音频到指定路径
-    // 返回下载的文件路径，失败返回空
     std::string download(const std::string& url,
                          const std::string& filePath,
-                         std::function<void(long long)> progressCallback = nullptr);
+                         std::function<void(long long)> progressCallback = nullptr) override;
 
 private:
-    std::shared_ptr<BilibiliClient> biliClient_;
+    std::shared_ptr<IBilibiliClient> biliClient_;
 };
 
 } // namespace narnat

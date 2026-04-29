@@ -4,7 +4,7 @@
 
 namespace narnat {
 
-AudioDownloader::AudioDownloader(std::shared_ptr<BilibiliClient> biliClient)
+AudioDownloader::AudioDownloader(std::shared_ptr<IBilibiliClient> biliClient)
     : biliClient_(std::move(biliClient)) {}
 
 std::string AudioDownloader::download(const std::string& url,

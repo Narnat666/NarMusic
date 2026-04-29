@@ -19,6 +19,9 @@ public:
     StreamData stream(const std::string& taskIdOrFilename,
                       const std::string& rangeHeader);
 
+    FileStreamInfo streamFileInfo(const std::string& taskIdOrFilename,
+                                  const std::string& rangeHeader);
+
     std::vector<char> getFileData(const std::string& taskIdOrFilename);
 
     std::string getFilePath(const std::string& taskIdOrFilename);

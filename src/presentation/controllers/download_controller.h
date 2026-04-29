@@ -20,6 +20,8 @@ public:
 
     Response getStatus(const Request& req);
 
+    Response batchGetStatus(const Request& req);
+
     Response downloadFile(const Request& req);
 
     Response stream(const Request& req);

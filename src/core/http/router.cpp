@@ -3,13 +3,16 @@
 
 namespace narnat {
 
+bool Router::hasParams(const std::string& pattern) const {
+    return pattern.find(":") != std::string::npos;
+}
+
 void Router::addRoute(Request::Method method, const std::string& pattern, Handler handler) {
     Route route;
     route.method = method;
     route.pattern = pattern;
     route.handler = std::move(handler);
 
-    // 提取路径参数名（如 :task_id）
     auto segments = splitPath(pattern);
     for (const auto& seg : segments) {
         if (!seg.empty() && seg[0] == ':') {
@@ -17,7 +20,12 @@ void Router::addRoute(Request::Method method, const std::string& pattern, Handle
         }
     }
 
-    routes_.push_back(std::move(route));
+    if (hasParams(pattern)) {
+        dynamicRoutes_.push_back(std::move(route));
+    } else {
+        RouteKey key{method, pattern};
+        staticRoutes_[key] = std::move(route);
+    }
 }
 
 void Router::addCatchAllRoute(Request::Method method, Handler handler) {
@@ -25,8 +33,30 @@ void Router::addCatchAllRoute(Request::Method method, Handler handler) {
     catchAllHandler_ = std::move(handler);
 }
 
+void Router::addMiddleware(Middleware mw) {
+    middlewares_.push_back(std::move(mw));
+}
+
 Response Router::dispatch(const Request& req) {
-    for (const auto& route : routes_) {
+    for (const auto& mw : middlewares_) {
+        auto result = mw(req);
+        if (result.has_value()) {
+            return result.value();
+        }
+    }
+
+    RouteKey key{req.method(), req.path()};
+    auto it = staticRoutes_.find(key);
+    if (it != staticRoutes_.end()) {
+        try {
+            return it->second.handler(req);
+        } catch (const std::exception& e) {
+            LOG_E("Router", std::string("Handler异常: ") + e.what());
+            return Response::error(500, "Internal Server Error", "handler_error", e.what());
+        }
+    }
+
+    for (const auto& route : dynamicRoutes_) {
         if (route.method != req.method()) continue;
 
         auto [matched, params] = matchPath(route.pattern, req.path());
@@ -55,7 +85,10 @@ Response Router::dispatch(const Request& req) {
 }
 
 bool Router::hasMatch(Request::Method method, const std::string& path) const {
-    for (const auto& route : routes_) {
+    RouteKey key{method, path};
+    if (staticRoutes_.find(key) != staticRoutes_.end()) return true;
+
+    for (const auto& route : dynamicRoutes_) {
         if (route.method == method) {
             auto [matched, _] = matchPath(route.pattern, path);
             if (matched) return true;
@@ -75,7 +108,6 @@ std::pair<bool, std::map<std::string, std::string>> Router::matchPath(
     std::map<std::string, std::string> params;
     for (size_t i = 0; i < patternSegs.size(); ++i) {
         if (!patternSegs[i].empty() && patternSegs[i][0] == ':') {
-            // 路径参数
             params[patternSegs[i].substr(1)] = pathSegs[i];
         } else if (patternSegs[i] != pathSegs[i]) {
             return {false, {}};

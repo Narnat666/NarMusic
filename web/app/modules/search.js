@@ -37,10 +37,9 @@ async function performSearch() {
     searchInput.disabled = true;
 
     try {
-        const response = await api.search(keyword);
-        const data = await response.json();
+        const data = await api.search(keyword);
 
-        if (response.ok && data.link) {
+        if (data.link) {
             switchTabByName('download');
             const urlInput = document.getElementById('urlInput');
             const filenameInput = document.getElementById('filenameInput');

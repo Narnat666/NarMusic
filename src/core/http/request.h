@@ -13,6 +13,8 @@ public:
 
     Request() = default;
 
+    static bool isCompleteRequest(const std::string& data);
+
     bool parse(const std::string& raw);
 
     Method method() const { return method_; }

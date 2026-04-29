@@ -7,6 +7,10 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <thread>
+#include <condition_variable>
+#include <queue>
+#include <atomic>
 
 namespace narnat {
 
@@ -30,8 +34,8 @@ public:
 
     void init(const Config& cfg);
     void log(Level level, const std::string& tag, const std::string& msg);
+    void shutdown();
 
-    // 便捷方法
     void debug(const std::string& tag, const std::string& msg);
     void info(const std::string& tag, const std::string& msg);
     void warn(const std::string& tag, const std::string& msg);
@@ -47,16 +51,22 @@ private:
     std::string formatMessage(Level level, const std::string& tag, const std::string& msg);
     void writeToFile(const std::string& formatted);
     void rotateIfNeeded();
+    void writerThread();
 
     Config config_;
-    std::mutex mutex_;
+    std::mutex fileMutex_;
     std::ofstream file_;
     bool initialized_ = false;
+
+    std::queue<std::string> logQueue_;
+    std::mutex queueMutex_;
+    std::condition_variable queueCv_;
+    std::thread writerThread_;
+    std::atomic<bool> shutdown_{false};
 };
 
 } // namespace narnat
 
-// 便捷宏
 #define LOG_D(tag, msg) narnat::Logger::instance().debug(tag, msg)
 #define LOG_I(tag, msg) narnat::Logger::instance().info(tag, msg)
 #define LOG_W(tag, msg) narnat::Logger::instance().warn(tag, msg)

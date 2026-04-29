@@ -81,17 +81,10 @@ export async function loadMusicLibrary() {
     musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block; animation: spin 1s linear infinite;">refresh</span><div style="font-size: 16px; font-weight: 500;">加载音乐库中...</div></div>';
 
     try {
-        const response = await api.libraryList();
-        if (response.ok) {
-            musicLibrary = await response.json();
-            store.set('musicLibrary', musicLibrary);
-            renderMusicLibrary();
-            showToast('音乐库加载成功', 'success');
-        } else {
-            const errorData = await response.json();
-            showToast('加载失败: ' + (errorData.error || '未知错误'), 'warning');
-            musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">error</span><div style="font-size: 16px; font-weight: 500;">加载失败</div><div style="font-size: 14px; margin-top: 8px;">' + escapeHtml(errorData.error || '请重试') + '</div></div>';
-        }
+        musicLibrary = await api.libraryList();
+        store.set('musicLibrary', musicLibrary);
+        renderMusicLibrary();
+        showToast('音乐库加载成功', 'success');
     } catch (error) {
         showToast('加载失败: ' + error.message, 'warning');
         musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">wifi_off</span><div style="font-size: 16px; font-weight: 500;">网络连接失败</div><div style="font-size: 14px; margin-top: 8px;">请检查服务器是否运行</div></div>';
@@ -211,13 +204,12 @@ async function deleteMusicFromLibrary(musicId, systemFilename) {
     if (!confirm('确定要删除「' + title + '」吗？此操作不可恢复。')) return;
 
     try {
-        const response = await api.libraryDelete(musicId);
-        if (response.ok) {
+        const data = await api.libraryDelete(musicId);
+        if (data.success !== false) {
             showToast('已删除', 'success');
             loadMusicLibrary();
         } else {
-            const errorData = await response.json();
-            showToast('删除失败: ' + (errorData.error || '未知错误'), 'warning');
+            showToast('删除失败: ' + (data.error || '未知错误'), 'warning');
         }
     } catch (error) {
         showToast('删除错误: ' + error.message, 'warning');
@@ -351,16 +343,10 @@ async function batchDelete() {
     batchDeleteBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 删除中...';
 
     try {
-        const response = await api.libraryBatchDelete(ids);
-        if (response.ok) {
-            const data = await response.json();
-            showToast('已删除 ' + (data.count || ids.length) + ' 个文件', 'success');
-            selectedMusicIds.clear();
-            loadMusicLibrary();
-        } else {
-            const errorData = await response.json();
-            showToast('删除失败: ' + (errorData.message || '未知错误'), 'warning');
-        }
+        const data = await api.libraryBatchDelete(ids);
+        showToast('已删除 ' + (data.count || ids.length) + ' 个文件', 'success');
+        selectedMusicIds.clear();
+        loadMusicLibrary();
     } catch (error) {
         showToast('删除错误: ' + error.message, 'warning');
     } finally {

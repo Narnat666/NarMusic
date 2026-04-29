@@ -91,6 +91,28 @@ Response Response::stream(const std::vector<char>& data,
     return r;
 }
 
+Response Response::streamFile(const FileStreamInfo& info) {
+    Response r;
+    if (info.isPartial) {
+        r.status_ = 206;
+        r.statusText_ = "Partial Content";
+        std::ostringstream rangeHeader;
+        rangeHeader << "bytes " << info.rangeStart << "-" << info.rangeEnd << "/" << info.fileSize;
+        r.headers_["Content-Range"] = rangeHeader.str();
+    } else {
+        r.status_ = 200;
+        r.statusText_ = "OK";
+    }
+    r.isFileStream_ = true;
+    r.fileStreamInfo_ = info;
+    r.headers_["Content-Type"] = "audio/mp4";
+    r.headers_["Accept-Ranges"] = "bytes";
+    r.headers_["Connection"] = "close";
+    r.headers_["Access-Control-Allow-Origin"] = "*";
+    r.headers_["Cache-Control"] = "no-cache, no-store, must-revalidate";
+    return r;
+}
+
 Response& Response::setHeader(const std::string& key, const std::string& value) {
     headers_[key] = value;
     return *this;
@@ -114,6 +136,32 @@ std::string Response::serialize() const {
 
     oss << "\r\n";
     oss << body_;
+    return oss.str();
+}
+
+std::string Response::serializeHeaders() const {
+    std::ostringstream oss;
+    oss << "HTTP/1.1 " << status_ << " " << statusText_ << "\r\n";
+
+    for (const auto& [key, value] : headers_) {
+        oss << key << ": " << value << "\r\n";
+    }
+
+    if (headers_.find("Content-Length") == headers_.end()) {
+        long long contentLen = 0;
+        if (isFileStream_) {
+            contentLen = fileStreamInfo_.rangeEnd - fileStreamInfo_.rangeStart + 1;
+        } else {
+            contentLen = static_cast<long long>(body_.size());
+        }
+        oss << "Content-Length: " << contentLen << "\r\n";
+    }
+
+    if (headers_.find("Connection") == headers_.end()) {
+        oss << "Connection: close\r\n";
+    }
+
+    oss << "\r\n";
     return oss.str();
 }
 

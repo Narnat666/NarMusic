@@ -4,6 +4,37 @@
 
 namespace narnat {
 
+bool Request::isCompleteRequest(const std::string& data) {
+    size_t headerEnd = data.find("\r\n\r\n");
+    if (headerEnd == std::string::npos) return false;
+
+    size_t bodyStart = headerEnd + 4;
+    size_t headerLineEnd = data.find("\r\n");
+    if (headerLineEnd == std::string::npos) return false;
+
+    size_t headerSectionStart = headerLineEnd + 2;
+    std::string headersStr = data.substr(headerSectionStart, headerEnd - headerSectionStart);
+
+    size_t contentLength = 0;
+    std::istringstream stream(headersStr);
+    std::string line;
+    while (std::getline(stream, line, '\n')) {
+        size_t colonPos = line.find(':');
+        if (colonPos != std::string::npos) {
+            std::string key = line.substr(0, colonPos);
+            if (!key.empty() && key.back() == '\r') key.pop_back();
+            if (key == "Content-Length") {
+                std::string val = line.substr(colonPos + 2);
+                if (!val.empty() && val.back() == '\r') val.pop_back();
+                try { contentLength = std::stoul(val); } catch (...) {}
+            }
+        }
+    }
+
+    size_t receivedBody = data.size() - bodyStart;
+    return receivedBody >= contentLength;
+}
+
 bool Request::parse(const std::string& raw) {
     if (raw.empty()) return false;
 

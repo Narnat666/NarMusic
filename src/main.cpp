@@ -4,6 +4,7 @@
 #include "core/http/router.h"
 #include "core/http/request.h"
 #include "core/http/response.h"
+#include "core/rate_limiter.h"
 
 #include "infrastructure/persistence/database.h"
 #include "infrastructure/persistence/sqlite_task_repository.h"
@@ -195,11 +196,23 @@ int main(int argc, char* argv[]) {
     // ===== 路由注册 =====
     Router router;
 
+    auto rateLimiter = std::make_shared<RateLimiter>(RateLimiter::Config{60, 60});
+    router.addMiddleware([rateLimiter](const Request& req) -> std::optional<Response> {
+        if (!rateLimiter->allow(req.path())) {
+            return Response::error(429, "Too Many Requests", "rate_limited",
+                                   "请求过于频繁，请稍后再试");
+        }
+        return std::nullopt;
+    });
+
     router.addRoute(Request::Method::POST, "/api/message",
         [downloadCtrl](const Request& req) { return downloadCtrl->createTask(req); });
 
     router.addRoute(Request::Method::GET, "/api/download/status",
         [downloadCtrl](const Request& req) { return downloadCtrl->getStatus(req); });
+
+    router.addRoute(Request::Method::POST, "/api/download/status/batch",
+        [downloadCtrl](const Request& req) { return downloadCtrl->batchGetStatus(req); });
 
     router.addRoute(Request::Method::GET, "/api/download/file",
         [downloadCtrl](const Request& req) { return downloadCtrl->downloadFile(req); });
@@ -240,7 +253,10 @@ int main(int argc, char* argv[]) {
         while (running) {
             for (int i = 0; i < config.download.cleanup_interval && running; ++i)
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-            if (running) downloadService->cleanupExpiredTasks();
+            if (running) {
+                downloadService->cleanupExpiredTasks();
+                rateLimiter->cleanup();
+            }
         }
     });
 
@@ -251,5 +267,6 @@ int main(int argc, char* argv[]) {
     gServer = nullptr;
 
     LOG_I("Main", "NarMusic 已停止");
+    Logger::instance().shutdown();
     return 0;
 }

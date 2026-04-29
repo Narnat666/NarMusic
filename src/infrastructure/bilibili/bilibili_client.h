@@ -8,39 +8,32 @@
 #include <mutex>
 #include "infrastructure/http_client/curl_client.h"
 #include "domain/music_metadata.h"
+#include "domain/repository/ibilibili_client.h"
 
 namespace narnat {
 
-class BilibiliClient {
+class BilibiliClient : public IBilibiliClient {
 public:
     explicit BilibiliClient(std::shared_ptr<CurlClient> httpClient);
 
-    // 从URL提取BVID
-    std::string extractBvid(const std::string& url);
+    std::string extractBvid(const std::string& url) override;
 
-    // 获取视频信息（aid, cid）
-    bool fetchVideoInfo(const std::string& bvid, std::string& aid, std::string& cid);
+    bool fetchVideoInfo(const std::string& bvid, std::string& aid, std::string& cid) override;
 
-    // 获取音频下载URL
-    std::string getAudioUrl(const std::string& aid, const std::string& cid);
+    std::string getAudioUrl(const std::string& aid, const std::string& cid) override;
 
-    // 搜索视频
-    std::vector<std::map<std::string, std::string>> search(const std::string& keyword);
+    std::vector<std::map<std::string, std::string>> search(const std::string& keyword) override;
 
-    // 单关键词搜索（含降级重试）
-    std::map<std::string, std::string> searchSingle(const std::string& keyword);
-
-    // 从URL提取链接（兼容短链接）
-    std::string resolveUrl(const std::string& input);
+    std::string resolveUrl(const std::string& input) override;
 
 private:
-    // WBI签名相关
     bool initialize();
     std::string fetchAnonymousCookie();
     std::pair<std::string, std::string> fetchWbiKeys();
     std::map<std::string, std::string> signWbiParams(const std::map<std::string, std::string>& params);
     std::string optimizeKeyword(const std::string& raw);
     std::string stripHtmlTags(const std::string& html);
+    std::map<std::string, std::string> searchSingle(const std::string& keyword);
 
     std::shared_ptr<CurlClient> httpClient_;
     std::string cookie_;

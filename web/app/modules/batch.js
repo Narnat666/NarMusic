@@ -262,10 +262,9 @@ async function parseBatchPlaylist() {
 
         try {
             const keywords = searchSongs.map(s => s.keyword);
-            const response = await api.batchSearch(keywords);
-            const data = await response.json();
+            const data = await api.batchSearch(keywords);
 
-            if (response.ok && data.results) {
+            if (data.results) {
                 for (let i = 0; i < data.results.length; i++) {
                     const result = data.results[i];
                     const song = searchSongs[i];
@@ -525,10 +524,9 @@ async function batchDownloadToServer() {
     renderBatchResults();
 
     try {
-        const response = await api.batchDownload(tasks, platform, delayMs);
-        const data = await response.json();
+        const data = await api.batchDownload(tasks, platform, delayMs);
 
-        if (response.ok) {
+        {
             const results = data.results || [];
             let submitCount = 0;
             let failCount = 0;
@@ -562,13 +560,6 @@ async function batchDownloadToServer() {
             } else {
                 showToast('所有歌曲下载提交失败', 'warning');
             }
-        } else {
-            indexes.forEach(idx => {
-                batchResults[idx].status = 'failed';
-                batchResults[idx].errorMsg = data.error || '请求失败';
-            });
-            renderBatchResults();
-            showToast('批量下载失败: ' + (data.message || data.error || '未知错误'), 'warning');
         }
     } catch (error) {
         indexes.forEach(idx => {
@@ -588,32 +579,28 @@ function pollBatchDownloadStatus(pollTasks) {
     const taskMap = {};
     pollTasks.forEach(t => { taskMap[t.taskId] = t.idx; });
 
-    let needsRender = false;
-    let renderTimeout = null;
+    let consecutiveErrors = 0;
+    const MAX_ERRORS = 5;
 
-    const scheduleRender = () => {
-        if (renderTimeout) clearTimeout(renderTimeout);
-        renderTimeout = setTimeout(() => {
-            renderBatchResults();
-            needsRender = false;
-            renderTimeout = null;
-        }, 100);
-    };
-
-    const interval = setInterval(async () => {
+    const poll = async () => {
         if (pending.size === 0) {
-            clearInterval(interval);
-            if (needsRender) renderBatchResults();
+            renderBatchResults();
             return;
         }
 
         const checkIds = Array.from(pending);
         let hasUpdates = false;
 
-        for (const taskId of checkIds) {
-            try {
-                const resp = await api.getTaskStatus(taskId);
-                if (!resp.ok) {
+        try {
+            const data = await api.batchGetTaskStatus(checkIds);
+            consecutiveErrors = 0;
+
+            const results = data.results || [];
+            for (let i = 0; i < results.length && i < checkIds.length; i++) {
+                const taskId = checkIds[i];
+                const status = results[i];
+
+                if (status.error === 'task_not_found') {
                     const idx = taskMap[taskId];
                     if (idx !== undefined && batchResults[idx]) {
                         batchResults[idx].status = 'failed';
@@ -623,7 +610,6 @@ function pollBatchDownloadStatus(pollTasks) {
                     pending.delete(taskId);
                     continue;
                 }
-                const status = await resp.json();
                 if (status.is_finished) {
                     const idx = taskMap[taskId];
                     if (idx !== undefined && batchResults[idx]) {
@@ -644,12 +630,31 @@ function pollBatchDownloadStatus(pollTasks) {
                     }
                     pending.delete(taskId);
                 }
-            } catch (e) { /* skip */ }
+            }
+        } catch (e) {
+            consecutiveErrors++;
+            if (consecutiveErrors >= MAX_ERRORS) {
+                for (const taskId of checkIds) {
+                    const idx = taskMap[taskId];
+                    if (idx !== undefined && batchResults[idx]) {
+                        batchResults[idx].status = 'failed';
+                        batchResults[idx].errorMsg = '状态查询失败';
+                    }
+                }
+                renderBatchResults();
+                showToast('状态查询多次失败，已停止轮询', 'warning');
+                return;
+            }
         }
 
         if (hasUpdates) {
-            needsRender = true;
-            scheduleRender();
+            renderBatchResults();
         }
-    }, 2000);
+
+        if (pending.size > 0) {
+            setTimeout(poll, 1000);
+        }
+    };
+
+    poll();
 }

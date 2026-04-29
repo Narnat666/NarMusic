@@ -131,6 +131,42 @@ Response DownloadController::getStatus(const Request& req) {
     return Response::json(200, "OK", task->toJson());
 }
 
+Response DownloadController::batchGetStatus(const Request& req) {
+    try {
+        json body = json::parse(req.body());
+
+        if (!body.contains("task_ids") || !body["task_ids"].is_array()) {
+            return Response::error(400, "Bad Request", "missing_task_ids", "task_ids数组参数缺失");
+        }
+
+        auto ids = body["task_ids"];
+        json results = json::array();
+
+        for (const auto& id : ids) {
+            std::string taskId = id.get<std::string>();
+            auto task = downloadService_->getTaskStatus(taskId);
+            if (task) {
+                results.push_back(task->toJson());
+            } else {
+                json notFound;
+                notFound["task_id"] = taskId;
+                notFound["is_finished"] = true;
+                notFound["is_success"] = false;
+                notFound["error"] = "task_not_found";
+                results.push_back(notFound);
+            }
+        }
+
+        json result;
+        result["results"] = results;
+        return Response::json(200, "OK", result);
+
+    } catch (const std::exception& e) {
+        LOG_E("DownloadCtrl", std::string("批量状态查询失败: ") + e.what());
+        return Response::error(400, "Bad Request", "parse_error", e.what());
+    }
+}
+
 Response DownloadController::downloadFile(const Request& req) {
     std::string taskId = req.queryParam("task_id");
     std::string filename = req.queryParam("filename");
@@ -165,13 +201,12 @@ Response DownloadController::stream(const Request& req) {
         return Response::error(400, "Bad Request", "missing_id", "task_id或filename参数缺失");
     }
 
-    auto data = streamingService_->stream(id, req.rangeString());
-    if (data.buffer.empty()) {
+    auto info = streamingService_->streamFileInfo(id, req.rangeString());
+    if (info.filePath.empty() || info.fileSize <= 0) {
         return Response::error(404, "Not Found", "file_not_found", "文件不存在");
     }
 
-    return Response::stream(data.buffer, data.fileSize,
-                            data.rangeStart, data.rangeEnd, data.isPartial);
+    return Response::streamFile(info);
 }
 
 } // namespace narnat

@@ -60,6 +60,7 @@ set(NARNAT_SOURCES
 
     # Core 层
     src/core/logger.cpp
+    src/core/rate_limiter.cpp
     src/core/http/request.cpp
     src/core/http/response.cpp
     src/core/http/router.cpp

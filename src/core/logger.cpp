@@ -10,7 +10,7 @@ Logger& Logger::instance() {
 }
 
 void Logger::init(const Config& cfg) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(fileMutex_);
     config_ = cfg;
 
     if (!config_.file_path.empty()) {
@@ -22,6 +22,17 @@ void Logger::init(const Config& cfg) {
         file_.open(config_.file_path, std::ios::app);
     }
     initialized_ = true;
+
+    shutdown_ = false;
+    writerThread_ = std::thread(&Logger::writerThread, this);
+}
+
+void Logger::shutdown() {
+    shutdown_ = true;
+    queueCv_.notify_all();
+    if (writerThread_.joinable()) {
+        writerThread_.join();
+    }
 }
 
 std::string Logger::levelToString(Level level) {
@@ -69,14 +80,49 @@ void Logger::rotateIfNeeded() {
 void Logger::writeToFile(const std::string& formatted) {
     if (file_.is_open()) {
         file_ << formatted << std::endl;
-        file_.flush();
         rotateIfNeeded();
+    }
+}
+
+void Logger::writerThread() {
+    while (true) {
+        std::string msg;
+        {
+            std::unique_lock<std::mutex> lock(queueMutex_);
+            queueCv_.wait(lock, [this] { return !logQueue_.empty() || shutdown_; });
+
+            if (logQueue_.empty() && shutdown_) break;
+
+            if (!logQueue_.empty()) {
+                msg = std::move(logQueue_.front());
+                logQueue_.pop();
+            }
+        }
+
+        if (!msg.empty()) {
+            std::lock_guard<std::mutex> lock(fileMutex_);
+            writeToFile(msg);
+        }
+    }
+
+    std::queue<std::string> remaining;
+    {
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        remaining.swap(logQueue_);
+    }
+
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    while (!remaining.empty()) {
+        writeToFile(remaining.front());
+        remaining.pop();
+    }
+    if (file_.is_open()) {
+        file_.flush();
     }
 }
 
 void Logger::log(Level level, const std::string& tag, const std::string& msg) {
     if (!initialized_) {
-        // 未初始化时直接输出到stderr
         std::cerr << "[" << levelToString(level) << "] [" << tag << "] " << msg << std::endl;
         return;
     }
@@ -85,7 +131,6 @@ void Logger::log(Level level, const std::string& tag, const std::string& msg) {
 
     std::string formatted = formatMessage(level, tag, msg);
 
-    std::lock_guard<std::mutex> lock(mutex_);
     if (config_.console_output) {
         if (level >= Level::WARN) {
             std::cerr << formatted << std::endl;
@@ -93,7 +138,12 @@ void Logger::log(Level level, const std::string& tag, const std::string& msg) {
             std::cout << formatted << std::endl;
         }
     }
-    writeToFile(formatted);
+
+    {
+        std::lock_guard<std::mutex> lock(queueMutex_);
+        logQueue_.push(std::move(formatted));
+    }
+    queueCv_.notify_one();
 }
 
 void Logger::debug(const std::string& tag, const std::string& msg) { log(Level::DEBUG, tag, msg); }

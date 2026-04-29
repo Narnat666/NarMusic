@@ -4,6 +4,8 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
+#include <sys/eventfd.h>
+#include <sys/sendfile.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -13,8 +15,11 @@
 #include <net/if.h>
 #include <cstring>
 #include <errno.h>
+#include <fstream>
 
 namespace narnat {
+
+static constexpr size_t FILE_CHUNK_SIZE = 256 * 1024;
 
 EpollServer::EpollServer(const ServerConfig& config, Router& router)
     : config_(config), router_(router), pool_(static_cast<size_t>(config.thread_pool_size)) {}
@@ -67,7 +72,6 @@ void EpollServer::start() {
         return;
     }
 
-    // 注册监听fd
     struct epoll_event ev{};
     ev.events = EPOLLIN | EPOLLET;
     ev.data.fd = listenFd_;
@@ -76,11 +80,10 @@ void EpollServer::start() {
         return;
     }
 
-    // 创建定时器fd用于超时清理
     timerFd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
     if (timerFd_ >= 0) {
         struct itimerspec its{};
-        its.it_interval.tv_sec = 10;  // 每10秒
+        its.it_interval.tv_sec = 10;
         its.it_value.tv_sec = 10;
         timerfd_settime(timerFd_, 0, &its, nullptr);
 
@@ -89,7 +92,13 @@ void EpollServer::start() {
         epoll_ctl(epollFd_, EPOLL_CTL_ADD, timerFd_, &ev);
     }
 
-    // 打印监听地址
+    wakeupFd_ = eventfd(0, EFD_NONBLOCK);
+    if (wakeupFd_ >= 0) {
+        ev.events = EPOLLIN;
+        ev.data.fd = wakeupFd_;
+        epoll_ctl(epollFd_, EPOLL_CTL_ADD, wakeupFd_, &ev);
+    }
+
     LOG_I("EpollServer", "服务器启动，端口: " + std::to_string(config_.port));
     struct ifaddrs* ifaddr;
     if (getifaddrs(&ifaddr) == 0) {
@@ -110,6 +119,17 @@ void EpollServer::start() {
 
 void EpollServer::stop() {
     running_ = false;
+
+    {
+        std::lock_guard<std::mutex> lock(connMutex_);
+        for (auto& [fd, conn] : connections_) {
+            if (conn.fileFd >= 0) { close(conn.fileFd); conn.fileFd = -1; }
+            close(fd);
+        }
+        connections_.clear();
+    }
+
+    if (wakeupFd_ >= 0) { close(wakeupFd_); wakeupFd_ = -1; }
     if (listenFd_ >= 0) { close(listenFd_); listenFd_ = -1; }
     if (epollFd_ >= 0) { close(epollFd_); epollFd_ = -1; }
     if (timerFd_ >= 0) { close(timerFd_); timerFd_ = -1; }
@@ -127,14 +147,20 @@ void EpollServer::eventLoop() {
             if (fd == listenFd_) {
                 handleAccept();
             } else if (fd == timerFd_) {
-                // 定时器触发：清理超时连接
                 uint64_t expirations;
                 ssize_t ret [[maybe_unused]] = read(timerFd_, &expirations, sizeof(expirations));
                 cleanupTimeouts();
+            } else if (fd == wakeupFd_) {
+                uint64_t count;
+                while (read(wakeupFd_, &count, sizeof(count)) == sizeof(count)) {}
+                processPendingWrites();
             } else if (events[i].events & (EPOLLERR | EPOLLHUP)) {
-                // 错误或挂起，关闭连接
-                close(fd);
                 std::lock_guard<std::mutex> lock(connMutex_);
+                auto it = connections_.find(fd);
+                if (it != connections_.end()) {
+                    if (it->second.fileFd >= 0) close(it->second.fileFd);
+                }
+                close(fd);
                 connections_.erase(fd);
             } else if (events[i].events & EPOLLIN) {
                 handleRead(fd);
@@ -161,11 +187,9 @@ void EpollServer::handleAccept() {
             break;
         }
 
-        // 设置TCP_NODELAY
         int opt = 1;
         setsockopt(clientFd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
 
-        // 注册到epoll
         struct epoll_event ev{};
         ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
         ev.data.fd = clientFd;
@@ -174,7 +198,6 @@ void EpollServer::handleAccept() {
             continue;
         }
 
-        // 记录连接
         std::lock_guard<std::mutex> lock(connMutex_);
         Connection& conn = connections_[clientFd];
         conn.fd = clientFd;
@@ -183,6 +206,8 @@ void EpollServer::handleAccept() {
         conn.writeBuffer.clear();
         conn.written = 0;
         conn.requestParsed = false;
+        conn.isFileStream = false;
+        conn.fileFd = -1;
     }
 }
 
@@ -221,23 +246,36 @@ void EpollServer::handleRead(int fd) {
         if (it != connections_.end()) {
             it->second.lastActive = std::chrono::steady_clock::now();
             it->second.readBuffer += requestData;
-            requestData = it->second.readBuffer;
-            it->second.readBuffer.clear();
         }
     }
 
-    pool_.detach_task([this, fd, requestData]() {
+    {
+        std::lock_guard<std::mutex> lock(connMutex_);
+        auto it = connections_.find(fd);
+        if (it == connections_.end()) return;
+        if (!Request::isCompleteRequest(it->second.readBuffer)) return;
+    }
+
+    pool_.detach_task([this, fd]() {
+        std::string taskData;
+        {
+            std::lock_guard<std::mutex> lock(connMutex_);
+            auto it = connections_.find(fd);
+            if (it == connections_.end()) return;
+            taskData = std::move(it->second.readBuffer);
+        }
+
         Request req;
-        if (!req.parse(requestData)) {
+        if (!req.parse(taskData)) {
             auto resp = Response::error(400, "Bad Request", "bad_request", "Invalid request");
-            sendResponse(fd, resp.serialize());
+            enqueueResponse(fd, std::move(resp));
             return;
         }
 
         LOG_D("EpollServer", req.methodString() + " " + req.path());
 
         auto resp = router_.dispatch(req);
-        sendResponse(fd, resp.serialize());
+        enqueueResponse(fd, std::move(resp));
     });
 }
 
@@ -247,6 +285,12 @@ void EpollServer::handleWrite(int fd) {
     if (it == connections_.end()) return;
 
     Connection& conn = it->second;
+
+    if (conn.isFileStream && conn.fileFd >= 0) {
+        sendFileChunked(fd, conn);
+        return;
+    }
+
     while (conn.written < conn.writeBuffer.size()) {
         ssize_t n = send(fd, conn.writeBuffer.data() + conn.written,
                          conn.writeBuffer.size() - conn.written, MSG_NOSIGNAL);
@@ -258,10 +302,8 @@ void EpollServer::handleWrite(int fd) {
                 || errno == EWOULDBLOCK
 #endif
             ) {
-                // 等待下次EPOLLOUT
                 return;
             }
-            // 发送错误，关闭连接
             close(fd);
             connections_.erase(fd);
             return;
@@ -272,7 +314,6 @@ void EpollServer::handleWrite(int fd) {
         }
     }
 
-    // 发送完成，切换回EPOLLIN
     conn.writeBuffer.clear();
     conn.written = 0;
     struct epoll_event ev{};
@@ -282,7 +323,6 @@ void EpollServer::handleWrite(int fd) {
 }
 
 void EpollServer::sendResponse(int fd, const std::string& response) {
-    // 对于小响应直接发送，大响应走epoll write
     if (response.size() <= 65536) {
         size_t sent = 0;
         while (sent < response.size()) {
@@ -296,7 +336,6 @@ void EpollServer::sendResponse(int fd, const std::string& response) {
                     || errno == EWOULDBLOCK
 #endif
                 ) {
-                    // 缓冲区满，走epoll write
                     std::lock_guard<std::mutex> lock(connMutex_);
                     auto it = connections_.find(fd);
                     if (it != connections_.end()) {
@@ -309,13 +348,12 @@ void EpollServer::sendResponse(int fd, const std::string& response) {
                     }
                     return;
                 }
-                return; // 发送失败
+                return;
             } else {
                 return;
             }
         }
     } else {
-        // 大响应走epoll write
         std::lock_guard<std::mutex> lock(connMutex_);
         auto it = connections_.find(fd);
         if (it != connections_.end()) {
@@ -329,6 +367,110 @@ void EpollServer::sendResponse(int fd, const std::string& response) {
     }
 }
 
+void EpollServer::enqueueResponse(int fd, Response resp) {
+    {
+        std::lock_guard<std::mutex> lock(pendingMutex_);
+        pendingWrites_.emplace_back(fd, std::move(resp));
+    }
+    uint64_t signal = 1;
+    ssize_t ret [[maybe_unused]] = write(wakeupFd_, &signal, sizeof(signal));
+}
+
+void EpollServer::processPendingWrites() {
+    std::vector<std::pair<int, Response>> writes;
+    {
+        std::lock_guard<std::mutex> lock(pendingMutex_);
+        writes.swap(pendingWrites_);
+    }
+
+    for (auto& [fd, resp] : writes) {
+        {
+            std::lock_guard<std::mutex> lock(connMutex_);
+            if (connections_.find(fd) == connections_.end()) continue;
+        }
+
+        if (resp.isFileStream()) {
+            const auto& info = resp.fileStreamInfo();
+            std::string headers = resp.serializeHeaders();
+            sendResponse(fd, headers);
+
+            int fileFd = open(info.filePath.c_str(), O_RDONLY);
+            if (fileFd < 0) {
+                LOG_E("EpollServer", "文件打开失败: " + info.filePath);
+                return;
+            }
+
+            if (info.rangeStart > 0) {
+                off_t offset = info.rangeStart;
+                lseek(fileFd, offset, SEEK_SET);
+            }
+
+            std::lock_guard<std::mutex> lock(connMutex_);
+            auto it = connections_.find(fd);
+            if (it != connections_.end()) {
+                it->second.isFileStream = true;
+                it->second.fileFd = fileFd;
+                it->second.fileOffset = info.rangeStart;
+                it->second.fileEnd = info.rangeEnd;
+                it->second.writeBuffer.clear();
+                it->second.written = 0;
+
+                sendFileChunked(fd, it->second);
+            } else {
+                close(fileFd);
+            }
+        } else {
+            sendResponse(fd, resp.serialize());
+        }
+    }
+}
+
+void EpollServer::sendFileChunked(int fd, Connection& conn) {
+    if (conn.fileFd < 0) {
+        conn.isFileStream = false;
+        return;
+    }
+
+    while (conn.fileOffset <= conn.fileEnd) {
+        long long remaining = conn.fileEnd - conn.fileOffset + 1;
+        size_t toSend = remaining > static_cast<long long>(FILE_CHUNK_SIZE)
+            ? FILE_CHUNK_SIZE : static_cast<size_t>(remaining);
+
+        ssize_t n = sendfile(fd, conn.fileFd, nullptr, toSend);
+        if (n > 0) {
+            conn.fileOffset += n;
+            if (conn.fileOffset > conn.fileEnd) break;
+        } else if (n < 0) {
+            if (errno == EAGAIN
+#if EAGAIN != EWOULDBLOCK
+                || errno == EWOULDBLOCK
+#endif
+            ) {
+                struct epoll_event ev{};
+                ev.events = EPOLLOUT | EPOLLET | EPOLLRDHUP;
+                ev.data.fd = fd;
+                epoll_ctl(epollFd_, EPOLL_CTL_MOD, fd, &ev);
+                return;
+            }
+            close(conn.fileFd);
+            conn.fileFd = -1;
+            close(fd);
+            connections_.erase(fd);
+            return;
+        } else {
+            break;
+        }
+    }
+
+    close(conn.fileFd);
+    conn.fileFd = -1;
+    conn.isFileStream = false;
+    struct epoll_event ev{};
+    ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
+    ev.data.fd = fd;
+    epoll_ctl(epollFd_, EPOLL_CTL_MOD, fd, &ev);
+}
+
 void EpollServer::cleanupTimeouts() {
     auto now = std::chrono::steady_clock::now();
     std::lock_guard<std::mutex> lock(connMutex_);
@@ -337,6 +479,7 @@ void EpollServer::cleanupTimeouts() {
         auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
             now - it->second.lastActive).count();
         if (elapsed > config_.connection_timeout) {
+            if (it->second.fileFd >= 0) close(it->second.fileFd);
             close(it->first);
             it = connections_.erase(it);
         } else {

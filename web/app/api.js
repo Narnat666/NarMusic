@@ -1,22 +1,105 @@
+const DEFAULT_TIMEOUT = 15000;
+const DEFAULT_RETRIES = 0;
+const RETRY_DELAY = 1000;
+
+class ApiError extends Error {
+    constructor(status, code, message) {
+        super(message);
+        this.status = status;
+        this.code = code;
+    }
+}
+
+async function request(url, options = {}) {
+    const {
+        timeout = DEFAULT_TIMEOUT,
+        retries = DEFAULT_RETRIES,
+        ...fetchOptions
+    } = options;
+
+    let lastError;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            const response = await fetch(url, {
+                ...fetchOptions,
+                signal: controller.signal
+            });
+            clearTimeout(timer);
+
+            if (response.status === 429) {
+                const retryAfter = parseInt(response.headers.get('Retry-After') || '5', 10);
+                if (attempt < retries) {
+                    await new Promise(r => setTimeout(r, retryAfter * 1000));
+                    continue;
+                }
+            }
+
+            if (!response.ok) {
+                let code = 'unknown';
+                let message = response.statusText;
+                try {
+                    const body = await response.json();
+                    code = body.code || code;
+                    message = body.message || body.msg || message;
+                } catch {}
+                throw new ApiError(response.status, code, message);
+            }
+
+            return response;
+        } catch (err) {
+            clearTimeout(timer);
+            if (err instanceof ApiError) throw err;
+            if (err.name === 'AbortError') {
+                lastError = new ApiError(0, 'timeout', '请求超时，请检查网络连接');
+            } else {
+                lastError = new ApiError(0, 'network', '网络错误，请检查连接');
+            }
+            if (attempt < retries) {
+                await new Promise(r => setTimeout(r, RETRY_DELAY * (attempt + 1)));
+            }
+        }
+    }
+    throw lastError;
+}
+
+async function requestJson(url, options = {}) {
+    const response = await request(url, options);
+    return response.json();
+}
+
+export { ApiError, request, requestJson };
+
 export const api = {
     createTask(payload) {
-        return fetch('/api/message', {
+        return requestJson('/api/message', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            retries: 1
         });
     },
 
     getTaskStatus(taskId) {
-        return fetch('/api/download/status?task_id=' + taskId);
+        return requestJson('/api/download/status?task_id=' + taskId);
+    },
+
+    batchGetTaskStatus(taskIds) {
+        return requestJson('/api/download/status/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task_ids: taskIds })
+        });
     },
 
     downloadFileByTask(taskId) {
-        return fetch('/api/download/file?task_id=' + taskId);
+        return request('/api/download/file?task_id=' + taskId);
     },
 
     downloadFileByName(filename) {
-        return fetch('/api/download/file?filename=' + encodeURIComponent(filename));
+        return request('/api/download/file?filename=' + encodeURIComponent(filename));
     },
 
     streamUrl(filename, withTimestamp = true) {
@@ -31,44 +114,50 @@ export const api = {
         if (rangeStart !== null) {
             options.headers = { 'Range': 'bytes=' + rangeStart + '-' + rangeEnd };
         }
-        return fetch(url, options);
+        return request(url, options);
     },
 
     streamForSize(filename) {
         const url = '/api/download/stream?filename=' + encodeURIComponent(filename);
-        return fetch(url, { headers: { 'Range': 'bytes=0-0' } });
+        return request(url, { headers: { 'Range': 'bytes=0-0' } });
     },
 
     search(keyword) {
-        return fetch('/api/search?keyword=' + encodeURIComponent(keyword));
+        return requestJson('/api/search?keyword=' + encodeURIComponent(keyword), {
+            timeout: 20000,
+            retries: 1
+        });
     },
 
     batchSearch(keywords) {
-        return fetch('/api/search/batch', {
+        return requestJson('/api/search/batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keywords })
+            body: JSON.stringify({ keywords }),
+            timeout: 30000,
+            retries: 1
         });
     },
 
     batchDownload(tasks, platform, offsetMs) {
-        return fetch('/api/download/batch', {
+        return requestJson('/api/download/batch', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tasks, platform, offsetMs })
+            body: JSON.stringify({ tasks, platform, offsetMs }),
+            retries: 1
         });
     },
 
     libraryList() {
-        return fetch('/api/library/list');
+        return requestJson('/api/library/list');
     },
 
     libraryDelete(id) {
-        return fetch('/api/library/delete?id=' + id, { method: 'DELETE' });
+        return requestJson('/api/library/delete?id=' + id, { method: 'DELETE' });
     },
 
     libraryBatchDelete(ids) {
-        return fetch('/api/library/batch-delete', {
+        return requestJson('/api/library/batch-delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids })
@@ -76,7 +165,7 @@ export const api = {
     },
 
     libraryBatchDownload(ids) {
-        return fetch('/api/library/batch-download', {
+        return request('/api/library/batch-download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids })

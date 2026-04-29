@@ -33,6 +33,14 @@ StreamData StreamingService::stream(const std::string& taskIdOrFilename,
     return streamSender_.read(filePath, rangeHeader);
 }
 
+FileStreamInfo StreamingService::streamFileInfo(const std::string& taskIdOrFilename,
+                                                  const std::string& rangeHeader) {
+    std::string filePath = getFilePath(taskIdOrFilename);
+    if (filePath.empty()) return {};
+
+    return streamSender_.resolveStreamInfo(filePath, rangeHeader);
+}
+
 std::vector<char> StreamingService::getFileData(const std::string& taskIdOrFilename) {
     std::string filePath = getFilePath(taskIdOrFilename);
     if (filePath.empty()) return {};
