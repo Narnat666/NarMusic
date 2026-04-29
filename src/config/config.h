@@ -48,6 +48,20 @@ struct CpolarConfig {
     std::string subdomain;
     std::string region = "cn";
     std::string bin_path = "cpolar";
+    int monitor_interval = 60;
+};
+
+struct EmailAccount {
+    std::string sender;
+    std::string password;
+    std::string receiver;
+};
+
+struct EmailConfig {
+    bool enabled = false;
+    std::string smtp_host = "smtp.qq.com";
+    int smtp_port = 587;
+    std::vector<EmailAccount> accounts;
 };
 
 class Config {
@@ -58,7 +72,8 @@ public:
     // 命令行参数覆盖
     void applyOverrides(int port, const std::string& downloadPath,
                         const std::string& extension, bool debug,
-                        const std::string& cpolarToken);
+                        const std::string& cpolarToken,
+                        const std::string& emailKey);
 
     ServerConfig server;
     DownloadConfig download;
@@ -67,6 +82,7 @@ public:
     LogConfig logging;
     DatabaseConfig database;
     CpolarConfig cpolar;
+    EmailConfig email;
     bool debug_mode = false;
 
 private:

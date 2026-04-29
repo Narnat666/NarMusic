@@ -103,6 +103,9 @@ set(NARNAT_SOURCES
     # Infrastructure 层 - 内网穿透
     src/infrastructure/tunnel/cpolar_tunnel.cpp
 
+    # Infrastructure 层 - 通知
+    src/infrastructure/notification/email_sender.cpp
+
     # Application 层
     src/application/download_service.cpp
     src/application/search_service.cpp

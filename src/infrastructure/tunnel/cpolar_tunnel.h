@@ -5,6 +5,7 @@
 #include <atomic>
 #include <memory>
 #include <thread>
+#include <functional>
 #include "config/config.h"
 
 namespace narnat {
@@ -13,7 +14,9 @@ class CurlClient;
 
 class CpolarTunnel {
 public:
-    explicit CpolarTunnel(const CpolarConfig& config, int localPort);
+    explicit CpolarTunnel(const CpolarConfig& cpolarConfig,
+                          const EmailConfig& emailConfig,
+                          int localPort);
     ~CpolarTunnel();
 
     bool start();
@@ -31,11 +34,13 @@ private:
     std::string fetchUrlFromDashboard();
     void printBanner();
     void monitorLoop();
+    void notifyUrl(const std::string& url, bool changed);
     std::string cleanUrl(const std::string& url);
 
     std::string resolveExeDir();
 
-    CpolarConfig config_;
+    CpolarConfig cpolarConfig_;
+    EmailConfig emailConfig_;
     int localPort_;
     std::atomic<bool> running_{false};
     std::string publicUrl_;

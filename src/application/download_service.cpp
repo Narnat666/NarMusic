@@ -1,5 +1,6 @@
 #include "download_service.h"
 #include "core/logger.h"
+#include "infrastructure/lyrics/lyrics_aggregator.h"
 #include <chrono>
 #include <sstream>
 #include <iomanip>

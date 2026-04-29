@@ -1,6 +1,7 @@
 #include "cpolar_tunnel.h"
 #include "core/logger.h"
 #include "infrastructure/http_client/curl_client.h"
+#include "infrastructure/notification/email_sender.h"
 #include "nlohmann/json.hpp"
 #include <cstdio>
 #include <cstdlib>
@@ -19,7 +20,6 @@ namespace narnat {
 namespace fs = std::filesystem;
 
 static constexpr int CPOLAR_API_PORT = 4040;
-static constexpr int MONITOR_INTERVAL_SEC = 60;
 
 std::string CpolarTunnel::cleanUrl(const std::string& url) {
     auto start = url.find("http");
@@ -49,8 +49,8 @@ std::string CpolarTunnel::resolveExeDir() {
 }
 
 bool CpolarTunnel::resolveBinary() {
-    if (!config_.bin_path.empty() && config_.bin_path != "cpolar") {
-        resolvedBinPath_ = config_.bin_path;
+    if (!cpolarConfig_.bin_path.empty() && cpolarConfig_.bin_path != "cpolar") {
+        resolvedBinPath_ = cpolarConfig_.bin_path;
         if (fs::exists(resolvedBinPath_)) {
             LOG_I("CpolarTunnel", "使用配置的 cpolar: " + resolvedBinPath_);
             return true;
@@ -100,8 +100,10 @@ bool CpolarTunnel::resolveBinary() {
     return false;
 }
 
-CpolarTunnel::CpolarTunnel(const CpolarConfig& config, int localPort)
-    : config_(config), localPort_(localPort) {
+CpolarTunnel::CpolarTunnel(const CpolarConfig& cpolarConfig,
+                            const EmailConfig& emailConfig,
+                            int localPort)
+    : cpolarConfig_(cpolarConfig), emailConfig_(emailConfig), localPort_(localPort) {
     CurlClient::Options opts;
     opts.connectTimeout = 3;
     opts.requestTimeout = 5;
@@ -133,12 +135,12 @@ bool CpolarTunnel::checkBinary() {
 }
 
 bool CpolarTunnel::configureAuthtoken() {
-    if (config_.authtoken.empty()) {
+    if (cpolarConfig_.authtoken.empty()) {
         LOG_E("CpolarTunnel", "未配置 cpolar authtoken，请在 config.json 中设置 cpolar.authtoken");
         return false;
     }
 
-    std::string cmd = resolvedBinPath_ + " authtoken " + config_.authtoken + " 2>&1";
+    std::string cmd = resolvedBinPath_ + " authtoken " + cpolarConfig_.authtoken + " 2>&1";
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) {
         LOG_E("CpolarTunnel", "执行 authtoken 命令失败");
@@ -195,30 +197,37 @@ std::string CpolarTunnel::fetchUrlFromDashboard() {
     auto resp = apiClient_->get(baseUrl + "/");
     if (!resp.success || resp.body.empty()) return {};
 
-    auto extractUrl = [&](const std::string& html) -> std::string {
-        auto pos = html.find("cpolar.cn");
-        if (pos == std::string::npos) return {};
+    auto pos = resp.body.find("cpolar.cn");
+    if (pos == std::string::npos) return {};
 
-        auto start = html.rfind("http", pos);
-        if (start == std::string::npos) return {};
+    auto start = resp.body.rfind("http", pos);
+    if (start == std::string::npos) return {};
 
-        auto end = pos + 10;
-        while (end < html.size() &&
-               html[end] != '"' && html[end] != '\'' &&
-               html[end] != '<' && html[end] != ' ' &&
-               html[end] != '`' && html[end] != '\\' &&
-               html[end] != '\n')
-            ++end;
+    auto end = pos + 10;
+    while (end < resp.body.size() &&
+           resp.body[end] != '"' && resp.body[end] != '\'' &&
+           resp.body[end] != '<' && resp.body[end] != ' ' &&
+           resp.body[end] != '`' && resp.body[end] != '\\' &&
+           resp.body[end] != '\n')
+        ++end;
 
-        std::string url = html.substr(start, end - start);
-        return cleanUrl(url);
-    };
-
-    std::string url = extractUrl(resp.body);
+    std::string url = resp.body.substr(start, end - start);
+    url = cleanUrl(url);
     if (!url.empty() && url.find("cpolar.") != std::string::npos)
         return url;
 
     return {};
+}
+
+void CpolarTunnel::notifyUrl(const std::string& url, bool changed) {
+    if (!emailConfig_.enabled || emailConfig_.accounts.empty()) return;
+
+    std::string subject = changed ? "NarMusic 公网地址已变更" : "NarMusic 内网穿透已启动";
+    std::string body = changed
+        ? "NarMusic 的 cpolar 公网地址已变更，新地址如下：\n\n" + url + "\n\n本机地址：http://localhost:" + std::to_string(localPort_)
+        : "NarMusic 的 cpolar 内网穿透已启动，公网地址如下：\n\n" + url + "\n\n本机地址：http://localhost:" + std::to_string(localPort_);
+
+    EmailSender::sendAll(emailConfig_, subject, body);
 }
 
 bool CpolarTunnel::launchAndCapture() {
@@ -226,11 +235,11 @@ bool CpolarTunnel::launchAndCapture() {
     cmd += " -daemon=on";
     cmd += " -dashboard=on";
     cmd += " -inspect-addr=127.0.0.1:" + std::to_string(CPOLAR_API_PORT);
-    cmd += " -region=" + config_.region;
+    cmd += " -region=" + cpolarConfig_.region;
     cmd += " -log=none";
 
-    if (!config_.subdomain.empty()) {
-        cmd += " -subdomain=" + config_.subdomain;
+    if (!cpolarConfig_.subdomain.empty()) {
+        cmd += " -subdomain=" + cpolarConfig_.subdomain;
     }
 
     cmd += " " + std::to_string(localPort_);
@@ -258,6 +267,7 @@ bool CpolarTunnel::launchAndCapture() {
             running_ = true;
             LOG_I("CpolarTunnel", "公网访问地址: " + publicUrl_);
             printBanner();
+            notifyUrl(publicUrl_, false);
 
             monitorThread_ = std::thread(&CpolarTunnel::monitorLoop, this);
             monitorThread_.detach();
@@ -275,10 +285,12 @@ bool CpolarTunnel::launchAndCapture() {
 }
 
 void CpolarTunnel::monitorLoop() {
-    LOG_I("CpolarTunnel", "URL 监控已启动 (每 " + std::to_string(MONITOR_INTERVAL_SEC) + " 秒检测)");
+    int interval = cpolarConfig_.monitor_interval;
+    if (interval < 10) interval = 10;
+    LOG_I("CpolarTunnel", "URL 监控已启动 (每 " + std::to_string(interval) + " 秒检测)");
 
     while (running_) {
-        for (int i = 0; i < MONITOR_INTERVAL_SEC && running_; ++i)
+        for (int i = 0; i < interval && running_; ++i)
             std::this_thread::sleep_for(std::chrono::seconds(1));
 
         if (!running_) break;
@@ -300,6 +312,7 @@ void CpolarTunnel::monitorLoop() {
             LOG_I("CpolarTunnel", "新地址: " + publicUrl_);
 
             printBanner();
+            notifyUrl(publicUrl_, true);
         }
     }
 

@@ -106,26 +106,28 @@ int main(int argc, char* argv[]) {
     }
 
     int port = 0;
-    std::string downloadPath, extension, cpolarToken;
+    std::string downloadPath, extension, cpolarToken, emailKey;
     bool debug = false;
     std::string configPath = "./config.json";
 
     int opt;
-    while ((opt = getopt(argc, argv, "o:p:e:c:t:dh")) != -1) {
+    while ((opt = getopt(argc, argv, "o:p:e:c:t:m:dh")) != -1) {
         switch (opt) {
             case 'p': downloadPath = optarg; break;
             case 'e': extension = optarg; break;
             case 'o': port = std::stoi(optarg); break;
             case 'c': configPath = optarg; break;
             case 't': cpolarToken = optarg; break;
+            case 'm': emailKey = optarg; break;
             case 'd': debug = true; break;
             case 'h':
-                std::cout << "用法: NarMusic [-p path] [-e ext] [-o port] [-c config] [-t token] [-d] [-a dir]" << std::endl;
+                std::cout << "用法: NarMusic [-p path] [-e ext] [-o port] [-c config] [-t token] [-m key] [-d] [-a dir]" << std::endl;
                 std::cout << "  -p path  音频文件保存目录" << std::endl;
                 std::cout << "  -e ext   音频文件扩展名" << std::endl;
                 std::cout << "  -o port  HTTP服务端口" << std::endl;
                 std::cout << "  -c file  配置文件路径" << std::endl;
                 std::cout << "  -t token cpolar authtoken (启动内网穿透)" << std::endl;
+                std::cout << "  -m key   邮箱授权码 (邮箱:授权码 格式启用邮件通知)" << std::endl;
                 std::cout << "  -d       调试模式" << std::endl;
                 std::cout << "  -a dir   解析目录下m4a文件的narmeta信息并输出歌单" << std::endl;
                 std::cout << "  --version   输出版本信息" << std::endl;
@@ -142,7 +144,7 @@ int main(int argc, char* argv[]) {
         } catch (...) {}
     }
     Config config = Config::load(configPath);
-    config.applyOverrides(port, downloadPath, extension, debug, cpolarToken);
+    config.applyOverrides(port, downloadPath, extension, debug, cpolarToken, emailKey);
 
     Logger::Config logCfg;
     logCfg.level = debug ? Logger::Level::DEBUG : Logger::Level::INFO;
@@ -262,7 +264,7 @@ int main(int argc, char* argv[]) {
     if (config.cpolar.enabled && !config.cpolar.authtoken.empty()) {
         cpolarThread = std::thread([&]() {
             std::this_thread::sleep_for(std::chrono::seconds(2));
-            tunnel = std::make_unique<CpolarTunnel>(config.cpolar, config.server.port);
+            tunnel = std::make_unique<CpolarTunnel>(config.cpolar, config.email, config.server.port);
             if (!tunnel->start()) {
                 LOG_W("Main", "cpolar 内网穿透启动失败，服务器仍可本地访问");
                 tunnel.reset();

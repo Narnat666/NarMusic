@@ -60,6 +60,24 @@ void Config::fromJson(const nlohmann::json& j) {
         if (cp.contains("subdomain")) cpolar.subdomain = cp["subdomain"].get<std::string>();
         if (cp.contains("region")) cpolar.region = cp["region"].get<std::string>();
         if (cp.contains("bin_path")) cpolar.bin_path = cp["bin_path"].get<std::string>();
+        if (cp.contains("monitor_interval")) cpolar.monitor_interval = cp["monitor_interval"].get<int>();
+    }
+
+    if (j.contains("email")) {
+        auto& em = j["email"];
+        if (em.contains("enabled")) email.enabled = em["enabled"].get<bool>();
+        if (em.contains("smtp_host")) email.smtp_host = em["smtp_host"].get<std::string>();
+        if (em.contains("smtp_port")) email.smtp_port = em["smtp_port"].get<int>();
+        if (em.contains("accounts") && em["accounts"].is_array()) {
+            for (const auto& acc : em["accounts"]) {
+                EmailAccount ea;
+                if (acc.contains("sender")) ea.sender = acc["sender"].get<std::string>();
+                if (acc.contains("password")) ea.password = acc["password"].get<std::string>();
+                if (acc.contains("receiver")) ea.receiver = acc["receiver"].get<std::string>();
+                if (!ea.sender.empty() && !ea.password.empty() && !ea.receiver.empty())
+                    email.accounts.push_back(ea);
+            }
+        }
     }
 }
 
@@ -84,7 +102,8 @@ Config Config::loadDefault() {
 
 void Config::applyOverrides(int port, const std::string& downloadPath,
                             const std::string& extension, bool debug,
-                            const std::string& cpolarToken) {
+                            const std::string& cpolarToken,
+                            const std::string& emailKey) {
     if (port > 0) server.port = port;
     if (!downloadPath.empty()) download.path = downloadPath;
     if (!extension.empty()) download.extension = extension;
@@ -92,6 +111,25 @@ void Config::applyOverrides(int port, const std::string& downloadPath,
     if (!cpolarToken.empty()) {
         cpolar.authtoken = cpolarToken;
         cpolar.enabled = true;
+    }
+    if (!emailKey.empty()) {
+        auto sep = emailKey.find(':');
+        if (sep != std::string::npos) {
+            EmailAccount ea;
+            ea.sender = emailKey.substr(0, sep);
+            ea.receiver = ea.sender;
+            ea.password = emailKey.substr(sep + 1);
+            email.accounts.insert(email.accounts.begin(), ea);
+        } else {
+            if (email.accounts.empty()) {
+                EmailAccount ea;
+                ea.password = emailKey;
+                email.accounts.push_back(ea);
+            } else {
+                email.accounts[0].password = emailKey;
+            }
+        }
+        email.enabled = true;
     }
 }
 
