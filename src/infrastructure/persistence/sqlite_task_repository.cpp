@@ -1,13 +1,9 @@
 #include "sqlite_task_repository.h"
+#include "sqlite_common.h"
 #include "core/logger.h"
 #include <sqlite3.h>
 #include <sstream>
 #include <cstdint>
-
-namespace {
-const sqlite3_destructor_type kSqliteTransient =
-    reinterpret_cast<sqlite3_destructor_type>(static_cast<intptr_t>(-1));
-}
 
 namespace narnat {
 

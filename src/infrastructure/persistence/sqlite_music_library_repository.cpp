@@ -1,4 +1,5 @@
 #include "sqlite_music_library_repository.h"
+#include "sqlite_common.h"
 #include "core/logger.h"
 #include <sqlite3.h>
 #include <cstdint>
@@ -7,9 +8,6 @@
 namespace narnat {
 
 namespace {
-
-const sqlite3_destructor_type kSqliteTransient =
-    reinterpret_cast<sqlite3_destructor_type>(static_cast<intptr_t>(-1));
 
 MusicLibraryEntry readRow(sqlite3_stmt* stmt, int baseCol = 0) {
     MusicLibraryEntry entry;

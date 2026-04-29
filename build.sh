@@ -28,7 +28,7 @@ ok()     { echo -e "${G}[OK]${N} $1"; }
 warn()   { echo -e "${Y}[WARN]${N} $1"; }
 err()    { echo -e "${R}[ERR]${N} $1" >&2; }
 die()    { err "$1"; exit 1; }
-debug()  { [[ "${VERBOSE:-0}" == 1 ]] && echo -e "${C}[DBG]${N} $1"; }
+debug()  { [[ "${VERBOSE:-0}" == 1 ]] && echo -e "${C}[DBG]${N} $1" || true; }
 
 # ============================================================================
 # 工具
@@ -66,8 +66,12 @@ JOBS=""
 CC="" CXX=""
 TOOLCHAIN_FILE="" SYSROOT_DIR=""
 INSTALL_PREFIX="/usr/local"
+BUILD_DIR_CUSTOM=""
 CMAKE_EXTRA=()
 OPT_LTO=0 OPT_ASAN=0 OPT_TSAN=0 OPT_UBSAN=0 OPT_WERROR=0 OPT_STATIC=0
+OPT_UNITY=1 OPT_PCH=1
+OPT_NO_CCACHE=0 OPT_NO_NINJA=0
+USE_NINJA=1 USE_CCACHE=1
 
 usage() {
     cat <<EOF
@@ -82,6 +86,7 @@ ${PROJECT_NAME} v${PROJECT_VERSION} 构建脚本
   --cc CC               C 编译器
   --cxx CXX             C++ 编译器
   --sysroot DIR         Sysroot 目录
+  --build-dir DIR       构建目录 [默认: build-{arch}，可设为 /tmp/build 以加速共享文件夹中的构建]
   -j, --jobs N          并行任务数 [默认: CPU 核心数]
 
 选项开关:
@@ -91,6 +96,13 @@ ${PROJECT_NAME} v${PROJECT_VERSION} 构建脚本
   --ubsan               启用 UBSanitizer
   --werror              警告视为错误
   --static              完全静态链接 (含 libc)
+
+编译加速 (默认全部开启):
+  --unity               启用 Unity Build (合并 .cpp，大幅加速首次编译) [默认开启]
+  --no-ccache           禁用 ccache 编译缓存
+  --no-ninja            禁用 Ninja 生成器，回退到 Make
+  --no-pch              禁用预编译头
+  --no-unity            禁用 Unity Build
 
 操作:
   -c, --clean           清理构建目录
@@ -111,6 +123,8 @@ ${PROJECT_NAME} v${PROJECT_VERSION} 构建脚本
   $0 --asan -t Debug          # Debug + ASan
   $0 --lto -t Release         # Release + LTO
   $0 -p                       # 构建并打包
+  $0 --no-ccache --no-ninja   # 关闭所有加速，回退普通编译
+  $0 --no-pch --no-unity      # 仅关闭 PCH 和 Unity Build
 EOF
 }
 
@@ -127,12 +141,18 @@ parse_args() {
             --toolchain)     TOOLCHAIN_FILE="$2"; shift 2 ;;
             --sysroot)       SYSROOT_DIR="$2"; shift 2 ;;
             --prefix)        INSTALL_PREFIX="$2"; shift 2 ;;
+            --build-dir)     BUILD_DIR_CUSTOM="$2"; shift 2 ;;
             --lto)           OPT_LTO=1; shift ;;
             --asan)          OPT_ASAN=1; shift ;;
             --tsan)          OPT_TSAN=1; shift ;;
             --ubsan)         OPT_UBSAN=1; shift ;;
             --werror)        OPT_WERROR=1; shift ;;
             --static)        OPT_STATIC=1; shift ;;
+            --unity)         OPT_UNITY=1; shift ;;
+            --no-ccache)     OPT_NO_CCACHE=1; shift ;;
+            --no-ninja)      OPT_NO_NINJA=1; shift ;;
+            --no-pch)        OPT_PCH=0; shift ;;
+            --no-unity)      OPT_UNITY=0; shift ;;
             -c|--clean)      CLEAN=1; shift ;;
             -i|--install)    INSTALL=1; shift ;;
             -p|--package)    PACKAGE=1; shift ;;
@@ -172,9 +192,41 @@ is_cross_compile() {
 
 check_requirements() {
     local missing=()
-    for cmd in cmake make; do
-        command -v "$cmd" &>/dev/null || missing+=("$cmd")
-    done
+    # 必须: cmake
+    command -v cmake &>/dev/null || missing+=("cmake")
+
+    # Ninja 生成器 (默认启用，--no-ninja 关闭)
+    if [[ "${OPT_NO_NINJA}" == 1 ]]; then
+        USE_NINJA=0
+        command -v make &>/dev/null || missing+=("make")
+        debug "--no-ninja: 使用 Makefile 生成器"
+    elif command -v ninja &>/dev/null; then
+        USE_NINJA=1
+        debug "检测到 Ninja，将使用 Ninja 生成器"
+    else
+        USE_NINJA=0
+        command -v make &>/dev/null || missing+=("make")
+        warn "未检测到 Ninja，将使用 Makefile 生成器 (建议安装: sudo apt install ninja-build)"
+    fi
+
+    # ccache 编译缓存 (默认启用，--no-ccache 关闭)
+    if [[ "${OPT_NO_CCACHE}" == 1 ]]; then
+        USE_CCACHE=0
+        debug "--no-ccache: 编译缓存已禁用"
+    elif command -v ccache &>/dev/null; then
+        USE_CCACHE=1
+        debug "检测到 ccache，将启用编译缓存"
+    else
+        USE_CCACHE=0
+        warn "未检测到 ccache，编译缓存不可用 (建议安装: sudo apt install ccache)"
+    fi
+
+    # VMware 共享文件夹 ccache 适配
+    if [[ "${USE_CCACHE}" == 1 && "${SCRIPT_DIR}" == /mnt/hgfs/* ]]; then
+        export CCACHE_SLOPPINESS="${CCACHE_SLOPPINESS:-file_stat_matches}"
+        export CCACHE_BASEDIR="${SCRIPT_DIR}"
+        debug "已设置 CCACHE_SLOPPINESS=file_stat_matches (共享文件夹环境)"
+    fi
 
     if is_cross_compile; then
         local prefix
@@ -197,23 +249,29 @@ check_requirements() {
         if is_cross_compile; then
             echo "安装交叉编译器 (Ubuntu):"
             case "${ARCH}" in
-                aarch64) echo "  sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake make" ;;
-                x86_64)  echo "  sudo apt install gcc-x86-64-linux-gnu g++-x86-64-linux-gnu cmake make" ;;
+                aarch64) echo "  sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu cmake ninja-build ccache" ;;
+                x86_64)  echo "  sudo apt install gcc-x86-64-linux-gnu g++-x86-64-linux-gnu cmake ninja-build ccache" ;;
             esac
         else
             echo "安装编译器 (Ubuntu):"
-            echo "  sudo apt install gcc g++ cmake make"
+            echo "  sudo apt install gcc g++ cmake ninja-build ccache"
         fi
         exit 1
     fi
 
-    ok "环境检查通过 (目标: ${ARCH}, 模式: $(is_cross_compile && echo 交叉编译 || echo 本机编译))"
+    local mode="本机编译"; is_cross_compile && mode="交叉编译"
+    ok "环境检查通过 (目标: ${ARCH}, 模式: ${mode})"
+    log "编译: ${CXX}, Ninja: ${USE_NINJA}, ccache: ${USE_CCACHE}"
 }
 
 # ============================================================================
 # 构建
 # ============================================================================
 get_build_dir() {
+    if [[ -n "${BUILD_DIR_CUSTOM}" ]]; then
+        echo "${BUILD_DIR_CUSTOM}"
+        return
+    fi
     local dir_name
     case "${ARCH}" in
         x86_64|amd64) dir_name="x86" ;;
@@ -223,8 +281,9 @@ get_build_dir() {
 }
 
 clean_build() {
-    log "清理构建目录..."
-    rm -rf build-* CMakeCache.txt CMakeFiles cmake_install.cmake Makefile
+    local BUILD_DIR; BUILD_DIR="$(get_build_dir)"
+    log "清理构建目录: ${BUILD_DIR}"
+    rm -rf "${BUILD_DIR}" build-* CMakeCache.txt CMakeFiles cmake_install.cmake Makefile
     ok "已清理"
 }
 
@@ -246,6 +305,21 @@ configure_and_build() {
         -DCMAKE_C_COMPILER="${CC}"
         -DCMAKE_CXX_COMPILER="${CXX}"
     )
+
+    # 生成器选择: Ninja > Makefile (Ninja 快 20-50%)
+    if [[ "${USE_NINJA}" == 1 ]]; then
+        cmake_args+=(-G Ninja)
+        log "使用 Ninja 生成器"
+    fi
+
+    # ccache 编译缓存
+    if [[ "${USE_CCACHE}" == 1 ]]; then
+        cmake_args+=(
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        )
+        log "ccache 编译缓存已启用"
+    fi
 
     # 交叉编译设置
     if is_cross_compile; then
@@ -272,34 +346,36 @@ configure_and_build() {
     (( OPT_UBSAN ))   && cmake_args+=(-DNARNAT_ENABLE_UBSAN=ON)
     (( OPT_WERROR ))  && cmake_args+=(-DNARNAT_WARNINGS_AS_ERROR=ON)
     (( OPT_STATIC ))  && cmake_args+=(-DNARNAT_STATIC_LINK=ON)
+    if (( OPT_UNITY )); then cmake_args+=(-DNARNAT_UNITY_BUILD=ON); else cmake_args+=(-DNARNAT_UNITY_BUILD=OFF); fi
+    if (( OPT_PCH ));   then cmake_args+=(-DNARNAT_ENABLE_PCH=ON);  else cmake_args+=(-DNARNAT_ENABLE_PCH=OFF); fi
 
     cmake_args+=("${CMAKE_EXTRA[@]}")
-    cmake_args+=("..")
+    cmake_args+=("${SCRIPT_DIR}")
 
     # 配置
     log "CMake 配置..."
     if [[ "${DRY_RUN}" == 1 ]]; then
         echo "  cmake ${cmake_args[*]}"
     else
-        cmake "${cmake_args[@]}" || { cd ..; die "CMake 配置失败"; }
+        cmake "${cmake_args[@]}" || { cd "${SCRIPT_DIR}"; die "CMake 配置失败"; }
         ok "CMake 配置完成"
     fi
 
-    # 编译
+    # 编译 (使用 cmake --build 兼容 Ninja/Makefile)
     log "编译 (j=${JOBS})..."
     if [[ "${DRY_RUN}" == 1 ]]; then
-        echo "  make -j${JOBS}"
+        echo "  cmake --build . -j ${JOBS}"
     else
         local verbose_flag=""
-        [[ "${VERBOSE}" == 1 ]] && verbose_flag="VERBOSE=1"
-        make -j"${JOBS}" ${verbose_flag} || { cd ..; die "编译失败"; }
+        [[ "${VERBOSE}" == 1 ]] && verbose_flag="--verbose"
+        cmake --build . -j "${JOBS}" ${verbose_flag} || { cd "${SCRIPT_DIR}"; die "编译失败"; }
         ok "编译完成"
     fi
 
     # 安装
     if (( INSTALL )); then
         log "安装到 ${INSTALL_PREFIX}..."
-        make install || { cd ..; die "安装失败"; }
+        cmake --install . || { cd "${SCRIPT_DIR}"; die "安装失败"; }
         ok "安装完成"
     fi
 
@@ -309,7 +385,7 @@ configure_and_build() {
         cpack -G ZIP || warn "打包失败"
     fi
 
-    cd ..
+    cd "${SCRIPT_DIR}"
 }
 
 # ============================================================================
@@ -319,6 +395,20 @@ main() {
     cd "${SCRIPT_DIR}"
     parse_args "$@"
     resolve_arch
+
+    # 共享文件夹环境：自动将构建输出移到本地磁盘
+    if [[ -z "${BUILD_DIR_CUSTOM}" && "${SCRIPT_DIR}" == /mnt/hgfs/* ]]; then
+        BUILD_DIR_CUSTOM="${HOME}/.cache/narmusic-build"
+        log "检测到共享文件夹，构建输出自动设为: ${BUILD_DIR_CUSTOM}"
+        log "  (可用 --build-dir PATH 覆盖)"
+    fi
+
+    if (( CLEAN )); then
+        clean_build
+        exit 0
+    fi
+
+    check_requirements
 
     echo "=========================================="
     echo "  ${PROJECT_NAME} v${PROJECT_VERSION}"
@@ -338,19 +428,24 @@ main() {
     if [[ ${#extras[@]} -gt 0 ]]; then
     echo "  附加: ${extras[*]}"
     fi
-    echo "=========================================="
-
-    if (( CLEAN )); then
-        clean_build
-        exit 0
+    local accel=()
+    (( OPT_UNITY ))   && accel+=("Unity")
+    (( OPT_PCH ))     && accel+=("PCH")
+    (( USE_NINJA ))   && accel+=("Ninja")
+    (( USE_CCACHE ))  && accel+=("ccache")
+    if [[ ${#accel[@]} -gt 0 ]]; then
+    echo "  加速: ${accel[*]}"
+    else
+    echo "  加速: (无)"
     fi
-
-    check_requirements
+    local BUILD_DIR; BUILD_DIR="$(get_build_dir)"
+    echo "  输出: ${BUILD_DIR}"
+    echo "=========================================="
     configure_and_build
 
     echo ""
     ok "全部完成"
-    local BUILD_DIR; BUILD_DIR="$(get_build_dir)"
+    BUILD_DIR="$(get_build_dir)"
     log "可执行文件: ${BUILD_DIR}/${PROJECT_NAME}"
     if [[ -f "${BUILD_DIR}/${PROJECT_NAME}" ]]; then
         file "${BUILD_DIR}/${PROJECT_NAME}" 2>/dev/null || true

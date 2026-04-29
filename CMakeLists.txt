@@ -8,6 +8,10 @@ cmake_minimum_required(VERSION 3.16)
 # 防止源码内构建
 include(cmake/PreventInSourceBuild.cmake)
 
+# 覆写 CMake 默认的 -O3 为 -O2（-O2 编译更快且运行时性能差异可忽略）
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG" CACHE STRING "" FORCE)
+set(CMAKE_C_FLAGS_RELEASE   "-O2 -DNDEBUG" CACHE STRING "" FORCE)
+
 # ---------------------------------------------------------------------------
 # 项目定义
 # ---------------------------------------------------------------------------
@@ -44,6 +48,8 @@ option(NARNAT_ENABLE_TSAN      "启用线程消毒器 (TSan)"      OFF)
 option(NARNAT_ENABLE_UBSAN     "启用未定义行为消毒器 (UBSan)" OFF)
 option(NARNAT_WARNINGS_AS_ERROR "将警告视为错误"             OFF)
 option(NARNAT_STATIC_LINK      "完全静态链接 (含 libc)"     OFF)
+option(NARNAT_UNITY_BUILD     "启用 Unity Build (加速首次编译)" ON)
+option(NARNAT_ENABLE_PCH      "启用预编译头 (加速头文件解析)"   ON)
 
 # ---------------------------------------------------------------------------
 # 源文件
@@ -107,9 +113,28 @@ set(NARNAT_SOURCES
 )
 
 # ---------------------------------------------------------------------------
+# Unity Build（合并 .cpp 编译，大幅减少重复模板实例/头文件解析）
+# ---------------------------------------------------------------------------
+if(NARNAT_UNITY_BUILD)
+    set(CMAKE_UNITY_BUILD ON)
+    set(CMAKE_UNITY_BUILD_BATCH_SIZE 8 CACHE STRING "每个 Unity 文件包含的 .cpp 数")
+    message(STATUS "Unity Build 已启用 (batch_size=${CMAKE_UNITY_BUILD_BATCH_SIZE})")
+endif()
+
+# ---------------------------------------------------------------------------
 # 构建目标
 # ---------------------------------------------------------------------------
 add_executable(${PROJECT_NAME} ${NARNAT_SOURCES})
+
+# 预编译头（加速所有翻译单元的头文件解析）
+if(NARNAT_ENABLE_PCH)
+    target_precompile_headers(${PROJECT_NAME} PRIVATE
+        "${CMAKE_SOURCE_DIR}/include/pch.h"
+    )
+    message(STATUS "预编译头 (PCH) 已启用")
+else()
+    message(STATUS "预编译头 (PCH) 已禁用")
+endif()
 
 # 平台定义
 target_compile_definitions(${PROJECT_NAME} PRIVATE

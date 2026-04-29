@@ -36,6 +36,7 @@ src/
 ```bash
 # 安装编译工具
 sudo apt install -y build-essential cmake
+sudo apt install ccache ninja-build # 加速编译工具
 
 # 一键编译
 ./build.sh
@@ -48,7 +49,7 @@ sudo apt install -y build-essential cmake
 sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
 # 交叉编译
-./build.sh -cc [path/to/gcc] -cxx [path/to/g++] -a aarch64
+./build.sh -a aarch64
 ```
 
 ### 运行
@@ -200,4 +201,14 @@ source ~/.bashrc
 
 ```bash
 ./build.sh --cc /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-gcc  --cxx /opt/gcc/linux-x86/aarch64/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-rockchip1031-linux-gnu-g++ -a aarch64 -p # 配置自己的交叉工具链
+```
+
+### 5.普通编译
+```bash
+./build.sh                    # 全部加速开启 (ccache + Ninja + PCH + Unity)
+./build.sh --no-ccache        # 关闭编译缓存，普通编译
+./build.sh --no-ninja         # 回退 Make 生成器
+./build.sh --no-pch           # 关闭预编译头
+./build.sh --no-unity         # 关闭 Unity Build
+./build.sh --no-ccache --no-ninja --no-pch --no-unity  # 全部关闭，纯普通编译
 ```
