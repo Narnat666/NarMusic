@@ -52,5 +52,9 @@
                 "receiver": "接收方2邮箱"
             }
         ]
+    },
+    "protection": {
+        "enabled": false,
+        "password": ""
     }
 }

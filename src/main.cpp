@@ -30,6 +30,7 @@
 #include "presentation/controllers/search_controller.h"
 #include "presentation/controllers/library_controller.h"
 #include "presentation/middleware/static_file_handler.h"
+#include "infrastructure/auth/protection_service.h"
 
 #include <iostream>
 #include <signal.h>
@@ -106,12 +107,12 @@ int main(int argc, char* argv[]) {
     }
 
     int port = 0;
-    std::string downloadPath, extension, cpolarToken, emailKey;
+    std::string downloadPath, extension, cpolarToken, emailKey, protectionPassword;
     bool debug = false;
     std::string configPath = "./config.json";
 
     int opt;
-    while ((opt = getopt(argc, argv, "o:p:e:c:t:m:dh")) != -1) {
+    while ((opt = getopt(argc, argv, "o:p:e:c:t:m:s:dh")) != -1) {
         switch (opt) {
             case 'p': downloadPath = optarg; break;
             case 'e': extension = optarg; break;
@@ -119,15 +120,17 @@ int main(int argc, char* argv[]) {
             case 'c': configPath = optarg; break;
             case 't': cpolarToken = optarg; break;
             case 'm': emailKey = optarg; break;
+            case 's': protectionPassword = optarg; break;
             case 'd': debug = true; break;
             case 'h':
-                std::cout << "用法: NarMusic [-p path] [-e ext] [-o port] [-c config] [-t token] [-m key] [-d] [-a dir]" << std::endl;
+                std::cout << "用法: NarMusic [-p path] [-e ext] [-o port] [-c config] [-t token] [-m key] [-s pwd] [-d] [-a dir]" << std::endl;
                 std::cout << "  -p path  音频文件保存目录" << std::endl;
                 std::cout << "  -e ext   音频文件扩展名" << std::endl;
                 std::cout << "  -o port  HTTP服务端口" << std::endl;
                 std::cout << "  -c file  配置文件路径" << std::endl;
                 std::cout << "  -t token cpolar authtoken (启动内网穿透)" << std::endl;
                 std::cout << "  -m key   邮箱授权码 (邮箱:授权码 格式启用邮件通知)" << std::endl;
+                std::cout << "  -s pwd   文件保护密码 (启用删除操作需密码验证)" << std::endl;
                 std::cout << "  -d       调试模式" << std::endl;
                 std::cout << "  -a dir   解析目录下m4a文件的narmeta信息并输出歌单" << std::endl;
                 std::cout << "  --version   输出版本信息" << std::endl;
@@ -144,7 +147,7 @@ int main(int argc, char* argv[]) {
         } catch (...) {}
     }
     Config config = Config::load(configPath);
-    config.applyOverrides(port, downloadPath, extension, debug, cpolarToken, emailKey);
+    config.applyOverrides(port, downloadPath, extension, debug, cpolarToken, emailKey, protectionPassword);
 
     Logger::Config logCfg;
     logCfg.level = debug ? Logger::Level::DEBUG : Logger::Level::INFO;
@@ -191,6 +194,8 @@ int main(int argc, char* argv[]) {
     auto downloadCtrl = std::make_shared<DownloadController>(downloadService, streamingService);
     auto searchCtrl = std::make_shared<SearchController>(searchService);
     auto libraryCtrl = std::make_shared<LibraryController>(libraryService);
+
+    auto protectionService = std::make_shared<ProtectionService>(config.protection.password);
 
     std::string webDir = "./web";
     if (!fs::exists(webDir + "/index.html")) {
@@ -241,6 +246,56 @@ int main(int argc, char* argv[]) {
 
     router.addRoute(Request::Method::GET, "/api/library/list",
         [libraryCtrl](const Request& req) { return libraryCtrl->list(req); });
+
+    router.addRoute(Request::Method::GET, "/api/protection/status",
+        [protectionService](const Request&) {
+            nlohmann::json result;
+            result["enabled"] = protectionService->isEnabled();
+            return Response::json(200, "OK", result);
+        });
+
+    router.addRoute(Request::Method::POST, "/api/protection/verify",
+        [protectionService](const Request& req) {
+            if (!protectionService->isEnabled()) {
+                nlohmann::json result;
+                result["valid"] = true;
+                result["token"] = "";
+                return Response::json(200, "OK", result);
+            }
+            try {
+                auto body = nlohmann::json::parse(req.body());
+                std::string password = body.value("password", "");
+                if (protectionService->verifyPassword(password)) {
+                    std::string token = protectionService->generateToken();
+                    nlohmann::json result;
+                    result["valid"] = true;
+                    result["token"] = token;
+                    return Response::json(200, "OK", result);
+                }
+                return Response::error(403, "Forbidden", "wrong_password", "密码错误");
+            } catch (const std::exception&) {
+                return Response::error(400, "Bad Request", "parse_error", "请求格式错误");
+            }
+        });
+
+    if (protectionService->isEnabled()) {
+        router.addMiddleware([protectionService](const Request& req) -> std::optional<Response> {
+            if (req.method() != Request::Method::DELETE &&
+                !(req.method() == Request::Method::POST && req.path() == "/api/library/batch-delete")) {
+                return std::nullopt;
+            }
+            std::string authHeader = req.header("Authorization");
+            std::string prefix = "Bearer ";
+            if (authHeader.size() > prefix.size() &&
+                authHeader.compare(0, prefix.size(), prefix) == 0) {
+                std::string token = authHeader.substr(prefix.size());
+                if (protectionService->validateToken(token)) {
+                    return std::nullopt;
+                }
+            }
+            return Response::error(403, "Forbidden", "protection_required", "需要密码验证");
+        });
+    }
 
     router.addRoute(Request::Method::DELETE, "/api/library/delete",
         [libraryCtrl](const Request& req) { return libraryCtrl->remove(req); });

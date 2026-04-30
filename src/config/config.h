@@ -64,6 +64,11 @@ struct EmailConfig {
     std::vector<EmailAccount> accounts;
 };
 
+struct ProtectionConfig {
+    bool enabled = false;
+    std::string password;
+};
+
 class Config {
 public:
     static Config load(const std::string& path);
@@ -73,7 +78,8 @@ public:
     void applyOverrides(int port, const std::string& downloadPath,
                         const std::string& extension, bool debug,
                         const std::string& cpolarToken,
-                        const std::string& emailKey);
+                        const std::string& emailKey,
+                        const std::string& protectionPassword);
 
     ServerConfig server;
     DownloadConfig download;
@@ -83,6 +89,7 @@ public:
     DatabaseConfig database;
     CpolarConfig cpolar;
     EmailConfig email;
+    ProtectionConfig protection;
     bool debug_mode = false;
 
 private:

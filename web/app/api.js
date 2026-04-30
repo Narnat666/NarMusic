@@ -147,16 +147,20 @@ export const api = {
         return requestJson('/api/library/list');
     },
 
-    libraryDelete(id) {
-        return requestJson('/api/library/delete?id=' + id, { method: 'DELETE' });
+    libraryDelete(id, token) {
+        const opts = { method: 'DELETE' };
+        if (token) opts.headers = { 'Authorization': 'Bearer ' + token };
+        return requestJson('/api/library/delete?id=' + id, opts);
     },
 
-    libraryBatchDelete(ids) {
-        return requestJson('/api/library/batch-delete', {
+    libraryBatchDelete(ids, token) {
+        const opts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids })
-        });
+        };
+        if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+        return requestJson('/api/library/batch-delete', opts);
     },
 
     libraryBatchDownload(ids, signal) {
@@ -166,6 +170,18 @@ export const api = {
             body: JSON.stringify({ ids }),
             timeout: 0,
             signal
+        });
+    },
+
+    protectionStatus() {
+        return requestJson('/api/protection/status');
+    },
+
+    protectionVerify(password) {
+        return requestJson('/api/protection/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
         });
     }
 };

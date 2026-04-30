@@ -79,6 +79,12 @@ void Config::fromJson(const nlohmann::json& j) {
             }
         }
     }
+
+    if (j.contains("protection")) {
+        auto& pt = j["protection"];
+        if (pt.contains("enabled")) protection.enabled = pt["enabled"].get<bool>();
+        if (pt.contains("password")) protection.password = pt["password"].get<std::string>();
+    }
 }
 
 Config Config::load(const std::string& path) {
@@ -103,7 +109,8 @@ Config Config::loadDefault() {
 void Config::applyOverrides(int port, const std::string& downloadPath,
                             const std::string& extension, bool debug,
                             const std::string& cpolarToken,
-                            const std::string& emailKey) {
+                            const std::string& emailKey,
+                            const std::string& protectionPassword) {
     if (port > 0) server.port = port;
     if (!downloadPath.empty()) download.path = downloadPath;
     if (!extension.empty()) download.extension = extension;
@@ -130,6 +137,10 @@ void Config::applyOverrides(int port, const std::string& downloadPath,
             }
         }
         email.enabled = true;
+    }
+    if (!protectionPassword.empty()) {
+        protection.password = protectionPassword;
+        protection.enabled = true;
     }
 }
 

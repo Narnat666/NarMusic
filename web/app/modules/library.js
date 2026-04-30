@@ -9,6 +9,8 @@ let isBatchMode = false;
 let isBatchDownloading = false;
 let batchDownloadAbortController = null;
 let selectedMusicIds = new Set();
+let protectionEnabled = null; // null = 未加载, true/false = 已加载
+let protectionToken = null;
 
 export function initLibrary() {
     const refreshLibraryBtn = document.getElementById('refreshLibraryBtn');
@@ -47,6 +49,13 @@ export function initLibrary() {
     if (libraryEl) {
         libraryEl.addEventListener('click', handleLibraryClick);
     }
+
+    api.protectionStatus().then(data => {
+        protectionEnabled = data.enabled;
+        if (protectionEnabled) {
+            protectionToken = localStorage.getItem('protection_token');
+        }
+    }).catch(() => {});
 }
 
 function handleLibraryClick(e) {
@@ -241,6 +250,90 @@ async function downloadMusicFile(systemFilename, btnEl) {
     }
 }
 
+function ensureProtectionToken() {
+    if (protectionEnabled === null) {
+        return api.protectionStatus().then(data => {
+            protectionEnabled = data.enabled;
+            if (protectionEnabled && !protectionToken) {
+                protectionToken = localStorage.getItem('protection_token');
+            }
+            return ensureProtectionToken();
+        }).catch(() => {
+            protectionEnabled = false;
+            return null;
+        });
+    }
+    if (!protectionEnabled) return Promise.resolve(null);
+    if (protectionToken) return Promise.resolve(protectionToken);
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'background:var(--md-sys-color-surface-container-high,#f0f0f0);border-radius:16px;padding:24px;max-width:320px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,0.3);';
+        dialog.innerHTML = '<div style="font-size:18px;font-weight:600;margin-bottom:8px;color:var(--md-sys-color-on-surface,#1d1b20);">文件保护</div>'
+            + '<div style="font-size:14px;margin-bottom:16px;color:var(--md-sys-color-on-surface-variant,#49454f);">请输入密码以执行删除操作</div>'
+            + '<div style="position:relative;display:flex;align-items:center;">'
+            + '<input type="password" id="protectionPwdInput" style="width:100%;padding:10px 12px;padding-right:40px;border:1px solid var(--md-sys-color-outline,#79747e);border-radius:8px;font-size:16px;background:var(--md-sys-color-surface,#fef7ff);color:var(--md-sys-color-on-surface,#1d1b20);box-sizing:border-box;outline:none;" placeholder="输入密码" autofocus>'
+            + '<button id="protectionTogglePwdBtn" type="button" style="position:absolute;right:8px;background:none;border:none;cursor:pointer;padding:4px;color:var(--md-sys-color-on-surface-variant,#49454f);display:flex;align-items:center;"><span class="material-symbols-rounded" style="font-size:20px;">visibility_off</span></button>'
+            + '</div>'
+            + '<div id="protectionPwdError" style="font-size:12px;color:var(--md-sys-color-error,#b3261e);margin-top:4px;display:none;">密码错误</div>'
+            + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">'
+            + '<button id="protectionCancelBtn" style="padding:8px 16px;border:none;border-radius:8px;background:transparent;color:var(--md-sys-color-primary,#6750a4);font-size:14px;cursor:pointer;">取消</button>'
+            + '<button id="protectionConfirmBtn" style="padding:8px 16px;border:none;border-radius:8px;background:var(--md-sys-color-primary,#6750a4);color:#fff;font-size:14px;cursor:pointer;">确认</button>'
+            + '</div>';
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        const input = dialog.querySelector('#protectionPwdInput');
+        const errorEl = dialog.querySelector('#protectionPwdError');
+        const confirmBtn = dialog.querySelector('#protectionConfirmBtn');
+        const cancelBtn = dialog.querySelector('#protectionCancelBtn');
+        const togglePwdBtn = dialog.querySelector('#protectionTogglePwdBtn');
+
+        togglePwdBtn.addEventListener('click', () => {
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            togglePwdBtn.querySelector('.material-symbols-rounded').textContent = isPassword ? 'visibility' : 'visibility_off';
+        });
+
+        input.focus();
+
+        const close = () => {
+            document.body.removeChild(overlay);
+            resolve(null);
+        };
+
+        const verify = async () => {
+            const pwd = input.value.trim();
+            if (!pwd) return;
+            try {
+                const data = await api.protectionVerify(pwd);
+                if (data.valid && data.token) {
+                    protectionToken = data.token;
+                    localStorage.setItem('protection_token', protectionToken);
+                    document.body.removeChild(overlay);
+                    resolve(protectionToken);
+                } else {
+                    errorEl.style.display = 'block';
+                    input.value = '';
+                    input.focus();
+                }
+            } catch (e) {
+                errorEl.style.display = 'block';
+                input.value = '';
+                input.focus();
+            }
+        };
+
+        confirmBtn.addEventListener('click', verify);
+        cancelBtn.addEventListener('click', close);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') verify();
+            if (e.key === 'Escape') close();
+        });
+    });
+}
+
 async function deleteMusicFromLibrary(musicId, systemFilename) {
     if (!musicId) { showToast('文件ID无效', 'warning'); return; }
     const musicItem = musicLibrary.find(item => item.id === musicId);
@@ -249,8 +342,11 @@ async function deleteMusicFromLibrary(musicId, systemFilename) {
         : (systemFilename || '该文件').replace(/\.[^/.]+$/, '');
     if (!confirm('确定要删除「' + displayName + '」吗？此操作不可恢复。')) return;
 
+    const token = await ensureProtectionToken();
+    if (protectionEnabled && !token) return;
+
     try {
-        const data = await api.libraryDelete(musicId);
+        const data = await api.libraryDelete(musicId, token);
         if (data.success !== false) {
             showToast('已删除', 'success');
             loadMusicLibrary();
@@ -258,7 +354,13 @@ async function deleteMusicFromLibrary(musicId, systemFilename) {
             showToast('删除失败: ' + (data.error || '未知错误'), 'warning');
         }
     } catch (error) {
-        showToast('删除错误: ' + error.message, 'warning');
+        if (error.code === 'protection_required') {
+            protectionToken = null;
+            localStorage.removeItem('protection_token');
+            showToast('需要密码验证', 'warning');
+        } else {
+            showToast('删除错误: ' + error.message, 'warning');
+        }
     }
 }
 
@@ -419,6 +521,9 @@ async function batchDelete() {
     if (ids.length === 0) { showToast('请先选择要删除的文件', 'warning'); return; }
     if (!confirm('确定要删除选中的 ' + ids.length + ' 个文件吗？此操作不可恢复。')) return;
 
+    const token = await ensureProtectionToken();
+    if (protectionEnabled && !token) return;
+
     showToast('正在删除 ' + ids.length + ' 个文件...', 'info');
 
     const batchDeleteBtn = document.getElementById('batchDeleteBtn');
@@ -427,12 +532,18 @@ async function batchDelete() {
     batchDeleteBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 删除中...';
 
     try {
-        const data = await api.libraryBatchDelete(ids);
+        const data = await api.libraryBatchDelete(ids, token);
         showToast('已删除 ' + (data.count || ids.length) + ' 个文件', 'success');
         selectedMusicIds.clear();
         loadMusicLibrary();
     } catch (error) {
-        showToast('删除错误: ' + error.message, 'warning');
+        if (error.code === 'protection_required') {
+            protectionToken = null;
+            localStorage.removeItem('protection_token');
+            showToast('需要密码验证', 'warning');
+        } else {
+            showToast('删除错误: ' + error.message, 'warning');
+        }
     } finally {
         batchDeleteBtn.disabled = false;
         batchDeleteBtn.innerHTML = originalContent;
