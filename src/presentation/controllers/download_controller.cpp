@@ -176,8 +176,8 @@ Response DownloadController::downloadFile(const Request& req) {
         return Response::error(400, "Bad Request", "missing_id", "task_id或filename参数缺失");
     }
 
-    auto fileData = streamingService_->getFileData(id);
-    if (fileData.empty()) {
+    auto info = streamingService_->streamFileInfo(id, "");
+    if (info.filePath.empty() || info.fileSize <= 0) {
         return Response::error(404, "Not Found", "file_not_found", "文件不存在");
     }
 
@@ -189,7 +189,7 @@ Response DownloadController::downloadFile(const Request& req) {
         displayName += ".m4a";
     }
 
-    return Response::download(fileData, displayName);
+    return Response::downloadFile(info, displayName);
 }
 
 Response DownloadController::stream(const Request& req) {

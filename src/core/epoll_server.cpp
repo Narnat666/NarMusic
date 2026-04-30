@@ -425,6 +425,7 @@ void EpollServer::processPendingWrites() {
                 it->second.fileFd = fileFd;
                 it->second.fileOffset = info.rangeStart;
                 it->second.fileEnd = info.rangeEnd;
+                it->second.cleanupPath = info.cleanupPath;
                 it->second.writeBuffer.clear();
                 it->second.written = 0;
 
@@ -467,6 +468,10 @@ void EpollServer::sendFileChunked(int fd, Connection& conn) {
             }
             close(conn.fileFd);
             conn.fileFd = -1;
+            if (!conn.cleanupPath.empty()) {
+                unlink(conn.cleanupPath.c_str());
+                conn.cleanupPath.clear();
+            }
             close(fd);
             connections_.erase(fd);
             return;
@@ -478,6 +483,12 @@ void EpollServer::sendFileChunked(int fd, Connection& conn) {
     close(conn.fileFd);
     conn.fileFd = -1;
     conn.isFileStream = false;
+
+    if (!conn.cleanupPath.empty()) {
+        unlink(conn.cleanupPath.c_str());
+        conn.cleanupPath.clear();
+    }
+
     struct epoll_event ev{};
     ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
     ev.data.fd = fd;

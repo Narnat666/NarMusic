@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { formatBytes, formatSpeed, formatTime, extractUrlFromText, showToast, parseFilenameFromContentDisposition, triggerDownload } from '../utils.js';
+import { formatBytes, formatSpeed, formatTime, extractUrlFromText, showToast, parseFilenameFromContentDisposition, triggerDownload, streamDownloadWithProgress } from '../utils.js';
 import { getSettingsValues } from './settings.js';
 
 let pollingInterval = null;
@@ -98,11 +98,17 @@ async function handleSend() {
 
 async function handleLocalDownload() {
     if (!currentTaskId) { showToast('没有可下载的文件', 'warning'); return; }
-    showToast('正在准备文件...', 'info');
 
-    localDownloadBtn.disabled = true;
+    localDownloadBtn.disabled = false;
     const originalContent = localDownloadBtn.innerHTML;
-    localDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">refresh</span> 准备中...';
+    const originalOnclick = localDownloadBtn.onclick;
+
+    const abortController = new AbortController();
+    const cancelHandler = () => abortController.abort();
+    let progressEl = null;
+
+    localDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">downloading</span> 下载中 0%';
+    localDownloadBtn.onclick = cancelHandler;
 
     try {
         const response = await api.downloadFileByTask(currentTaskId);
@@ -112,16 +118,40 @@ async function handleLocalDownload() {
             if (contentDisposition) {
                 filename = parseFilenameFromContentDisposition(contentDisposition, filename);
             }
-            const blob = await response.blob();
-            triggerDownload(blob, filename);
-            showToast('文件开始下载到您的设备', 'success');
+
+            localDownloadBtn.innerHTML = '<span class="material-symbols-rounded">cancel</span> 下载中 <span class="dl-progress">0%</span>';
+            progressEl = localDownloadBtn.querySelector('.dl-progress');
+
+            const blob = await streamDownloadWithProgress(response, (received, total) => {
+                if (abortController.signal.aborted) return;
+                if (progressEl) {
+                    if (total > 0) {
+                        const percent = Math.round((received / total) * 100);
+                        progressEl.textContent = percent + '%';
+                    } else {
+                        progressEl.textContent = formatBytes(received);
+                    }
+                }
+            }, abortController.signal);
+
+            if (blob) {
+                triggerDownload(blob, filename);
+                showToast('文件下载完成', 'success');
+            } else {
+                showToast('下载已取消', 'info');
+            }
         } else {
             const errorData = await response.json();
             showToast('下载未完成: ' + (errorData.error || '未知错误'), 'warning');
         }
     } catch (error) {
-        showToast('下载错误: ' + error.message, 'warning');
+        if (abortController.signal.aborted) {
+            showToast('下载已取消', 'info');
+        } else {
+            showToast('下载错误: ' + error.message, 'warning');
+        }
     } finally {
+        localDownloadBtn.onclick = originalOnclick;
         localDownloadBtn.disabled = false;
         localDownloadBtn.innerHTML = originalContent;
     }

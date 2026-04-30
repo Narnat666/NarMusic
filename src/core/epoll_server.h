@@ -49,6 +49,7 @@ private:
         long long fileOffset = 0;
         long long fileEnd = 0;
         int fileFd = -1;
+        std::string cleanupPath;
     };
 
     void cleanupTimeouts();

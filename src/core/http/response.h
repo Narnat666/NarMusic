@@ -15,6 +15,7 @@ struct FileStreamInfo {
     long long rangeStart = 0;
     long long rangeEnd = 0;
     bool isPartial = false;
+    std::string cleanupPath;
 };
 
 struct StreamData {
@@ -40,6 +41,9 @@ public:
 
     static Response download(const std::vector<char>& fileData,
                              const std::string& displayName);
+
+    static Response downloadFile(const FileStreamInfo& info,
+                                 const std::string& displayName);
 
     static Response stream(const std::vector<char>& data,
                            long long fileSize,

@@ -74,4 +74,28 @@ std::vector<std::pair<std::string, std::vector<char>>> LibraryService::getFilesD
     return result;
 }
 
+std::vector<std::pair<std::string, std::string>> LibraryService::getFilesPaths(const std::vector<int>& ids) {
+    std::vector<std::pair<std::string, std::string>> result;
+    for (int id : ids) {
+        auto entry = libraryRepo_->findById(id);
+        if (!entry) continue;
+        if (entry->filePath.empty()) continue;
+
+        std::string displayName;
+        if (!entry->originalFilename.empty()) {
+            displayName = entry->originalFilename;
+        } else if (!entry->songName.empty()) {
+            displayName = entry->songName;
+        } else {
+            displayName = entry->systemFilename;
+        }
+        if (displayName.find('.') == std::string::npos) {
+            displayName += ".m4a";
+        }
+        libraryRepo_->markUsed(id);
+        result.emplace_back(std::move(displayName), entry->filePath);
+    }
+    return result;
+}
+
 } // namespace narnat

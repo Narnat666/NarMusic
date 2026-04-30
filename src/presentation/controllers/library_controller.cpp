@@ -5,6 +5,8 @@
 #include <sstream>
 #include <set>
 #include <iomanip>
+#include <unistd.h>
+#include <sys/stat.h>
 
 namespace narnat {
 
@@ -86,22 +88,40 @@ Response LibraryController::batchDownload(const Request& req) {
             return Response::error(400, "Bad Request", "empty_ids", "ids不能为空");
         }
 
-        if (ids.size() == 1) {
-            auto filesData = libraryService_->getFilesData(ids);
-            if (filesData.empty()) {
-                return Response::error(404, "Not Found", "file_not_found", "文件不存在");
-            }
-            return Response::download(filesData[0].second, filesData[0].first);
-        }
-
-        auto filesData = libraryService_->getFilesData(ids);
-        if (filesData.empty()) {
+        auto filesPaths = libraryService_->getFilesPaths(ids);
+        if (filesPaths.empty()) {
             return Response::error(404, "Not Found", "files_not_found", "文件均不存在");
         }
 
+        if (ids.size() == 1) {
+            FileStreamInfo info;
+            info.filePath = filesPaths[0].second;
+            struct stat st;
+            if (stat(info.filePath.c_str(), &st) != 0) {
+                return Response::error(404, "Not Found", "file_not_found", "文件不存在");
+            }
+            info.fileSize = st.st_size;
+            info.rangeStart = 0;
+            info.rangeEnd = st.st_size - 1;
+            return Response::downloadFile(info, filesPaths[0].first);
+        }
+
+        std::ostringstream dateStr;
+        auto now = std::time(nullptr);
+        auto* t = std::localtime(&now);
+        dateStr << "NarMusic_"
+                << (1900 + t->tm_year)
+                << std::setfill('0') << std::setw(2) << (t->tm_mon + 1)
+                << std::setw(2) << t->tm_mday << "_"
+                << std::setw(2) << t->tm_hour
+                << std::setw(2) << t->tm_min
+                << std::setw(2) << t->tm_sec;
+        std::string zipPath = "/tmp/narnat_" + dateStr.str() + ".zip";
+        std::string zipName = dateStr.str() + ".zip";
+
         std::vector<ZipEntry> entries;
         std::set<std::string> usedNames;
-        for (auto& [name, data] : filesData) {
+        for (auto& [name, path] : filesPaths) {
             std::string uniqueName = name;
             int counter = 1;
             while (usedNames.count(uniqueName)) {
@@ -113,24 +133,27 @@ Response LibraryController::batchDownload(const Request& req) {
                 }
             }
             usedNames.insert(uniqueName);
-            entries.push_back({uniqueName, std::move(data)});
+            entries.push_back({uniqueName, path});
         }
 
-        auto zipData = ZipWriter::create(entries);
+        if (!ZipWriter::createToFile(entries, zipPath)) {
+            unlink(zipPath.c_str());
+            return Response::error(500, "Internal Error", "zip_failed", "ZIP打包失败");
+        }
 
-        std::ostringstream dateStr;
-        auto now = std::time(nullptr);
-        auto* t = std::localtime(&now);
-        dateStr << "NarMusic_"
-                << (1900 + t->tm_year)
-                << std::setfill('0') << std::setw(2) << (t->tm_mon + 1)
-                << std::setw(2) << t->tm_mday << "_"
-                << std::setw(2) << t->tm_hour
-                << std::setw(2) << t->tm_min
-                << std::setw(2) << t->tm_sec
-                << ".zip";
+        FileStreamInfo info;
+        info.filePath = zipPath;
+        struct stat st;
+        if (stat(zipPath.c_str(), &st) != 0) {
+            unlink(zipPath.c_str());
+            return Response::error(500, "Internal Error", "zip_stat_failed", "ZIP文件状态获取失败");
+        }
+        info.fileSize = st.st_size;
+        info.rangeStart = 0;
+        info.rangeEnd = st.st_size - 1;
+        info.cleanupPath = zipPath;
 
-        return Response::download(zipData, dateStr.str());
+        return Response::downloadFile(info, zipName);
 
     } catch (const std::exception& e) {
         LOG_E("LibraryCtrl", std::string("批量下载失败: ") + e.what());

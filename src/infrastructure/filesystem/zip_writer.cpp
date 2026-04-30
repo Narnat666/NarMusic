@@ -1,4 +1,3 @@
-// 在包含任何头文件之前抑制zlib的旧式类型转换警告
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -15,24 +14,10 @@
 #include <cstring>
 #include <cstdint>
 #include <ctime>
+#include <fstream>
+#include <sys/stat.h>
 
 namespace narnat {
-
-static void writeU16LE(std::vector<char>& buf, uint16_t v) {
-    buf.push_back(static_cast<char>(v & 0xFF));
-    buf.push_back(static_cast<char>((v >> 8) & 0xFF));
-}
-
-static void writeU32LE(std::vector<char>& buf, uint32_t v) {
-    buf.push_back(static_cast<char>(v & 0xFF));
-    buf.push_back(static_cast<char>((v >> 8) & 0xFF));
-    buf.push_back(static_cast<char>((v >> 16) & 0xFF));
-    buf.push_back(static_cast<char>((v >> 24) & 0xFF));
-}
-
-static uint32_t crc32Calc(const char* data, size_t len) {
-    return static_cast<uint32_t>(::crc32(0L, reinterpret_cast<const Bytef*>(data), static_cast<uInt>(len)));
-}
 
 struct CentralDirEntry {
     uint16_t versionMadeBy;
@@ -66,19 +51,57 @@ static uint16_t dosDate() {
     return static_cast<uint16_t>(((t->tm_year - 80) << 9) | ((t->tm_mon + 1) << 5) | t->tm_mday);
 }
 
-std::vector<char> ZipWriter::create(const std::vector<ZipEntry>& entries) {
-    std::vector<char> result;
+static bool readFileContents(const std::string& path, std::vector<char>& out) {
+    std::ifstream f(path, std::ios::binary);
+    if (!f) return false;
+    f.seekg(0, std::ios::end);
+    auto sz = f.tellg();
+    if (sz <= 0) { out.clear(); return true; }
+    f.seekg(0, std::ios::beg);
+    out.resize(static_cast<size_t>(sz));
+    f.read(out.data(), sz);
+    return f.good() || f.eof();
+}
+
+static void writeU16(std::ostream& out, uint16_t v) {
+    char buf[2] = {static_cast<char>(v & 0xFF), static_cast<char>((v >> 8) & 0xFF)};
+    out.write(buf, 2);
+}
+
+static void writeU32(std::ostream& out, uint32_t v) {
+    char buf[4] = {
+        static_cast<char>(v & 0xFF),
+        static_cast<char>((v >> 8) & 0xFF),
+        static_cast<char>((v >> 16) & 0xFF),
+        static_cast<char>((v >> 24) & 0xFF)
+    };
+    out.write(buf, 4);
+}
+
+static uint32_t crc32Calc(const char* data, size_t len) {
+    return static_cast<uint32_t>(::crc32(0L, reinterpret_cast<const Bytef*>(data), static_cast<uInt>(len)));
+}
+
+bool ZipWriter::createToFile(const std::vector<ZipEntry>& entries, const std::string& outputPath) {
+    std::ofstream out(outputPath, std::ios::binary);
+    if (!out) return false;
+
     std::vector<CentralDirEntry> centralDir;
     uint16_t modTime = dosTime();
     uint16_t modDate = dosDate();
 
     for (const auto& entry : entries) {
-        uint32_t uncompressedSize = static_cast<uint32_t>(entry.data.size());
+        std::vector<char> fileData;
+        if (!readFileContents(entry.filePath, fileData)) {
+            return false;
+        }
+
+        uint32_t uncompressedSize = static_cast<uint32_t>(fileData.size());
         uint32_t crc = 0;
         if (uncompressedSize > 0) {
-            crc = crc32Calc(entry.data.data(), entry.data.size());
+            crc = crc32Calc(fileData.data(), fileData.size());
         }
-        
+
         uint32_t compressedSize = 0;
         uint16_t compression = 0;
         std::vector<char> compressedData;
@@ -88,14 +111,13 @@ std::vector<char> ZipWriter::create(const std::vector<ZipEntry>& entries) {
             strm.zalloc = Z_NULL;
             strm.zfree = Z_NULL;
             strm.opaque = Z_NULL;
-            strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(entry.data.data()));
+            strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(fileData.data()));
             strm.avail_in = uncompressedSize;
             uLongf destLen = compressBound(static_cast<uLong>(uncompressedSize));
             compressedData.resize(destLen);
             strm.next_out = reinterpret_cast<Bytef*>(compressedData.data());
             strm.avail_out = static_cast<uInt>(destLen);
 
-            // -MAX_WBITS 产生 raw deflate 输出（无 zlib header），符合 ZIP 格式要求
             if (deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
                             -MAX_WBITS, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY) == Z_OK) {
                 int ret = deflate(&strm, Z_FINISH);
@@ -103,28 +125,23 @@ std::vector<char> ZipWriter::create(const std::vector<ZipEntry>& entries) {
                 if (ret == Z_STREAM_END) {
                     compressedData.resize(strm.total_out);
                     compressedSize = static_cast<uint32_t>(strm.total_out);
-                    compression = 8;  // deflate压缩
+                    compression = 8;
                 } else {
-                    // 压缩失败，使用存储模式（不压缩）
-                    compressedData = entry.data;
+                    compressedData = std::move(fileData);
                     compressedSize = uncompressedSize;
-                    compression = 0;  // 存储模式
+                    compression = 0;
                 }
             } else {
-                // zlib初始化失败，使用存储模式
-                compressedData = entry.data;
+                compressedData = std::move(fileData);
                 compressedSize = uncompressedSize;
-                compression = 0;  // 存储模式
+                compression = 0;
             }
-        } else {
-            // 空文件
-            compressedSize = 0;
-            compression = 0;  // 存储模式
+            fileData.clear();
+            fileData.shrink_to_fit();
         }
 
-        uint32_t localHeaderOffset = static_cast<uint32_t>(result.size());
+        uint32_t localHeaderOffset = static_cast<uint32_t>(out.tellp());
 
-        // 检查文件名是否包含非ASCII字符，决定是否使用UTF-8编码
         bool hasNonAscii = false;
         for (char c : entry.filename) {
             if (static_cast<unsigned char>(c) > 127) {
@@ -132,25 +149,23 @@ std::vector<char> ZipWriter::create(const std::vector<ZipEntry>& entries) {
                 break;
             }
         }
-        
-        // 通用位标志：第11位(0x0800)表示使用UTF-8编码
+
         uint16_t flags = hasNonAscii ? 0x0800 : 0;
-        // 版本需要提取：20 = 2.0，支持UTF-8
         uint16_t versionNeeded = 20;
 
-        writeU32LE(result, 0x04034b50);  // 本地文件头签名
-        writeU16LE(result, versionNeeded);  // 版本需要提取
-        writeU16LE(result, flags);  // 通用位标志
-        writeU16LE(result, compression);
-        writeU16LE(result, modTime);
-        writeU16LE(result, modDate);
-        writeU32LE(result, crc);
-        writeU32LE(result, compressedSize);
-        writeU32LE(result, uncompressedSize);
-        writeU16LE(result, static_cast<uint16_t>(entry.filename.size()));
-        writeU16LE(result, 0);  // 额外字段长度
-        result.insert(result.end(), entry.filename.begin(), entry.filename.end());
-        result.insert(result.end(), compressedData.begin(), compressedData.end());
+        writeU32(out, 0x04034b50);
+        writeU16(out, versionNeeded);
+        writeU16(out, flags);
+        writeU16(out, compression);
+        writeU16(out, modTime);
+        writeU16(out, modDate);
+        writeU32(out, crc);
+        writeU32(out, compressedSize);
+        writeU32(out, uncompressedSize);
+        writeU16(out, static_cast<uint16_t>(entry.filename.size()));
+        writeU16(out, 0);
+        out.write(entry.filename.data(), static_cast<std::streamsize>(entry.filename.size()));
+        out.write(compressedData.data(), static_cast<std::streamsize>(compressedData.size()));
 
         CentralDirEntry cd;
         cd.versionMadeBy = 20;
@@ -173,41 +188,42 @@ std::vector<char> ZipWriter::create(const std::vector<ZipEntry>& entries) {
         centralDir.push_back(cd);
     }
 
-    uint32_t centralDirOffset = static_cast<uint32_t>(result.size());
+    uint32_t centralDirOffset = static_cast<uint32_t>(out.tellp());
 
     for (const auto& cd : centralDir) {
-        writeU32LE(result, 0x02014b50);
-        writeU16LE(result, cd.versionMadeBy);
-        writeU16LE(result, cd.versionNeeded);
-        writeU16LE(result, cd.flags);
-        writeU16LE(result, cd.compression);
-        writeU16LE(result, cd.modTime);
-        writeU16LE(result, cd.modDate);
-        writeU32LE(result, cd.crc32);
-        writeU32LE(result, cd.compressedSize);
-        writeU32LE(result, cd.uncompressedSize);
-        writeU16LE(result, cd.filenameLen);
-        writeU16LE(result, cd.extraLen);
-        writeU16LE(result, cd.commentLen);
-        writeU16LE(result, cd.diskStart);
-        writeU16LE(result, cd.internalAttr);
-        writeU32LE(result, cd.externalAttr);
-        writeU32LE(result, cd.localHeaderOffset);
-        result.insert(result.end(), cd.filename.begin(), cd.filename.end());
+        writeU32(out, 0x02014b50);
+        writeU16(out, cd.versionMadeBy);
+        writeU16(out, cd.versionNeeded);
+        writeU16(out, cd.flags);
+        writeU16(out, cd.compression);
+        writeU16(out, cd.modTime);
+        writeU16(out, cd.modDate);
+        writeU32(out, cd.crc32);
+        writeU32(out, cd.compressedSize);
+        writeU32(out, cd.uncompressedSize);
+        writeU16(out, cd.filenameLen);
+        writeU16(out, cd.extraLen);
+        writeU16(out, cd.commentLen);
+        writeU16(out, cd.diskStart);
+        writeU16(out, cd.internalAttr);
+        writeU32(out, cd.externalAttr);
+        writeU32(out, cd.localHeaderOffset);
+        out.write(cd.filename.data(), static_cast<std::streamsize>(cd.filename.size()));
     }
 
-    uint32_t centralDirSize = static_cast<uint32_t>(result.size()) - centralDirOffset;
+    uint32_t centralDirSize = static_cast<uint32_t>(out.tellp()) - centralDirOffset;
 
-    writeU32LE(result, 0x06054b50);
-    writeU16LE(result, 0);
-    writeU16LE(result, 0);
-    writeU16LE(result, static_cast<uint16_t>(centralDir.size()));
-    writeU16LE(result, static_cast<uint16_t>(centralDir.size()));
-    writeU32LE(result, centralDirSize);
-    writeU32LE(result, centralDirOffset);
-    writeU16LE(result, 0);
+    writeU32(out, 0x06054b50);
+    writeU16(out, 0);
+    writeU16(out, 0);
+    writeU16(out, static_cast<uint16_t>(centralDir.size()));
+    writeU16(out, static_cast<uint16_t>(centralDir.size()));
+    writeU32(out, centralDirSize);
+    writeU32(out, centralDirOffset);
+    writeU16(out, 0);
 
-    return result;
+    out.close();
+    return out.good();
 }
 
 } // namespace narnat

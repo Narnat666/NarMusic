@@ -8,12 +8,12 @@ namespace narnat {
 
 struct ZipEntry {
     std::string filename;
-    std::vector<char> data;
+    std::string filePath;
 };
 
 class ZipWriter {
 public:
-    static std::vector<char> create(const std::vector<ZipEntry>& entries);
+    static bool createToFile(const std::vector<ZipEntry>& entries, const std::string& outputPath);
 };
 
 } // namespace narnat

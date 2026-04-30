@@ -65,6 +65,22 @@ Response Response::download(const std::vector<char>& fileData,
     return r;
 }
 
+Response Response::downloadFile(const FileStreamInfo& info,
+                                 const std::string& displayName) {
+    Response r;
+    r.status_ = 200;
+    r.statusText_ = "OK";
+    r.isFileStream_ = true;
+    r.fileStreamInfo_ = info;
+    r.headers_["Content-Type"] = "application/octet-stream";
+    r.headers_["Accept-Ranges"] = "bytes";
+    r.headers_["Connection"] = "keep-alive";
+    r.headers_["Access-Control-Allow-Origin"] = "*";
+    r.headers_["Access-Control-Expose-Headers"] = "Content-Disposition";
+    r.headers_["Content-Disposition"] = "attachment; filename=\"" + urlEncodeUtf8(displayName) + "\"; filename*=UTF-8''" + urlEncodeUtf8(displayName);
+    return r;
+}
+
 Response Response::stream(const std::vector<char>& data,
                            long long fileSize,
                            long long rangeStart,

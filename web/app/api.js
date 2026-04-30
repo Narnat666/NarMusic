@@ -20,14 +20,14 @@ async function request(url, options = {}) {
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeout);
+        const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
 
         try {
             const response = await fetch(url, {
                 ...fetchOptions,
                 signal: controller.signal
             });
-            clearTimeout(timer);
+            if (timer) clearTimeout(timer);
 
             if (response.status === 429) {
                 const retryAfter = parseInt(response.headers.get('Retry-After') || '5', 10);
@@ -50,7 +50,7 @@ async function request(url, options = {}) {
 
             return response;
         } catch (err) {
-            clearTimeout(timer);
+            if (timer) clearTimeout(timer);
             if (err instanceof ApiError) throw err;
             if (err.name === 'AbortError') {
                 lastError = new ApiError(0, 'timeout', '请求超时，请检查网络连接');
@@ -95,11 +95,11 @@ export const api = {
     },
 
     downloadFileByTask(taskId) {
-        return request('/api/download/file?task_id=' + taskId);
+        return request('/api/download/file?task_id=' + taskId, { timeout: 0 });
     },
 
     downloadFileByName(filename) {
-        return request('/api/download/file?filename=' + encodeURIComponent(filename));
+        return request('/api/download/file?filename=' + encodeURIComponent(filename), { timeout: 0 });
     },
 
     streamUrl(filename, withTimestamp = true) {
@@ -154,7 +154,8 @@ export const api = {
         return request('/api/library/batch-download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids })
+            body: JSON.stringify({ ids }),
+            timeout: 0
         });
     }
 };

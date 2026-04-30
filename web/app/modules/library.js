@@ -1,11 +1,13 @@
 import { api } from '../api.js';
 import { store } from '../state.js';
-import { formatBytes, formatDateTime, escapeHtml, showToast, parseFilenameFromContentDisposition, triggerDownload } from '../utils.js';
+import { formatBytes, formatDateTime, escapeHtml, showToast, parseFilenameFromContentDisposition, triggerDownload, streamDownloadWithProgress } from '../utils.js';
 import { playMusicFromLibrary } from './player.js';
 
 let musicLibrary = [];
 let isLibraryLoading = false;
 let isBatchMode = false;
+let isBatchDownloading = false;
+let batchDownloadAbortController = null;
 let selectedMusicIds = new Set();
 
 export function initLibrary() {
@@ -57,7 +59,7 @@ function handleLibraryClick(e) {
     if (action === 'play') {
         playMusicFromLibrary(filename, musicLibrary);
     } else if (action === 'download') {
-        downloadMusicFile(filename);
+        downloadMusicFile(filename, target);
     } else if (action === 'delete') {
         deleteMusicFromLibrary(id, filename);
     } else if (action === 'select') {
@@ -84,7 +86,6 @@ export async function loadMusicLibrary() {
         musicLibrary = await api.libraryList();
         store.set('musicLibrary', musicLibrary);
         renderMusicLibrary();
-        showToast('音乐库加载成功', 'success');
     } catch (error) {
         showToast('加载失败: ' + error.message, 'warning');
         musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">wifi_off</span><div style="font-size: 16px; font-weight: 500;">网络连接失败</div><div style="font-size: 14px; margin-top: 8px;">请检查服务器是否运行</div></div>';
@@ -166,9 +167,25 @@ function escapeAttr(str) {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-async function downloadMusicFile(systemFilename) {
+async function downloadMusicFile(systemFilename, btnEl) {
     if (!systemFilename) { showToast('文件名无效', 'warning'); return; }
-    showToast('准备下载文件...', 'info');
+
+    const abortController = new AbortController();
+    let originalContent = null;
+    let cancelHandler = null;
+    let progressEl = null;
+
+    if (btnEl) {
+        originalContent = btnEl.innerHTML;
+        btnEl.innerHTML = '<span class="material-symbols-rounded">cancel</span> <span class="dl-progress" style="font-size:11px">0%</span>';
+        btnEl.dataset.action = 'cancel-download';
+        progressEl = btnEl.querySelector('.dl-progress');
+        cancelHandler = (e) => {
+            e.stopImmediatePropagation();
+            abortController.abort();
+        };
+        btnEl.addEventListener('click', cancelHandler, true);
+    }
 
     try {
         const response = await api.downloadFileByName(systemFilename);
@@ -186,15 +203,41 @@ async function downloadMusicFile(systemFilename) {
             if (contentDisposition) {
                 downloadFilename = parseFilenameFromContentDisposition(contentDisposition, downloadFilename);
             }
-            const blob = await response.blob();
-            triggerDownload(blob, downloadFilename);
-            showToast('文件开始下载到您的设备', 'success');
+
+            const blob = await streamDownloadWithProgress(response, (received, total) => {
+                if (abortController.signal.aborted) return;
+                if (progressEl) {
+                    if (total > 0) {
+                        const percent = Math.round((received / total) * 100);
+                        progressEl.textContent = percent + '%';
+                    } else {
+                        progressEl.textContent = formatBytes(received);
+                    }
+                }
+            }, abortController.signal);
+
+            if (blob) {
+                triggerDownload(blob, downloadFilename);
+                showToast('文件下载完成', 'success');
+            } else {
+                showToast('下载已取消', 'info');
+            }
         } else {
             const errorData = await response.json();
             showToast('下载未完成: ' + (errorData.error || '未知错误'), 'warning');
         }
     } catch (error) {
-        showToast('下载错误: ' + error.message, 'warning');
+        if (abortController.signal.aborted) {
+            showToast('下载已取消', 'info');
+        } else {
+            showToast('下载错误: ' + error.message, 'warning');
+        }
+    } finally {
+        if (btnEl) {
+            if (cancelHandler) btnEl.removeEventListener('click', cancelHandler, true);
+            btnEl.dataset.action = 'download';
+            btnEl.innerHTML = originalContent;
+        }
     }
 }
 
@@ -288,8 +331,8 @@ function updateBatchUI() {
 
     const count = selectedMusicIds.size;
     selectedCountEl.textContent = '已选 ' + count + ' 项';
-    batchDownloadBtn.disabled = count === 0;
-    batchDeleteBtn.disabled = count === 0;
+    batchDownloadBtn.disabled = count === 0 && !isBatchDownloading;
+    batchDeleteBtn.disabled = count === 0 || isBatchDownloading;
 
     const allIds = musicLibrary.map(m => m.id);
     if (allIds.length > 0 && count === allIds.length) {
@@ -300,14 +343,24 @@ function updateBatchUI() {
 }
 
 async function batchDownload() {
+    if (isBatchDownloading) {
+        if (batchDownloadAbortController) batchDownloadAbortController.abort();
+        return;
+    }
+
     const ids = Array.from(selectedMusicIds);
     if (ids.length === 0) { showToast('请先选择要下载的文件', 'warning'); return; }
 
-    showToast('正在准备 ' + ids.length + ' 个文件...', 'info');
-
     const batchDownloadBtn = document.getElementById('batchDownloadBtn');
-    batchDownloadBtn.disabled = true;
-    const originalContent = batchDownloadBtn.innerHTML;
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    const originalDownloadContent = batchDownloadBtn.innerHTML;
+    let batchProgressEl = null;
+
+    const abortController = new AbortController();
+    batchDownloadAbortController = abortController;
+    isBatchDownloading = true;
+
+    batchDeleteBtn.disabled = true;
     batchDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 准备中...';
 
     try {
@@ -318,18 +371,46 @@ async function batchDownload() {
             if (contentDisposition) {
                 filename = parseFilenameFromContentDisposition(contentDisposition, filename);
             }
-            const blob = await response.blob();
-            triggerDownload(blob, filename);
-            showToast((ids.length === 1 ? '文件' : ids.length + ' 个文件打包') + '下载已开始', 'success');
+
+            batchDownloadBtn.innerHTML = '<span class="material-symbols-rounded">cancel</span> 下载中 <span class="dl-progress">0%</span>';
+            batchDownloadBtn.title = '再次点击取消下载';
+            batchProgressEl = batchDownloadBtn.querySelector('.dl-progress');
+
+            const blob = await streamDownloadWithProgress(response, (received, total) => {
+                if (abortController.signal.aborted) return;
+                if (batchProgressEl) {
+                    if (total > 0) {
+                        const percent = Math.round((received / total) * 100);
+                        batchProgressEl.textContent = percent + '%';
+                    } else {
+                        batchProgressEl.textContent = formatBytes(received);
+                    }
+                }
+            }, abortController.signal);
+
+            if (blob) {
+                triggerDownload(blob, filename);
+                showToast((ids.length === 1 ? '文件' : ids.length + ' 个文件打包') + '下载已开始', 'success');
+            } else {
+                showToast('下载已取消', 'info');
+            }
         } else {
             const errorData = await response.json();
             showToast('下载失败: ' + (errorData.message || '未知错误'), 'warning');
         }
     } catch (error) {
-        showToast('下载错误: ' + error.message, 'warning');
+        if (abortController.signal.aborted) {
+            showToast('下载已取消', 'info');
+        } else {
+            showToast('下载错误: ' + error.message, 'warning');
+        }
     } finally {
-        batchDownloadBtn.disabled = false;
-        batchDownloadBtn.innerHTML = originalContent;
+        isBatchDownloading = false;
+        batchDownloadAbortController = null;
+        batchDownloadBtn.innerHTML = originalDownloadContent;
+        batchDownloadBtn.title = '';
+        batchDownloadBtn.disabled = selectedMusicIds.size === 0;
+        batchDeleteBtn.disabled = selectedMusicIds.size === 0;
     }
 }
 

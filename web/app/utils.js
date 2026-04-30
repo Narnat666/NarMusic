@@ -72,29 +72,38 @@ export function escapeHtml(str) {
 
 let toastTimeout = null;
 
-export function showToast(message, type = 'info') {
+const TOAST_DURATIONS = { info: 800, success: 1000, warning: 1500, error: 2000 };
+
+export function showToast(message, type = 'info', duration) {
+    if (duration === undefined) duration = TOAST_DURATIONS[type] || 2000;
     const toast = document.getElementById('toast');
     if (!toast) return;
     if (toast.classList.contains('show')) {
         toast.classList.remove('show');
         if (toastTimeout) clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => {
-            _showNewToast(message, type);
+            _showNewToast(message, type, duration);
         }, 300);
     } else {
-        _showNewToast(message, type);
+        _showNewToast(message, type, duration);
     }
 }
 
-function _showNewToast(message, type) {
+function _showNewToast(message, type, duration) {
     const toast = document.getElementById('toast');
     if (!toast) return;
     toast.textContent = message;
     toast.className = 'toast ' + type;
+    toast.onclick = () => {
+        toast.classList.remove('show');
+        toast.onclick = null;
+        if (toastTimeout) clearTimeout(toastTimeout);
+    };
     setTimeout(() => toast.classList.add('show'), 10);
     toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
-    }, 3000);
+        toast.onclick = null;
+    }, duration);
 }
 
 export function triggerDownload(blob, filename) {
@@ -106,6 +115,49 @@ export function triggerDownload(blob, filename) {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+}
+
+export async function streamDownloadWithProgress(response, onProgress, signal) {
+    const contentLength = parseInt(response.headers.get('Content-Length') || '0', 10);
+    const reader = response.body.getReader();
+    const chunks = [];
+    let receivedLength = 0;
+    let lastNotifyTime = 0;
+
+    if (signal) {
+        signal.addEventListener('abort', () => {
+            reader.cancel();
+        }, { once: true });
+    }
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (signal && signal.aborted) break;
+            chunks.push(value);
+            receivedLength += value.length;
+            if (onProgress) {
+                const now = Date.now();
+                if (now - lastNotifyTime >= 200) {
+                    lastNotifyTime = now;
+                    onProgress(receivedLength, contentLength);
+                }
+            }
+        }
+    } catch (e) {
+        if (signal && signal.aborted) return null;
+        throw e;
+    }
+
+    if (signal && signal.aborted) return null;
+
+    if (onProgress && receivedLength > 0) {
+        onProgress(receivedLength, contentLength);
+    }
+
+    const blob = new Blob(chunks);
+    return blob;
 }
 
 export function parseFilenameFromContentDisposition(contentDisposition, fallback) {
