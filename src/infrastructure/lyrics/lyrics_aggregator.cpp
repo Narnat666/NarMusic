@@ -16,8 +16,61 @@ void LyricsAggregator::addProvider(std::shared_ptr<ILyricsProvider> provider) {
     providers_.push_back(std::move(provider));
 }
 
+bool LyricsAggregator::isChineseLyrics(const std::string& lyrics) {
+    // 统计歌词文本中有效字符（CJK汉字+字母），CJK占比>=30%即为中文歌
+    // 至少积累10个有效字符后才判定，达到30%提前返回
+    int cjkCount = 0;
+    int alphaCount = 0;
+    const char* p = lyrics.c_str();
+    while (*p) {
+        // 跳过时间标签 [mm:ss.xx]
+        if (*p == '[') {
+            while (*p && *p != ']') p++;
+            if (*p == ']') p++;
+            continue;
+        }
+        // UTF-8 解码获取 code point
+        char32_t cp = 0;
+        auto b0 = static_cast<unsigned char>(*p);
+        int len = 1;
+        if (b0 < 0x80) {
+            cp = b0;
+        } else if ((b0 & 0xE0) == 0xC0) {
+            len = 2;
+            cp = b0 & 0x1F;
+        } else if ((b0 & 0xF0) == 0xE0) {
+            len = 3;
+            cp = b0 & 0x0F;
+        } else if ((b0 & 0xF8) == 0xF0) {
+            len = 4;
+            cp = b0 & 0x07;
+        }
+        p++;
+        for (int i = 1; i < len && *p; i++, p++) {
+            cp = (cp << 6) | (static_cast<unsigned char>(*p) & 0x3F);
+        }
+        // 分类统计
+        if (cp < 0x80) {
+            if (std::isalpha(static_cast<unsigned char>(cp))) alphaCount++;
+        } else if ((cp >= 0x4E00 && cp <= 0x9FFF) ||   // CJK Unified Ideographs
+                   (cp >= 0x3400 && cp <= 0x4DBF) ||   // CJK Extension A
+                   (cp >= 0xF900 && cp <= 0xFAFF) ||   // CJK Compatibility Ideographs
+                   (cp >= 0x20000 && cp <= 0x2A6DF)) {  // CJK Extension B~H
+            cjkCount++;
+            alphaCount++;
+        }
+        // 积累足够样本后判定
+        if (alphaCount >= 10 && cjkCount * 10 >= alphaCount * 3) return true;
+    }
+    // 遍历完，样本不足10个时也做最终判定
+    return alphaCount >= 3 && cjkCount * 10 >= alphaCount * 3;
+}
+
 bool LyricsAggregator::hasCoreData(const MusicMetadata& d) {
-    return d.hasLyrics && d.hasTranslation && !d.translationLyrics.empty();
+    if (!d.hasLyrics) return false;
+    // 中文歌不需要翻译，非中文歌翻译是必需的
+    if (!isChineseLyrics(d.lyrics) && (!d.hasTranslation || d.translationLyrics.empty())) return false;
+    return true;
 }
 
 bool LyricsAggregator::isComplete(const MusicMetadata& d) {
@@ -26,7 +79,16 @@ bool LyricsAggregator::isComplete(const MusicMetadata& d) {
 
 int LyricsAggregator::missingScore(const MusicMetadata& d) {
     int score = 0;
-    if (hasCoreData(d)) score += 100;
+    if (!d.hasLyrics) return 0;
+    score += 100;
+    bool chinese = isChineseLyrics(d.lyrics);
+    if (chinese) {
+        // 中文歌：翻译是加分项
+        if (d.hasTranslation && !d.translationLyrics.empty()) score += 50;
+    } else {
+        // 非中文歌：翻译是必需项
+        if (d.hasTranslation && !d.translationLyrics.empty()) score += 100;
+    }
     if (!d.album.empty()) score += 10;
     if (d.hasCover) score += 1;
     return score;
@@ -106,7 +168,7 @@ void LyricsAggregator::supplementMissing(MusicMetadata& best,
         }
     }
 
-    if (best.hasLyrics && !best.hasTranslation) {
+    if (best.hasLyrics && !best.hasTranslation && !isChineseLyrics(best.lyrics)) {
         for (auto& plat : platformOrder) {
             auto* d = findPlatform(allData, plat);
             if (d && d->hasTranslation && !d->translationLyrics.empty()) {
@@ -151,20 +213,22 @@ MusicMetadata LyricsAggregator::fetchBest(const std::string& keyword,
 
     auto platformOrder = buildPlatformOrder(preferredPlatform);
 
-    // 第一级：指定平台有歌词+翻译 → 直接选，缺封面/专辑从其他平台补
+    // 第一级：指定平台有核心数据（中文歌=歌词，非中文歌=歌词+翻译）→ 直接选
     if (!preferredPlatform.empty()) {
         auto* d = findPlatform(allData, preferredPlatform);
         if (d && hasCoreData(*d)) {
-            LOG_I("LyricsAgg", "第一级: 指定平台 " + preferredPlatform + " 有歌词+翻译，直接选取");
+            bool chinese = isChineseLyrics(d->lyrics);
+            LOG_I("LyricsAgg", "第一级: 指定平台 " + preferredPlatform + " 核心数据齐全"
+                  + std::string(chinese ? " (中文歌)" : " (非中文歌+翻译)"));
             MusicMetadata best = *d;
             if (!best.lyrics.empty()) best.lyrics = cleanLyrics(best.lyrics);
             supplementMissing(best, allData, platformOrder);
             return best;
         }
-        LOG_W("LyricsAgg", "第一级: 指定平台 " + preferredPlatform + " 缺少歌词或翻译，跳过");
+        LOG_W("LyricsAgg", "第一级: 指定平台 " + preferredPlatform + " 核心数据不完整，跳过");
     }
 
-    // 第二级：按平台优先级找第一个完整平台（歌词+翻译+封面）
+    // 第二级：按平台优先级找第一个核心数据+封面齐全的平台
     for (auto& plat : platformOrder) {
         auto* d = findPlatform(allData, plat);
         if (d && isComplete(*d)) {

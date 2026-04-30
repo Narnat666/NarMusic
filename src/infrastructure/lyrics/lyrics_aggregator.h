@@ -36,6 +36,7 @@ public:
 private:
     std::vector<std::shared_ptr<ILyricsProvider>> providers_;
 
+    static bool isChineseLyrics(const std::string& lyrics);
     static bool hasCoreData(const MusicMetadata& d);
     static bool isComplete(const MusicMetadata& d);
     static int missingScore(const MusicMetadata& d);
