@@ -224,8 +224,8 @@ void CpolarTunnel::notifyUrl(const std::string& url, bool changed) {
 
     std::string subject = changed ? "NarMusic 公网地址已变更" : "NarMusic 内网穿透已启动";
     std::string body = changed
-        ? "NarMusic 的 cpolar 公网地址已变更，新地址如下：\n\n" + url + "\n\n本机地址：http://localhost:" + std::to_string(localPort_)
-        : "NarMusic 的 cpolar 内网穿透已启动，公网地址如下：\n\n" + url + "\n\n本机地址：http://localhost:" + std::to_string(localPort_);
+        ? "NarMusic 的 cpolar 公网地址已变更，新地址如下：\n\n" + url
+        : "NarMusic 的 cpolar 内网穿透已启动，公网地址如下：\n\n" + url;
 
     EmailSender::sendAll(emailConfig_, subject, body);
 }

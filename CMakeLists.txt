@@ -182,6 +182,10 @@ set_source_files_properties(
     PROPERTIES COMPILE_FLAGS "-Wno-shadow -Wno-unused-result"
 )
 set_source_files_properties(
+    src/infrastructure/notification/email_sender.cpp
+    PROPERTIES COMPILE_FLAGS "-Wno-useless-cast"
+)
+set_source_files_properties(
     src/main.cpp
     PROPERTIES COMPILE_FLAGS "-Wno-shadow"
 )

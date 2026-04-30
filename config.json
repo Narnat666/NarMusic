@@ -39,12 +39,17 @@
     "email": {
         "enabled": false,
         "smtp_host": "smtp.qq.com",
-        "smtp_port": 587,
+        "smtp_port": 465,
         "accounts": [
             {
-                "sender": "",
-                "password": "",
-                "receiver": ""
+                "sender": "xxx@qq.com",
+                "password": "sender1授权码",
+                "receiver": "接收方1邮箱"
+            },
+            {
+                "sender": "YYY@qq.com",
+                "password": "sender2授权码",
+                "receiver": "接收方2邮箱"
             }
         ]
     }

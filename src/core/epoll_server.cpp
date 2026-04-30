@@ -403,7 +403,13 @@ void EpollServer::processPendingWrites() {
             int fileFd = open(info.filePath.c_str(), O_RDONLY);
             if (fileFd < 0) {
                 LOG_E("EpollServer", "文件打开失败: " + info.filePath);
-                return;
+                std::lock_guard<std::mutex> lock(connMutex_);
+                auto it = connections_.find(fd);
+                if (it != connections_.end()) {
+                    close(fd);
+                    connections_.erase(fd);
+                }
+                continue;
             }
 
             if (info.rangeStart > 0) {

@@ -60,7 +60,7 @@ struct EmailAccount {
 struct EmailConfig {
     bool enabled = false;
     std::string smtp_host = "smtp.qq.com";
-    int smtp_port = 587;
+    int smtp_port = 465;
     std::vector<EmailAccount> accounts;
 };
 
