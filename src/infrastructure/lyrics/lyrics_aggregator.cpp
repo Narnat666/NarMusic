@@ -17,10 +17,12 @@ void LyricsAggregator::addProvider(std::shared_ptr<ILyricsProvider> provider) {
 }
 
 bool LyricsAggregator::isChineseLyrics(const std::string& lyrics) {
-    // 统计歌词文本中有效字符（CJK汉字+字母），CJK占比>=30%即为中文歌
+    // 统计歌词文本中有效字符（CJK汉字+字母），CJK占比>=30%且非日语歌即为中文歌
     // 至少积累10个有效字符后才判定，达到30%提前返回
+    // 日语歌（含平假名/片假名）不算中文歌，需要翻译
     int cjkCount = 0;
     int alphaCount = 0;
+    int japaneseCount = 0;
     const char* p = lyrics.c_str();
     while (*p) {
         // 跳过时间标签 [mm:ss.xx]
@@ -52,6 +54,10 @@ bool LyricsAggregator::isChineseLyrics(const std::string& lyrics) {
         // 分类统计
         if (cp < 0x80) {
             if (std::isalpha(static_cast<unsigned char>(cp))) alphaCount++;
+        } else if ((cp >= 0x3040 && cp <= 0x309F) ||   // Hiragana
+                   (cp >= 0x30A0 && cp <= 0x30FF)) {    // Katakana
+            japaneseCount++;
+            alphaCount++;
         } else if ((cp >= 0x4E00 && cp <= 0x9FFF) ||   // CJK Unified Ideographs
                    (cp >= 0x3400 && cp <= 0x4DBF) ||   // CJK Extension A
                    (cp >= 0xF900 && cp <= 0xFAFF) ||   // CJK Compatibility Ideographs
@@ -59,10 +65,13 @@ bool LyricsAggregator::isChineseLyrics(const std::string& lyrics) {
             cjkCount++;
             alphaCount++;
         }
+        // 日文字符占比>=10%则判定为日语歌，不算中文歌
+        if (alphaCount >= 10 && japaneseCount * 10 >= alphaCount) return false;
         // 积累足够样本后判定
         if (alphaCount >= 10 && cjkCount * 10 >= alphaCount * 3) return true;
     }
     // 遍历完，样本不足10个时也做最终判定
+    if (alphaCount >= 3 && japaneseCount * 10 >= alphaCount) return false;
     return alphaCount >= 3 && cjkCount * 10 >= alphaCount * 3;
 }
 
