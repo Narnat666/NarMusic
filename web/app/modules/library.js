@@ -188,7 +188,7 @@ async function downloadMusicFile(systemFilename, btnEl) {
     }
 
     try {
-        const response = await api.downloadFileByName(systemFilename);
+        const response = await api.downloadFileByName(systemFilename, abortController.signal);
         if (response.ok) {
             const contentDisposition = response.headers.get('Content-Disposition');
             let downloadFilename = systemFilename;
@@ -364,7 +364,7 @@ async function batchDownload() {
     batchDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 准备中...';
 
     try {
-        const response = await api.libraryBatchDownload(ids);
+        const response = await api.libraryBatchDownload(ids, abortController.signal);
         if (response.ok) {
             const contentDisposition = response.headers.get('Content-Disposition');
             let filename = 'NarMusic_download.zip';

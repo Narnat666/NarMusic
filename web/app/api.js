@@ -14,6 +14,7 @@ async function request(url, options = {}) {
     const {
         timeout = DEFAULT_TIMEOUT,
         retries = DEFAULT_RETRIES,
+        signal: externalSignal,
         ...fetchOptions
     } = options;
 
@@ -21,6 +22,14 @@ async function request(url, options = {}) {
     for (let attempt = 0; attempt <= retries; attempt++) {
         const controller = new AbortController();
         const timer = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
+
+        if (externalSignal) {
+            if (externalSignal.aborted) {
+                controller.abort();
+            } else {
+                externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+            }
+        }
 
         try {
             const response = await fetch(url, {
@@ -94,12 +103,12 @@ export const api = {
         });
     },
 
-    downloadFileByTask(taskId) {
-        return request('/api/download/file?task_id=' + taskId, { timeout: 0 });
+    downloadFileByTask(taskId, signal) {
+        return request('/api/download/file?task_id=' + taskId, { timeout: 0, signal });
     },
 
-    downloadFileByName(filename) {
-        return request('/api/download/file?filename=' + encodeURIComponent(filename), { timeout: 0 });
+    downloadFileByName(filename, signal) {
+        return request('/api/download/file?filename=' + encodeURIComponent(filename), { timeout: 0, signal });
     },
 
     streamUrl(filename, withTimestamp = true) {
@@ -150,12 +159,13 @@ export const api = {
         });
     },
 
-    libraryBatchDownload(ids) {
+    libraryBatchDownload(ids, signal) {
         return request('/api/library/batch-download', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids }),
-            timeout: 0
+            timeout: 0,
+            signal
         });
     }
 };

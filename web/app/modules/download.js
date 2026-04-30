@@ -101,17 +101,22 @@ async function handleLocalDownload() {
 
     localDownloadBtn.disabled = false;
     const originalContent = localDownloadBtn.innerHTML;
-    const originalOnclick = localDownloadBtn.onclick;
 
     const abortController = new AbortController();
-    const cancelHandler = () => abortController.abort();
     let progressEl = null;
+    let cancelHandler = null;
 
-    localDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">downloading</span> 下载中 0%';
-    localDownloadBtn.onclick = cancelHandler;
+    localDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">downloading</span> 准备中...';
+
+    cancelHandler = (e) => {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        abortController.abort();
+    };
+    localDownloadBtn.addEventListener('click', cancelHandler, true);
 
     try {
-        const response = await api.downloadFileByTask(currentTaskId);
+        const response = await api.downloadFileByTask(currentTaskId, abortController.signal);
         if (response.ok) {
             const contentDisposition = response.headers.get('Content-Disposition');
             let filename = 'downloaded_music';
@@ -151,7 +156,7 @@ async function handleLocalDownload() {
             showToast('下载错误: ' + error.message, 'warning');
         }
     } finally {
-        localDownloadBtn.onclick = originalOnclick;
+        if (cancelHandler) localDownloadBtn.removeEventListener('click', cancelHandler, true);
         localDownloadBtn.disabled = false;
         localDownloadBtn.innerHTML = originalContent;
     }
