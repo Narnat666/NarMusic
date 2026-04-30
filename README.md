@@ -11,6 +11,7 @@
 - 📱 **响应式界面** — Material Design 3 风格，桌面端和移动端自适应
 - ⚡ **轻量高效** — 自研 Epoll HTTP 服务器，适合 ARM64 嵌入式设备
 - 🌐 **cpolar 内网穿透** — 内置 cpolar 支持，一行命令暴露公网
+- 📮 **邮件通知** — 支持邮箱通知公网IP变化
 
 ## 🏗️ 项目架构
 
@@ -167,6 +168,26 @@ curl -L https://www.cpolar.com/static/downloads/install-release-cpolar.sh | sudo
 # 执行 ./build.sh -p 打包时自动下载 cpolar 二进制到分发包
 ```
 
+## 🔑 cpolar 认证密钥获取
+
+cpolar 内网穿透服务需要认证密钥才能使用，获取步骤如下：
+
+### 1. 注册账号
+
+访问 [cpolar 官网](https://www.cpolar.com/)，点击右上角「注册」按钮，使用邮箱或手机号完成注册。
+
+### 2. 获取 Authtoken
+
+登录后进入「控制台」→「认证」页面，即可看到 `authtoken`：
+
+```
+authtoken: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+点击右侧「复制」按钮，将密钥保存备用。
+
+## 🚀 使用
+
 ### 方式一：命令行参数（推荐）
 
 ```bash
@@ -190,6 +211,58 @@ curl -L https://www.cpolar.com/static/downloads/install-release-cpolar.sh | sudo
 ```
 
 启动后会在终端显示公网访问地址。
+
+
+## 📧 QQ 邮箱授权码获取
+
+NarMusic 支持通过 QQ 邮箱发送通知邮件（如下载完成提醒），需使用「授权码」替代邮箱密码登录。
+
+### 1. 开启 SMTP 服务
+
+1. 登录 [QQ 邮箱网页版](https://mail.qq.com/)
+2. 点击顶部「设置」→「账户与安全」→「安全设置」
+3. 找到「POP3/IMAP/SMTP/Exchange/CardDAV/CalDAV服务」
+4. 开启「IMAP/SMTP服务」，按提示发送短信验证
+
+### 2. 获取授权码
+
+验证通过后，系统会生成 16 位授权码：
+
+```
+授权码: yyyyyyyyyyyyyyyy
+```
+
+## 🚀 使用
+
+### 方式一：命令行参数
+
+```bash
+# 启动时直接传入 authtoken，自动启用穿透
+./NarMusic -m xxxx@qq.com:yyyyyyyyyyyyyyy
+```
+### 方式二：配置文件
+编辑 `config.json`：
+
+```json
+    "email": {
+        "enabled": true,
+        "smtp_host": "smtp.qq.com",
+        "smtp_port": 465,
+        "accounts": [
+            {
+                "sender": "xxx@qq.com",
+                "password": "sender1授权码",
+                "receiver": "接收方1邮箱"
+            }
+        ]
+    }
+```
+
+## 👇 最佳启动命令
+```bash
+# 启动服务器、启动内网穿透、启动邮件通知
+./NarMusic -t xxxxxx -m 123456@qq.com:abcdefghijkl
+```
 
 
 ## 其他

@@ -16,7 +16,7 @@ set(CMAKE_C_FLAGS_RELEASE   "-O2 -DNDEBUG" CACHE STRING "" FORCE)
 # 项目定义
 # ---------------------------------------------------------------------------
 project(NarMusic
-    VERSION     2.0.0
+    VERSION     3.0.0
     LANGUAGES   C CXX
     DESCRIPTION "纳儿音乐服务器"
 )

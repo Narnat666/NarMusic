@@ -14,6 +14,9 @@
 #include <filesystem>
 #include <climits>
 #include <algorithm>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 
 namespace narnat {
 
@@ -337,7 +340,21 @@ void CpolarTunnel::printBanner() {
 
     std::string line1 = "  cpolar 内网穿透已启动";
     std::string line2 = "  公网地址: " + publicUrl_;
-    std::string line3 = "  本机仍可访问: http://localhost:" + std::to_string(localPort_);
+    std::string localIp = "localhost";
+    struct ifaddrs* ifaddr;
+    if (getifaddrs(&ifaddr) == 0) {
+        for (auto* ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
+            if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET ||
+                (ifa->ifa_flags & IFF_LOOPBACK)) continue;
+            char ip[INET_ADDRSTRLEN];
+            auto* sin = reinterpret_cast<sockaddr_in*>(ifa->ifa_addr);
+            inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof(ip));
+            localIp = ip;
+            break;
+        }
+        freeifaddrs(ifaddr);
+    }
+    std::string line3 = "  本机仍可访问: http://" + localIp + ":" + std::to_string(localPort_);
 
     size_t contentW = std::max({displayWidth(line1), displayWidth(line2), displayWidth(line3)}) + 2;
 

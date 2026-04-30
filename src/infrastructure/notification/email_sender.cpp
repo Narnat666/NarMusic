@@ -178,7 +178,11 @@ struct SmtpConnection {
 bool EmailSender::sendTo(const EmailConfig& config, const EmailAccount& account,
                          const std::string& subject, const std::string& body) {
     if (account.sender.empty() || account.password.empty() || account.receiver.empty()) {
-        LOG_W("EmailSender", "邮箱账户配置不完整，跳过发送");
+        return false;
+    }
+
+    if (account.sender.find('@') == std::string::npos ||
+        account.receiver.find('@') == std::string::npos) {
         return false;
     }
 

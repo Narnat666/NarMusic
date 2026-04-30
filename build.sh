@@ -11,7 +11,7 @@ set -euo pipefail
 # ============================================================================
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_NAME="NarMusic"
-readonly PROJECT_VERSION="2.0.0"
+readonly PROJECT_VERSION="3.0.0"
 readonly DEFAULT_BUILD_TYPE="Release"
 
 # ============================================================================
