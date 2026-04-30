@@ -108,20 +108,6 @@ export const api = {
         return url;
     },
 
-    streamWithRange(filename, rangeStart, rangeEnd) {
-        const url = '/api/download/stream?filename=' + encodeURIComponent(filename);
-        const options = {};
-        if (rangeStart !== null) {
-            options.headers = { 'Range': 'bytes=' + rangeStart + '-' + rangeEnd };
-        }
-        return request(url, options);
-    },
-
-    streamForSize(filename) {
-        const url = '/api/download/stream?filename=' + encodeURIComponent(filename);
-        return request(url, { headers: { 'Range': 'bytes=0-0' } });
-    },
-
     search(keyword) {
         return requestJson('/api/search?keyword=' + encodeURIComponent(keyword), {
             timeout: 20000,

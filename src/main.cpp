@@ -251,6 +251,9 @@ int main(int argc, char* argv[]) {
     router.addRoute(Request::Method::POST, "/api/library/batch-download",
         [libraryCtrl](const Request& req) { return libraryCtrl->batchDownload(req); });
 
+    router.addRoute(Request::Method::GET, "/api/lyrics",
+        [libraryCtrl](const Request& req) { return libraryCtrl->lyrics(req); });
+
     router.addCatchAllRoute(Request::Method::GET,
         [staticHandler](const Request& req) { return staticHandler->handle(req); });
 

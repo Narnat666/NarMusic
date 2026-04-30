@@ -190,6 +190,9 @@ void EpollServer::handleAccept() {
         int opt = 1;
         setsockopt(clientFd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
 
+        int sndbuf = 256 * 1024;
+        setsockopt(clientFd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+
         struct epoll_event ev{};
         ev.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
         ev.data.fd = clientFd;
@@ -277,8 +280,6 @@ void EpollServer::handleRead(int fd) {
             enqueueResponse(fd, std::move(resp));
             return;
         }
-
-        LOG_D("EpollServer", req.methodString() + " " + req.path());
 
         auto resp = router_.dispatch(req);
         enqueueResponse(fd, std::move(resp));

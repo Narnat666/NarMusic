@@ -138,4 +138,20 @@ Response LibraryController::batchDownload(const Request& req) {
     }
 }
 
+Response LibraryController::lyrics(const Request& req) {
+    std::string filename = req.queryParam("filename");
+    if (filename.empty()) {
+        return Response::error(400, "Bad Request", "missing_filename", "filename参数缺失");
+    }
+
+    std::string lyricsText = libraryService_->getLyrics(filename);
+    if (lyricsText.empty()) {
+        return Response::error(404, "Not Found", "no_lyrics", "歌词不存在");
+    }
+
+    nlohmann::json result;
+    result["lyrics"] = lyricsText;
+    return Response::json(200, "OK", result);
+}
+
 } // namespace narnat

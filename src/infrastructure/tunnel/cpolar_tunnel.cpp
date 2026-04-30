@@ -24,6 +24,13 @@ namespace fs = std::filesystem;
 
 static constexpr int CPOLAR_API_PORT = 4040;
 
+std::string CpolarTunnel::stripScheme(const std::string& url) {
+    auto pos = url.find("://");
+    if (pos != std::string::npos)
+        return url.substr(pos + 3);
+    return url;
+}
+
 std::string CpolarTunnel::cleanUrl(const std::string& url) {
     auto start = url.find("http");
     if (start == std::string::npos) return {};
@@ -307,7 +314,7 @@ void CpolarTunnel::monitorLoop() {
             continue;
         }
 
-        if (url != publicUrl_) {
+        if (stripScheme(url) != stripScheme(publicUrl_)) {
             std::string oldUrl = publicUrl_;
             publicUrl_ = url;
             LOG_W("CpolarTunnel", "公网地址已变更!");
@@ -316,6 +323,17 @@ void CpolarTunnel::monitorLoop() {
 
             printBanner();
             notifyUrl(publicUrl_, true);
+        } else if (url != publicUrl_) {
+            publicUrl_ = url;
+        }
+
+        if (!publicUrl_.empty()) {
+            auto keepResp = apiClient_->get(publicUrl_);
+            if (keepResp.success) {
+                LOG_D("CpolarTunnel", "隧道保活成功");
+            } else {
+                LOG_W("CpolarTunnel", "隧道保活失败: " + keepResp.error);
+            }
         }
     }
 

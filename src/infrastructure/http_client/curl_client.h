@@ -14,6 +14,7 @@ struct HttpResponse {
     long statusCode = 0;
     std::string body;
     std::vector<uint8_t> binaryBody;
+    std::vector<std::string> headers;
     bool success = false;
     std::string error;
 };

@@ -33,6 +33,12 @@ bool LibraryService::deleteFiles(const std::vector<int>& ids) {
     return true;
 }
 
+std::string LibraryService::getLyrics(const std::string& filename) {
+    auto entry = libraryRepo_->findBySystemFilename(filename);
+    if (entry) return entry->lyrics;
+    return "";
+}
+
 std::vector<std::pair<std::string, std::vector<char>>> LibraryService::getFilesData(const std::vector<int>& ids) {
     std::vector<std::pair<std::string, std::vector<char>>> result;
     for (int id : ids) {

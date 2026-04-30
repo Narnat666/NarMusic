@@ -16,6 +16,7 @@ public:
     Response remove(const Request& req);
     Response batchRemove(const Request& req);
     Response batchDownload(const Request& req);
+    Response lyrics(const Request& req);
 
 private:
     std::shared_ptr<LibraryService> libraryService_;

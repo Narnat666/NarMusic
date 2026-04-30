@@ -29,12 +29,16 @@ MusicLibraryEntry readRow(sqlite3_stmt* stmt, int baseCol = 0) {
     int64_t luAt = sqlite3_column_int64(stmt, baseCol + 12);
     entry.downloadedAt = std::chrono::system_clock::from_time_t(dlAt);
     entry.lastUsedAt = std::chrono::system_clock::from_time_t(luAt);
+
+    if (sqlite3_column_type(stmt, baseCol + 13) != SQLITE_NULL) {
+        entry.lyrics = reinterpret_cast<const char*>(sqlite3_column_text(stmt, baseCol + 13));
+    }
     return entry;
 }
 
 static const char* kSelectColumns =
     "id, song_name, artist, album, file_path, system_filename, original_filename, "
-    "file_size, delay_ms, platform, in_use, downloaded_at, last_used_at";
+    "file_size, delay_ms, platform, in_use, downloaded_at, last_used_at, lyrics";
 
 }
 
@@ -91,14 +95,23 @@ void SqliteMusicLibraryRepository::initSchema() {
     if (!hasOriginalFilenameColumn) {
         db_->execute("ALTER TABLE music_files ADD COLUMN original_filename TEXT DEFAULT NULL");
     }
+
+    checkStmt = nullptr;
+    checkSql = "SELECT lyrics FROM music_files LIMIT 0";
+    bool hasLyricsColumn = (sqlite3_prepare_v2(db_->handle(), checkSql, -1, &checkStmt, nullptr) == SQLITE_OK);
+    if (checkStmt) sqlite3_finalize(checkStmt);
+
+    if (!hasLyricsColumn) {
+        db_->execute("ALTER TABLE music_files ADD COLUMN lyrics TEXT DEFAULT NULL");
+    }
 }
 
 int SqliteMusicLibraryRepository::save(const MusicLibraryEntry& entry) {
     std::lock_guard<std::mutex> lock(db_->mutex());
 
     const char* sql = "INSERT INTO music_files "
-        "(song_name, artist, album, file_path, system_filename, original_filename, file_size, delay_ms, platform, in_use, downloaded_at, last_used_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        "(song_name, artist, album, file_path, system_filename, original_filename, file_size, delay_ms, platform, in_use, downloaded_at, last_used_at, lyrics) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_->handle(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -125,6 +138,11 @@ int SqliteMusicLibraryRepository::save(const MusicLibraryEntry& entry) {
     sqlite3_bind_int(stmt, 10, entry.inUse ? 1 : 0);
     sqlite3_bind_int64(stmt, 11, dlSec);
     sqlite3_bind_int64(stmt, 12, luSec);
+    if (entry.lyrics.empty()) {
+        sqlite3_bind_null(stmt, 13);
+    } else {
+        sqlite3_bind_text(stmt, 13, entry.lyrics.c_str(), -1, kSqliteTransient);
+    }
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         LOG_E("MusicLibRepo", std::string("save失败: ") + sqlite3_errmsg(db_->handle()));
@@ -219,7 +237,7 @@ void SqliteMusicLibraryRepository::update(const MusicLibraryEntry& entry) {
     std::lock_guard<std::mutex> lock(db_->mutex());
 
     const char* sql = "UPDATE music_files SET song_name=?, artist=?, album=?, file_path=?, "
-        "system_filename=?, original_filename=?, file_size=?, delay_ms=?, platform=?, in_use=?, downloaded_at=?, last_used_at=? WHERE id=?";
+        "system_filename=?, original_filename=?, file_size=?, delay_ms=?, platform=?, in_use=?, downloaded_at=?, last_used_at=?, lyrics=? WHERE id=?";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db_->handle(), sql, -1, &stmt, nullptr) != SQLITE_OK)
@@ -244,7 +262,12 @@ void SqliteMusicLibraryRepository::update(const MusicLibraryEntry& entry) {
     sqlite3_bind_int(stmt, 10, entry.inUse ? 1 : 0);
     sqlite3_bind_int64(stmt, 11, dlSec);
     sqlite3_bind_int64(stmt, 12, luSec);
-    sqlite3_bind_int(stmt, 13, entry.id);
+    if (entry.lyrics.empty()) {
+        sqlite3_bind_null(stmt, 13);
+    } else {
+        sqlite3_bind_text(stmt, 13, entry.lyrics.c_str(), -1, kSqliteTransient);
+    }
+    sqlite3_bind_int(stmt, 14, entry.id);
 
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);

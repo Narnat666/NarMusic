@@ -36,6 +36,7 @@ private:
     void monitorLoop();
     void notifyUrl(const std::string& url, bool changed);
     std::string cleanUrl(const std::string& url);
+    static std::string stripScheme(const std::string& url);
 
     std::string resolveExeDir();
 

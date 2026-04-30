@@ -1,4 +1,4 @@
-import { api } from '../api.js';
+import { requestJson } from '../api.js';
 
 let currentLyrics = [];
 let lyricsDisplay = null;
@@ -7,79 +7,15 @@ export function initLyrics() {
     lyricsDisplay = document.getElementById('lyricsDisplay');
 }
 
-function fetchLyricsWithRange(filename, rangeStart, rangeEnd) {
-    return new Promise((resolve, reject) => {
-        api.streamWithRange(filename, rangeStart, rangeEnd)
-            .then(response => {
-                if (!response.ok) {
-                    if (response.status === 416 && rangeStart !== null) {
-                        return api.streamWithRange(filename, null, null);
-                    }
-                    throw new Error('HTTP ' + response.status + ' - ' + response.statusText);
-                }
-                return response.blob();
-            })
-            .then(blob => {
-                if (!blob || blob.size === 0) {
-                    reject(new Error('Blob为空或无效'));
-                    return;
-                }
-                if (typeof jsmediatags === 'undefined') {
-                    reject(new Error('jsmediatags库未加载'));
-                    return;
-                }
-                jsmediatags.read(blob, {
-                    onSuccess: function (tag) {
-                        const lyrics = tag.tags.lyrics;
-                        resolve(lyrics || null);
-                    },
-                    onError: function (error) {
-                        reject(error);
-                    }
-                });
-            })
-            .catch(reject);
-    });
-}
-
 export async function fetchLyrics(filename) {
-    if (typeof jsmediatags === 'undefined') {
-        throw new Error('jsmediatags库未加载');
-    }
-
     try {
-        const lyrics1 = await fetchLyricsWithRange(filename, 0, 524287);
-        if (lyrics1 !== null) return lyrics1;
-    } catch (e) { /* continue */ }
-
-    try {
-        let fileSize = null;
-        try {
-            const rangeResponse = await api.streamForSize(filename);
-            const contentRange = rangeResponse.headers.get('Content-Range');
-            if (contentRange) {
-                const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
-                if (match) fileSize = parseInt(match[1]);
-            }
-        } catch (e) { /* continue */ }
-
-        if (fileSize && fileSize > 524288) {
-            const rangeStart = Math.max(0, fileSize - 524288);
-            const rangeEnd = fileSize - 1;
-            const lyrics2 = await fetchLyricsWithRange(filename, rangeStart, rangeEnd);
-            if (lyrics2 !== null) return lyrics2;
-        } else if (fileSize) {
-            const lyrics2 = await fetchLyricsWithRange(filename, null, null);
-            if (lyrics2 !== null) return lyrics2;
+        const data = await requestJson('/api/lyrics?filename=' + encodeURIComponent(filename));
+        if (data && data.lyrics) {
+            return data.lyrics;
         }
-    } catch (e) { /* continue */ }
-
-    try {
-        const lyrics3 = await fetchLyricsWithRange(filename, null, null);
-        if (lyrics3 !== null) return lyrics3;
         return null;
     } catch (error) {
-        throw error;
+        return null;
     }
 }
 

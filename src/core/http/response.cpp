@@ -85,7 +85,7 @@ Response Response::stream(const std::vector<char>& data,
     r.isBinary_ = true;
     r.headers_["Content-Type"] = "audio/mp4";
     r.headers_["Accept-Ranges"] = "bytes";
-    r.headers_["Connection"] = "close";
+    r.headers_["Connection"] = "keep-alive";
     r.headers_["Access-Control-Allow-Origin"] = "*";
     r.headers_["Cache-Control"] = "no-cache, no-store, must-revalidate";
     return r;
@@ -107,7 +107,7 @@ Response Response::streamFile(const FileStreamInfo& info) {
     r.fileStreamInfo_ = info;
     r.headers_["Content-Type"] = "audio/mp4";
     r.headers_["Accept-Ranges"] = "bytes";
-    r.headers_["Connection"] = "close";
+    r.headers_["Connection"] = "keep-alive";
     r.headers_["Access-Control-Allow-Origin"] = "*";
     r.headers_["Cache-Control"] = "no-cache, no-store, must-revalidate";
     return r;

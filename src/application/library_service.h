@@ -16,6 +16,7 @@ public:
     bool deleteFile(int id);
     bool deleteFiles(const std::vector<int>& ids);
     std::vector<std::pair<std::string, std::vector<char>>> getFilesData(const std::vector<int>& ids);
+    std::string getLyrics(const std::string& filename);
 
 private:
     std::shared_ptr<IMusicLibraryRepository> libraryRepo_;

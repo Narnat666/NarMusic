@@ -16,6 +16,7 @@ struct MusicLibraryEntry {
     std::string filePath;
     std::string systemFilename;
     std::string originalFilename;
+    std::string lyrics;
     int64_t fileSize = 0;
     std::string platform;
     int delayMs = 0;

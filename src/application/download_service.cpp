@@ -142,6 +142,7 @@ void DownloadService::executeDownload(const std::string& taskId,
     try { entry.fileSize = static_cast<int64_t>(fs::file_size(filePath)); } catch (...) { entry.fileSize = 0; }
     entry.delayMs = req.delayMs;
     entry.platform = req.platform;
+    entry.lyrics = metadata.lyrics;
     entry.inUse = false;
     entry.downloadedAt = std::chrono::system_clock::now();
     entry.lastUsedAt = entry.downloadedAt;

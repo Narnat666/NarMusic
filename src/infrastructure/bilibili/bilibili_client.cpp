@@ -58,6 +58,8 @@ bool BilibiliClient::initialize() {
     if (cookie_.empty()) {
         LOG_W("BiliClient", "获取Cookie失败，使用备用Cookie");
         cookie_ = FALLBACK_COOKIE;
+    } else {
+        LOG_I("BiliClient", "动态获取Cookie成功");
     }
 
     auto keys = fetchWbiKeys();
@@ -74,27 +76,27 @@ bool BilibiliClient::initialize() {
 }
 
 std::string BilibiliClient::fetchAnonymousCookie() {
-    // 先访问B站主页提取Cookie
-    auto resp = httpClient_->get("https://www.bilibili.com/", {
-        "Referer: https://www.bilibili.com/",
-        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8"
+    auto resp = httpClient_->get("https://api.bilibili.com/x/frontend/finger/spi", {
+        "Referer: https://www.bilibili.com/"
     });
-
-    std::string cookie;
-    // 从响应头中无法直接获取Set-Cookie（CurlClient未暴露），
-    // 尝试通过nav接口获取
-    resp = httpClient_->get("https://api.bilibili.com/x/web-interface/nav",
-        {"Referer: https://www.bilibili.com/"});
 
     if (!resp.success || resp.body.empty()) return "";
 
     try {
-        json j = json::parse(resp.body);
-        if (j.contains("data") && j["data"].contains("wbi_img")) {
-            // nav接口成功，说明网络正常，使用fallback cookie即可
-            return "";
+        auto j = nlohmann::json::parse(resp.body);
+        if (!j.contains("data")) return "";
+
+        auto& data = j["data"];
+        std::string buvid3 = data.value("b_3", "");
+        std::string buvid4 = data.value("b_4", "");
+
+        std::string result;
+        if (!buvid3.empty()) result += "buvid3=" + buvid3;
+        if (!buvid4.empty()) {
+            if (!result.empty()) result += "; ";
+            result += "buvid4=" + buvid4;
         }
+        return result;
     } catch (...) {}
 
     return "";

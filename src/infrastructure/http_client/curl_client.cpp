@@ -100,6 +100,18 @@ HttpResponse CurlClient::get(const std::string& url,
     curl_easy_setopt(h.easy, CURLOPT_URL, url.c_str());
     curl_easy_setopt(h.easy, CURLOPT_WRITEFUNCTION, writeStringCallback);
     curl_easy_setopt(h.easy, CURLOPT_WRITEDATA, &resp.body);
+
+    curl_easy_setopt(h.easy, CURLOPT_HEADERFUNCTION, +[](char* buffer, size_t size, size_t nitems, void* userdata) -> size_t {
+        auto* hdrs = static_cast<std::vector<std::string>*>(userdata);
+        std::string header(buffer, size * nitems);
+        while (!header.empty() && (header.back() == '\r' || header.back() == '\n'))
+            header.pop_back();
+        if (!header.empty())
+            hdrs->push_back(header);
+        return size * nitems;
+    });
+    curl_easy_setopt(h.easy, CURLOPT_HEADERDATA, &resp.headers);
+
     applyCommonOptions(h.easy);
 
     CURLcode res = curl_easy_perform(h.easy);
