@@ -37,8 +37,11 @@
 #include <unistd.h>
 #include <curl/curl.h>
 #include <filesystem>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
 #include <taglib/mp4/mp4file.h>
 #include <taglib/mp4/mp4tag.h>
+#pragma GCC diagnostic pop
 #include "version.h"
 
 using namespace narnat;
@@ -305,6 +308,9 @@ int main(int argc, char* argv[]) {
 
     router.addRoute(Request::Method::POST, "/api/library/batch-download",
         [libraryCtrl](const Request& req) { return libraryCtrl->batchDownload(req); });
+
+    router.addRoute(Request::Method::POST, "/api/library/generate-playlist",
+        [libraryCtrl](const Request& req) { return libraryCtrl->generatePlaylist(req); });
 
     router.addRoute(Request::Method::GET, "/api/lyrics",
         [libraryCtrl](const Request& req) { return libraryCtrl->lyrics(req); });

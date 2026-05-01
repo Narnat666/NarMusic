@@ -1,10 +1,13 @@
 #include "music_file_repository.h"
 #include "core/logger.h"
 #include <filesystem>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
 #include <taglib/mp4/mp4file.h>
 #include <taglib/mp4/mp4tag.h>
 #include <taglib/mp4/mp4coverart.h>
 #include <taglib/mp4/mp4item.h>
+#pragma GCC diagnostic pop
 #include <cstdio>
 
 namespace narnat {

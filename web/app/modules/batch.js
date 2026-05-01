@@ -8,6 +8,34 @@ let batchCurrentInputMode = 'paste';
 let batchIsParsing = false;
 let batchImportedText = '';
 
+const SESSION_KEY_BATCH_RESULTS = 'narmusic_batch_results';
+const SESSION_KEY_BATCH_SELECTED = 'narmusic_batch_selected';
+
+function saveBatchState() {
+    try {
+        sessionStorage.setItem(SESSION_KEY_BATCH_RESULTS, JSON.stringify(batchResults));
+        sessionStorage.setItem(SESSION_KEY_BATCH_SELECTED, JSON.stringify(Array.from(batchSelectedIndexes)));
+    } catch (e) { /* quota exceeded, ignore */ }
+}
+
+function loadBatchState() {
+    try {
+        const resultsJson = sessionStorage.getItem(SESSION_KEY_BATCH_RESULTS);
+        const selectedJson = sessionStorage.getItem(SESSION_KEY_BATCH_SELECTED);
+        if (resultsJson) {
+            batchResults = JSON.parse(resultsJson);
+            batchSelectedIndexes = new Set(selectedJson ? JSON.parse(selectedJson) : []);
+            return batchResults.length > 0;
+        }
+    } catch (e) { /* parse error, ignore */ }
+    return false;
+}
+
+function clearBatchState() {
+    sessionStorage.removeItem(SESSION_KEY_BATCH_RESULTS);
+    sessionStorage.removeItem(SESSION_KEY_BATCH_SELECTED);
+}
+
 export function initBatch() {
     const pasteModeBtn = document.getElementById('pasteModeBtn');
     const importModeBtn = document.getElementById('importModeBtn');
@@ -43,6 +71,28 @@ export function initBatch() {
             e.preventDefault();
             clearBatchFile();
         });
+    }
+
+    // 恢复上次的批量解析结果
+    if (loadBatchState()) {
+        const foundCount = batchResults.filter(item => item.found).length;
+        const notFoundCount = batchResults.filter(item => !item.found).length;
+        document.getElementById('batchTotalCount').textContent = batchResults.length;
+        document.getElementById('batchFoundCount').textContent = foundCount;
+        document.getElementById('batchNotFoundCount').textContent = notFoundCount;
+        document.getElementById('batchResultsArea').style.display = 'block';
+        renderBatchResults();
+
+        // 恢复进行中任务的轮询
+        const pollTasks = [];
+        batchResults.forEach((item, idx) => {
+            if (item.status === 'downloading' && item.taskId) {
+                pollTasks.push({ idx, taskId: item.taskId });
+            }
+        });
+        if (pollTasks.length > 0) {
+            pollBatchDownloadStatus(pollTasks);
+        }
     }
 }
 
@@ -151,6 +201,7 @@ function clearBatchInput() {
     clearBatchFile();
     batchResults = [];
     batchSelectedIndexes.clear();
+    clearBatchState();
     document.getElementById('batchResultsArea').style.display = 'none';
     document.getElementById('batchParseProgress').style.display = 'none';
     showToast('已清空', 'info');
@@ -327,6 +378,7 @@ async function parseBatchPlaylist() {
     parseBtn.disabled = false;
     parseBtn.innerHTML = originalContent;
     batchIsParsing = false;
+    saveBatchState();
 }
 
 function renderBatchResults() {
@@ -403,6 +455,7 @@ function toggleBatchItemSelect(idx, checked) {
         else item.classList.remove('batch-item-selected');
     }
     updateBatchEditUI();
+    saveBatchState();
 }
 
 function toggleBatchSelectAll() {
@@ -425,6 +478,7 @@ function toggleBatchSelectAll() {
         });
     }
     updateBatchEditUI();
+    saveBatchState();
 }
 
 function updateBatchEditUI() {
@@ -459,9 +513,11 @@ function deleteBatchItem(idx) {
 
     if (batchResults.length === 0) {
         document.getElementById('batchResultsArea').style.display = 'none';
+        clearBatchState();
         showToast('歌单已清空', 'info');
     } else {
         renderBatchResults();
+        saveBatchState();
     }
 }
 
@@ -483,9 +539,11 @@ function batchDeleteSelected() {
 
     if (batchResults.length === 0) {
         document.getElementById('batchResultsArea').style.display = 'none';
+        clearBatchState();
         showToast('歌单已清空', 'info');
     } else {
         renderBatchResults();
+        saveBatchState();
         showToast('已删除 ' + indexes.length + ' 首歌曲', 'success');
     }
 }
@@ -553,6 +611,7 @@ async function batchDownloadToServer() {
             }
 
             renderBatchResults();
+            saveBatchState();
 
             if (submitCount > 0) {
                 showToast('已提交 ' + submitCount + ' 首歌曲下载' + (failCount > 0 ? '，' + failCount + ' 首提交失败' : ''), 'info');
@@ -567,6 +626,7 @@ async function batchDownloadToServer() {
             batchResults[idx].errorMsg = error.message;
         });
         renderBatchResults();
+        saveBatchState();
         showToast('批量下载错误: ' + error.message, 'warning');
     }
 
@@ -642,6 +702,7 @@ function pollBatchDownloadStatus(pollTasks) {
                     }
                 }
                 renderBatchResults();
+                saveBatchState();
                 showToast('状态查询多次失败，已停止轮询', 'warning');
                 return;
             }
@@ -649,6 +710,7 @@ function pollBatchDownloadStatus(pollTasks) {
 
         if (hasUpdates) {
             renderBatchResults();
+            saveBatchState();
         }
 
         if (pending.size > 0) {

@@ -672,13 +672,13 @@ body {
     background-color: #B71C1C;
 }
 
-.btn-batch-cancel {
-    background-color: rgba(0, 0, 0, 0.08);
-    color: var(--md-sys-color-on-surface);
+.btn-batch-playlist {
+    background-color: var(--md-sys-color-tertiary, #7D5260);
+    color: white;
 }
 
-.btn-batch-cancel:hover {
-    background-color: rgba(0, 0, 0, 0.12);
+.btn-batch-playlist:hover:not(:disabled) {
+    background-color: #5D3F4D;
 }
 
 .btn-batch:disabled {
@@ -875,7 +875,8 @@ body {
     transition: opacity 0.15s;
 }
 
-.music-item:hover .music-actions-cell {
+.music-item:hover .music-actions-cell,
+.music-item.downloading .music-actions-cell {
     opacity: 1;
 }
 
@@ -900,6 +901,15 @@ body {
 
 .music-action-btn .material-symbols-rounded {
     font-size: 18px;
+}
+
+.music-action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.music-item.downloaded .music-title {
+    color: var(--md-sys-color-primary);
 }
 
 /* ---------- 移动端适配 (小米/安卓竖屏) ---------- */

@@ -8,14 +8,24 @@ let isLibraryLoading = false;
 let isBatchMode = false;
 let isBatchDownloading = false;
 let batchDownloadAbortController = null;
+let activeSingleDownloads = 0;
 let selectedMusicIds = new Set();
 let protectionEnabled = null; // null = 未加载, true/false = 已加载
 let protectionToken = null;
 
+const LOCAL_DL_KEY = 'narmusic_dl_done';
+function getDlDoneSet() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_DL_KEY) || '[]')); } catch { return new Set(); } }
+function markDlDone(filename) { const s = getDlDoneSet(); s.add(filename); try { localStorage.setItem(LOCAL_DL_KEY, JSON.stringify([...s])); } catch {} }
+function unmarkDlDone(filename) { const s = getDlDoneSet(); s.delete(filename); try { localStorage.setItem(LOCAL_DL_KEY, JSON.stringify([...s])); } catch {} }
+function isDlDone(filename) { return getDlDoneSet().has(filename); }
+
 export function initLibrary() {
     const refreshLibraryBtn = document.getElementById('refreshLibraryBtn');
     if (refreshLibraryBtn) {
-        refreshLibraryBtn.addEventListener('click', loadMusicLibrary);
+        refreshLibraryBtn.addEventListener('click', () => {
+            if (isLibraryDownloading() && !confirm('有文件正在下载，刷新列表将中断下载，确定继续？')) return;
+            loadMusicLibrary();
+        });
     }
 
     const batchSelectBtn = document.getElementById('batchSelectBtn');
@@ -38,9 +48,9 @@ export function initLibrary() {
         batchDeleteBtn.addEventListener('click', batchDelete);
     }
 
-    const cancelBatchBtn = document.getElementById('cancelBatchBtn');
-    if (cancelBatchBtn) {
-        cancelBatchBtn.addEventListener('click', toggleBatchMode);
+    const batchPlaylistBtn = document.getElementById('batchPlaylistBtn');
+    if (batchPlaylistBtn) {
+        batchPlaylistBtn.addEventListener('click', batchGeneratePlaylist);
     }
 
     document.addEventListener('tab:library', () => loadMusicLibrary());
@@ -138,7 +148,7 @@ function renderMusicLibrary() {
         const musicId = music.id;
         const isSelected = selectedMusicIds.has(musicId);
 
-        html += '<div class="music-item' + (isSelected ? ' batch-selected' : '') + '" data-index="' + index + '" data-id="' + musicId + '">'
+        html += '<div class="music-item' + (isSelected ? ' batch-selected' : '') + (isDlDone(systemFilename) ? ' downloaded' : '') + '" data-index="' + index + '" data-id="' + musicId + '">'
             + '<div class="music-index">'
             + '<input type="checkbox" class="music-checkbox" data-id="' + musicId + '" data-action="select" ' + (isSelected ? 'checked' : '') + '>'
             + '<span class="music-index-num">' + indexNum + '</span>'
@@ -194,8 +204,15 @@ async function downloadMusicFile(systemFilename, btnEl) {
             abortController.abort();
         };
         btnEl.addEventListener('click', cancelHandler, true);
+        const musicItem = btnEl.closest('.music-item');
+        if (musicItem) {
+            musicItem.classList.add('downloading');
+            const deleteBtn = musicItem.querySelector('[data-action="delete"]');
+            if (deleteBtn) deleteBtn.disabled = true;
+        }
     }
 
+    activeSingleDownloads++;
     try {
         const response = await api.downloadFileByName(systemFilename, abortController.signal);
         if (response.ok) {
@@ -227,8 +244,14 @@ async function downloadMusicFile(systemFilename, btnEl) {
 
             if (blob) {
                 triggerDownload(blob, downloadFilename);
+                markDlDone(systemFilename);
+                const musicItem = btnEl ? btnEl.closest('.music-item') : null;
+                if (musicItem) musicItem.classList.add('downloaded');
                 showToast('文件下载完成', 'success');
             } else {
+                unmarkDlDone(systemFilename);
+                const musicItem = btnEl ? btnEl.closest('.music-item') : null;
+                if (musicItem) musicItem.classList.remove('downloaded');
                 showToast('下载已取消', 'info');
             }
         } else {
@@ -237,15 +260,25 @@ async function downloadMusicFile(systemFilename, btnEl) {
         }
     } catch (error) {
         if (abortController.signal.aborted) {
+            unmarkDlDone(systemFilename);
+            const musicItem = btnEl ? btnEl.closest('.music-item') : null;
+            if (musicItem) musicItem.classList.remove('downloaded');
             showToast('下载已取消', 'info');
         } else {
             showToast('下载错误: ' + error.message, 'warning');
         }
     } finally {
+        activeSingleDownloads--;
         if (btnEl) {
             if (cancelHandler) btnEl.removeEventListener('click', cancelHandler, true);
             btnEl.dataset.action = 'download';
             btnEl.innerHTML = originalContent;
+            const musicItem = btnEl.closest('.music-item');
+            if (musicItem) {
+                musicItem.classList.remove('downloading');
+                const deleteBtn = musicItem.querySelector('[data-action="delete"]');
+                if (deleteBtn) deleteBtn.disabled = false;
+            }
         }
     }
 }
@@ -429,12 +462,14 @@ function updateBatchUI() {
     const selectedCountEl = document.getElementById('selectedCount');
     const batchDownloadBtn = document.getElementById('batchDownloadBtn');
     const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    const batchPlaylistBtn = document.getElementById('batchPlaylistBtn');
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
 
     const count = selectedMusicIds.size;
     selectedCountEl.textContent = '已选 ' + count + ' 项';
     batchDownloadBtn.disabled = count === 0 && !isBatchDownloading;
     batchDeleteBtn.disabled = count === 0 || isBatchDownloading;
+    batchPlaylistBtn.disabled = count === 0;
 
     const allIds = musicLibrary.map(m => m.id);
     if (allIds.length > 0 && count === allIds.length) {
@@ -463,6 +498,7 @@ async function batchDownload() {
     isBatchDownloading = true;
 
     batchDeleteBtn.disabled = true;
+    document.querySelectorAll('.music-action-btn[data-action="delete"], .music-action-btn[data-action="download"]').forEach(btn => btn.disabled = true);
     batchDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 准备中...';
 
     try {
@@ -492,6 +528,11 @@ async function batchDownload() {
 
             if (blob) {
                 triggerDownload(blob, filename);
+                ids.forEach(id => {
+                    const item = musicLibrary.find(m => m.id === id);
+                    if (item && item.system_filename) markDlDone(item.system_filename);
+                });
+                renderMusicLibrary();
                 showToast((ids.length === 1 ? '文件' : ids.length + ' 个文件打包') + '下载已开始', 'success');
             } else {
                 showToast('下载已取消', 'info');
@@ -513,6 +554,7 @@ async function batchDownload() {
         batchDownloadBtn.title = '';
         batchDownloadBtn.disabled = selectedMusicIds.size === 0;
         batchDeleteBtn.disabled = selectedMusicIds.size === 0;
+        document.querySelectorAll('.music-action-btn[data-action="delete"], .music-action-btn[data-action="download"]').forEach(btn => btn.disabled = false);
     }
 }
 
@@ -548,4 +590,41 @@ async function batchDelete() {
         batchDeleteBtn.disabled = false;
         batchDeleteBtn.innerHTML = originalContent;
     }
+}
+
+async function batchGeneratePlaylist() {
+    const ids = Array.from(selectedMusicIds);
+    if (ids.length === 0) { showToast('请先选择要生成歌单的文件', 'warning'); return; }
+
+    const batchPlaylistBtn = document.getElementById('batchPlaylistBtn');
+    batchPlaylistBtn.disabled = true;
+    const originalContent = batchPlaylistBtn.innerHTML;
+    batchPlaylistBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 生成中...';
+
+    try {
+        const data = await api.libraryGeneratePlaylist(ids);
+        const playlist = data.playlist;
+        const count = data.count || 0;
+
+        const blob = new Blob([playlist], { type: 'text/plain;charset=utf-8' });
+        const now = new Date();
+        const dateStr = now.getFullYear()
+            + String(now.getMonth() + 1).padStart(2, '0')
+            + String(now.getDate()).padStart(2, '0') + '_'
+            + String(now.getHours()).padStart(2, '0')
+            + String(now.getMinutes()).padStart(2, '0')
+            + String(now.getSeconds()).padStart(2, '0');
+        const filename = 'NarMusic_playlist_' + dateStr + '.txt';
+        triggerDownload(blob, filename);
+        showToast('歌单已生成: ' + count + ' 条记录', 'success');
+    } catch (error) {
+        showToast('歌单生成失败: ' + error.message, 'warning');
+    } finally {
+        batchPlaylistBtn.disabled = selectedMusicIds.size === 0;
+        batchPlaylistBtn.innerHTML = originalContent;
+    }
+}
+
+export function isLibraryDownloading() {
+    return isBatchDownloading || activeSingleDownloads > 0;
 }

@@ -1,6 +1,12 @@
 #include "library_service.h"
 #include "core/logger.h"
 #include <fstream>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#include <taglib/mp4/mp4file.h>
+#include <taglib/mp4/mp4tag.h>
+#pragma GCC diagnostic pop
+#include <sstream>
 
 namespace narnat {
 
@@ -96,6 +102,33 @@ std::vector<std::pair<std::string, std::string>> LibraryService::getFilesPaths(c
         result.emplace_back(std::move(displayName), entry->filePath);
     }
     return result;
+}
+
+std::string LibraryService::generatePlaylist(const std::vector<int>& ids) {
+    std::ostringstream playlist;
+    int count = 0;
+    for (int id : ids) {
+        auto entry = libraryRepo_->findById(id);
+        if (!entry) continue;
+        if (entry->filePath.empty()) continue;
+
+        TagLib::MP4::File file(entry->filePath.c_str());
+        if (!file.isValid()) continue;
+        auto* tag = file.tag();
+        if (!tag) continue;
+
+        if (tag->contains("----:com.narnat:narmeta")) {
+            auto item = tag->item("----:com.narnat:narmeta");
+            std::string val = item.toStringList().toString().to8Bit(true);
+            if (!val.empty()) {
+                playlist << val << "\n";
+                count++;
+            }
+        }
+    }
+
+    LOG_I("LibrarySvc", "歌单生成: " + std::to_string(count) + " 条narmeta记录");
+    return playlist.str();
 }
 
 } // namespace narnat

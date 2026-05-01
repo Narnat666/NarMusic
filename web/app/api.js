@@ -173,6 +173,14 @@ export const api = {
         });
     },
 
+    libraryGeneratePlaylist(ids) {
+        return requestJson('/api/library/generate-playlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+        });
+    },
+
     protectionStatus() {
         return requestJson('/api/protection/status');
     },

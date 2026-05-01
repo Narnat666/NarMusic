@@ -18,6 +18,7 @@ public:
     std::vector<std::pair<std::string, std::vector<char>>> getFilesData(const std::vector<int>& ids);
     std::vector<std::pair<std::string, std::string>> getFilesPaths(const std::vector<int>& ids);
     std::string getLyrics(const std::string& filename);
+    std::string generatePlaylist(const std::vector<int>& ids);
 
 private:
     std::shared_ptr<IMusicLibraryRepository> libraryRepo_;

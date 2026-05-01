@@ -4,12 +4,15 @@ import { getSettingsValues } from './settings.js';
 
 let pollingInterval = null;
 let currentTaskId = null;
+let isLocalDownloading = false;
 let lastSpeedUpdateTime = Date.now();
 let lastSpeedBytes = 0;
 let speedHistory = [];
 const MAX_SPEED_HISTORY = 3;
 let downloadStartTime = null;
 let taskSuccessNotified = false;
+
+const SESSION_KEY_TASK_ID = 'narmusic_current_task_id';
 
 let urlInput = null;
 let filenameInput = null;
@@ -50,6 +53,16 @@ export function initDownload() {
     if (filenameInput) filenameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
     });
+
+    // 恢复上次未完成的下载任务
+    const savedTaskId = sessionStorage.getItem(SESSION_KEY_TASK_ID);
+    if (savedTaskId) {
+        currentTaskId = savedTaskId;
+        statusCard.style.display = 'block';
+        updateStatusLight('downloading');
+        downloadStartTime = Date.now();
+        startPollingTaskStatus();
+    }
 }
 
 async function handleSend() {
@@ -80,6 +93,7 @@ async function handleSend() {
 
         if (data.task_id) {
             currentTaskId = data.task_id;
+            sessionStorage.setItem(SESSION_KEY_TASK_ID, currentTaskId);
             showToast('下载任务已创建，开始下载...', 'success');
             updateStatusLight('downloading');
             setTimeout(() => startPollingTaskStatus(), 500);
@@ -108,6 +122,7 @@ async function handleLocalDownload() {
 
     localDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">downloading</span> 准备中...';
 
+    isLocalDownloading = true;
     cancelHandler = (e) => {
         e.stopImmediatePropagation();
         e.preventDefault();
@@ -156,6 +171,7 @@ async function handleLocalDownload() {
             showToast('下载错误: ' + error.message, 'warning');
         }
     } finally {
+        isLocalDownloading = false;
         if (cancelHandler) localDownloadBtn.removeEventListener('click', cancelHandler, true);
         localDownloadBtn.disabled = false;
         localDownloadBtn.innerHTML = originalContent;
@@ -184,6 +200,8 @@ function updateStatusLight(status) {
 }
 
 function resetTaskStatus() {
+    currentTaskId = null;
+    sessionStorage.removeItem(SESSION_KEY_TASK_ID);
     downloadedBytesEl.textContent = '0 B';
     downloadSpeedEl.textContent = '0 B/s';
     taskStatus.textContent = '等待中';
@@ -282,6 +300,11 @@ function startPollingTaskStatus() {
 
 function stopPolling() {
     if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+    sessionStorage.removeItem(SESSION_KEY_TASK_ID);
 }
 
-export { stopPolling };
+function isDownloading() {
+    return isLocalDownloading || !!pollingInterval;
+}
+
+export { stopPolling, isDownloading };

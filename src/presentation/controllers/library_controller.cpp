@@ -5,6 +5,7 @@
 #include <sstream>
 #include <set>
 #include <iomanip>
+#include <algorithm>
 #include <unistd.h>
 #include <sys/stat.h>
 
@@ -157,6 +158,40 @@ Response LibraryController::batchDownload(const Request& req) {
 
     } catch (const std::exception& e) {
         LOG_E("LibraryCtrl", std::string("批量下载失败: ") + e.what());
+        return Response::error(400, "Bad Request", "parse_error", e.what());
+    }
+}
+
+Response LibraryController::generatePlaylist(const Request& req) {
+    try {
+        json body = json::parse(req.body());
+
+        if (!body.contains("ids") || !body["ids"].is_array()) {
+            return Response::error(400, "Bad Request", "missing_ids", "ids参数缺失或格式错误");
+        }
+
+        std::vector<int> ids;
+        for (const auto& id : body["ids"]) {
+            ids.push_back(id.get<int>());
+        }
+
+        if (ids.empty()) {
+            return Response::error(400, "Bad Request", "empty_ids", "ids不能为空");
+        }
+
+        std::string playlist = libraryService_->generatePlaylist(ids);
+
+        if (playlist.empty()) {
+            return Response::error(404, "Not Found", "no_narmeta", "选中文件均不包含narmeta信息");
+        }
+
+        nlohmann::json result;
+        result["playlist"] = playlist;
+        result["count"] = static_cast<int>(std::count(playlist.begin(), playlist.end(), '\n'));
+        return Response::json(200, "OK", result);
+
+    } catch (const std::exception& e) {
+        LOG_E("LibraryCtrl", std::string("歌单生成失败: ") + e.what());
         return Response::error(400, "Bad Request", "parse_error", e.what());
     }
 }
