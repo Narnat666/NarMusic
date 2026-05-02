@@ -169,20 +169,17 @@ function getFilteredLibrary() {
     list = [...list];
     const getName = m => (m.custom_filename || m.system_filename || '').replace(/\.[^/.]+$/, '');
 
-    // 中文按拼音排序，与英文统一排列
-    // 将中文字符映射为拼音首字母，英文保持原样，统一用 en locale 排序
-    // 拼音首字母表：用 localeCompare zh-CN 将汉字与 A-Z 锚点字比较来确定
+    // 中英文及CJK（日/韩等）混合排序
+    // 策略：将字符串转换为可排序的键，中文映射为拼音首字母+完整拼音序，
+    // 英文统一大写，日/韩等CJK字符映射为Unicode标记+字符，保证跨语言排序稳定
     const _anchorChars = 'ABCDEFGHJKLMNOPQRSTWXYZ';
     const _anchorWords = '阿八擦搭鹅发噶哈鸡喀拉妈拿哦啪七然撒他挖西压杂';
     const _pinyinCache = {};
     function getPinyinInitial(ch) {
         const code = ch.charCodeAt(0);
         if (_pinyinCache[code] !== undefined) return _pinyinCache[code];
-        // 用 localeCompare zh-CN 找到 ch 落在哪个拼音区间
         for (let i = 0; i < _anchorWords.length; i++) {
             if (ch.localeCompare(_anchorWords[i], 'zh-CN') <= 0) {
-                // ch <= anchorWords[i]，则 ch 的拼音首字母为 anchorChars[i]
-                // 但需要确认不是在前一个区间末尾
                 if (i === 0 || ch.localeCompare(_anchorWords[i - 1], 'zh-CN') > 0) {
                     _pinyinCache[code] = _anchorChars[i];
                     return _anchorChars[i];
@@ -192,18 +189,59 @@ function getFilteredLibrary() {
         _pinyinCache[code] = 'Z';
         return 'Z';
     }
+    // 将字符串转为排序键：每个字符映射为 [分组键, 细排序键] 对
+    // 分组键：英文A-Z / 中文拼音首字母A-Z / 其他CJK用\uFFF0+首字符 / 非字母数字原样
+    // 细排序键：中文用localeCompare zh-CN原串 / 英文大写 / 其他原样
+    function toSortKey(str) {
+        const chars = [...str];
+        const groups = [];
+        let currentGroup = '';
+        let currentType = '';
+        function flush() {
+            if (currentGroup) {
+                groups.push(currentGroup);
+                currentGroup = '';
+                currentType = '';
+            }
+        }
+        for (const ch of chars) {
+            let type;
+            if (/[a-zA-Z]/.test(ch)) type = 'en';
+            else if (/[\u4e00-\u9fff]/.test(ch)) type = 'zh';
+            else if (/[\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u1100-\u11FF]/.test(ch)) type = 'cjk';
+            else type = 'other';
+
+            if (type !== currentType) {
+                flush();
+            }
+            currentGroup += ch;
+            currentType = type;
+        }
+        flush();
+
+        return groups.map(g => {
+            const firstCh = g[0];
+            if (/[a-zA-Z]/.test(firstCh)) {
+                return '\x01' + g.toUpperCase();
+            }
+            if (/[\u4e00-\u9fff]/.test(firstCh)) {
+                const initial = getPinyinInitial(firstCh);
+                return '\x01' + initial + g;
+            }
+            if (/[\u3040-\u309F\u30A0-\u30FF]/.test(firstCh)) {
+                return '\x02' + g;
+            }
+            if (/[\uAC00-\uD7AF\u1100-\u11FF]/.test(firstCh)) {
+                return '\x03' + g;
+            }
+            return g;
+        }).join('');
+    }
     function mixedCompare(a, b) {
-        const ka = [...a].map(ch => {
-            if (/[a-zA-Z]/.test(ch)) return ch.toUpperCase();
-            if (/[\u4e00-\u9fff]/.test(ch)) return getPinyinInitial(ch);
-            return ch;
-        }).join('');
-        const kb = [...b].map(ch => {
-            if (/[a-zA-Z]/.test(ch)) return ch.toUpperCase();
-            if (/[\u4e00-\u9fff]/.test(ch)) return getPinyinInitial(ch);
-            return ch;
-        }).join('');
-        return ka.localeCompare(kb, 'en');
+        const ka = toSortKey(a);
+        const kb = toSortKey(b);
+        const cmp = ka.localeCompare(kb, 'zh-CN');
+        return cmp;
     }
 
     switch (activeFilter) {
