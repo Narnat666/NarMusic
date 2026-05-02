@@ -222,11 +222,29 @@
             <!-- 音乐库页面 -->
             <div id="libraryTab" class="tab-content" style="display: none;">
                 <h2 class="section-title">服务器音乐库</h2>
-                <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="color: var(--md-sys-color-on-surface-variant); font-size: 14px;">
-                        已下载 <span id="musicCount">0</span> 首音乐
+                <div class="library-toolbar">
+                    <div class="library-toolbar-left">
+                        <div class="library-search-bar">
+                            <span class="material-symbols-rounded">search</span>
+                            <input type="text" id="librarySearchInput" placeholder="搜索歌曲名..." enterkeyhint="search">
+                            <button class="library-search-clear" id="librarySearchClear" style="display:none;">
+                                <span class="material-symbols-rounded">close</span>
+                            </button>
+                        </div>
+                        <div class="library-filter-chips" id="libraryFilterChips">
+                            <button class="filter-chip active" data-filter="all">全部</button>
+                            <button class="filter-chip" data-filter="name-asc">A-Z</button>
+                            <button class="filter-chip" data-filter="name-desc">Z-A</button>
+                            <button class="filter-chip" data-filter="time-new">最新</button>
+                            <button class="filter-chip" data-filter="time-old">最早</button>
+                            <button class="filter-chip" data-filter="size-large">最大</button>
+                            <button class="filter-chip" data-filter="size-small">最小</button>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
+                    <div class="library-toolbar-right">
+                        <div style="color: var(--md-sys-color-on-surface-variant); font-size: 14px;">
+                            <span id="musicCount">0</span> 首
+                        </div>
                         <button class="btn-secondary" id="batchSelectBtn">
                             <span class="material-symbols-rounded">checklist</span>
                             批量选择

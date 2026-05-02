@@ -12,6 +12,8 @@ let activeSingleDownloads = 0;
 let selectedMusicIds = new Set();
 let protectionEnabled = null; // null = 未加载, true/false = 已加载
 let protectionToken = null;
+let searchKeyword = '';
+let activeFilter = 'all';
 
 const LOCAL_DL_KEY = 'narmusic_dl_done';
 function getDlDoneSet() { try { return new Set(JSON.parse(localStorage.getItem(LOCAL_DL_KEY) || '[]')); } catch { return new Set(); } }
@@ -51,6 +53,40 @@ export function initLibrary() {
     const batchPlaylistBtn = document.getElementById('batchPlaylistBtn');
     if (batchPlaylistBtn) {
         batchPlaylistBtn.addEventListener('click', batchGeneratePlaylist);
+    }
+
+    // 搜索栏
+    const searchInput = document.getElementById('librarySearchInput');
+    const searchClear = document.getElementById('librarySearchClear');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            searchKeyword = searchInput.value.trim();
+            if (searchClear) searchClear.style.display = searchKeyword ? 'flex' : 'none';
+            renderMusicLibrary();
+            if (isBatchMode) updateBatchUI();
+        });
+    }
+    if (searchClear) {
+        searchClear.addEventListener('click', () => {
+            searchKeyword = '';
+            searchInput.value = '';
+            searchClear.style.display = 'none';
+            renderMusicLibrary();
+            if (isBatchMode) updateBatchUI();
+        });
+    }
+
+    // 筛选按钮
+    const filterChips = document.getElementById('libraryFilterChips');
+    if (filterChips) {
+        filterChips.addEventListener('click', (e) => {
+            const chip = e.target.closest('.filter-chip');
+            if (!chip) return;
+            filterChips.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeFilter = chip.dataset.filter;
+            renderMusicLibrary();
+        });
     }
 
     document.addEventListener('tab:library', () => loadMusicLibrary());
@@ -117,9 +153,88 @@ export async function loadMusicLibrary() {
     }
 }
 
+function getFilteredLibrary() {
+    let list = musicLibrary;
+
+    // 模糊搜索
+    if (searchKeyword) {
+        const kw = searchKeyword.toLowerCase();
+        list = list.filter(m => {
+            const name = (m.custom_filename || m.system_filename || '').toLowerCase();
+            return name.includes(kw);
+        });
+    }
+
+    // 排序
+    list = [...list];
+    const getName = m => (m.custom_filename || m.system_filename || '').replace(/\.[^/.]+$/, '');
+
+    // 中文按拼音排序，与英文统一排列
+    // 将中文字符映射为拼音首字母，英文保持原样，统一用 en locale 排序
+    // 拼音首字母表：用 localeCompare zh-CN 将汉字与 A-Z 锚点字比较来确定
+    const _anchorChars = 'ABCDEFGHJKLMNOPQRSTWXYZ';
+    const _anchorWords = '阿八擦搭鹅发噶哈鸡喀拉妈拿哦啪七然撒他挖西压杂';
+    const _pinyinCache = {};
+    function getPinyinInitial(ch) {
+        const code = ch.charCodeAt(0);
+        if (_pinyinCache[code] !== undefined) return _pinyinCache[code];
+        // 用 localeCompare zh-CN 找到 ch 落在哪个拼音区间
+        for (let i = 0; i < _anchorWords.length; i++) {
+            if (ch.localeCompare(_anchorWords[i], 'zh-CN') <= 0) {
+                // ch <= anchorWords[i]，则 ch 的拼音首字母为 anchorChars[i]
+                // 但需要确认不是在前一个区间末尾
+                if (i === 0 || ch.localeCompare(_anchorWords[i - 1], 'zh-CN') > 0) {
+                    _pinyinCache[code] = _anchorChars[i];
+                    return _anchorChars[i];
+                }
+            }
+        }
+        _pinyinCache[code] = 'Z';
+        return 'Z';
+    }
+    function mixedCompare(a, b) {
+        const ka = [...a].map(ch => {
+            if (/[a-zA-Z]/.test(ch)) return ch.toUpperCase();
+            if (/[\u4e00-\u9fff]/.test(ch)) return getPinyinInitial(ch);
+            return ch;
+        }).join('');
+        const kb = [...b].map(ch => {
+            if (/[a-zA-Z]/.test(ch)) return ch.toUpperCase();
+            if (/[\u4e00-\u9fff]/.test(ch)) return getPinyinInitial(ch);
+            return ch;
+        }).join('');
+        return ka.localeCompare(kb, 'en');
+    }
+
+    switch (activeFilter) {
+        case 'name-asc':
+            list.sort((a, b) => mixedCompare(getName(a), getName(b)));
+            break;
+        case 'name-desc':
+            list.sort((a, b) => mixedCompare(getName(b), getName(a)));
+            break;
+        case 'time-new':
+            list.sort((a, b) => (b.download_time || 0) - (a.download_time || 0));
+            break;
+        case 'time-old':
+            list.sort((a, b) => (a.download_time || 0) - (b.download_time || 0));
+            break;
+        case 'size-large':
+            list.sort((a, b) => (b.file_size || 0) - (a.file_size || 0));
+            break;
+        case 'size-small':
+            list.sort((a, b) => (a.file_size || 0) - (b.file_size || 0));
+            break;
+    }
+
+    return list;
+}
+
 function renderMusicLibrary() {
     const musicLibraryEl = document.getElementById('musicLibrary');
     const musicCountEl = document.getElementById('musicCount');
+
+    const filteredList = getFilteredLibrary();
 
     if (!musicLibrary || musicLibrary.length === 0) {
         musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">library_music</span><div style="font-size: 16px; font-weight: 500;">音乐库为空</div><div style="font-size: 14px; margin-top: 8px;">前往下载页面添加音乐</div></div>';
@@ -128,11 +243,16 @@ function renderMusicLibrary() {
         return;
     }
 
-    musicCountEl.textContent = musicLibrary.length;
+    musicCountEl.textContent = filteredList.length;
+
+    if (filteredList.length === 0) {
+        musicLibraryEl.innerHTML = '<div style="text-align: center; padding: 40px 20px; color: var(--md-sys-color-on-surface-variant);"><span class="material-symbols-rounded" style="font-size: 48px; margin-bottom: 16px; display: block;">search_off</span><div style="font-size: 16px; font-weight: 500;">未找到匹配的音乐</div><div style="font-size: 14px; margin-top: 8px;">尝试其他关键词或筛选条件</div></div>';
+        return;
+    }
 
     let html = '<div class="music-list-header"><span></span><span>歌曲</span><span class="col-center">延迟</span><span class="col-center">大小</span><span class="col-center">下载时间</span><span></span></div>';
 
-    musicLibrary.forEach((music, index) => {
+    filteredList.forEach((music, index) => {
         const customFilename = music.custom_filename || '未知文件';
         const originalFilename = music.original_filename || '';
         const systemFilename = music.system_filename || customFilename;
@@ -163,14 +283,14 @@ function renderMusicLibrary() {
             + '<div class="music-delay">' + delayMs + 'ms</div>'
             + '<div class="music-size">' + sizeText + '</div>'
             + '<div class="music-time">' + timeText + '</div>'
-            + '<div class="music-actions-cell">'
+            + (isBatchMode ? '' : '<div class="music-actions-cell">'
             + '<button class="music-action-btn" title="下载" data-action="download" data-filename="' + escapeAttr(systemFilename) + '">'
             + '<span class="material-symbols-rounded">download</span>'
             + '</button>'
             + '<button class="music-action-btn" title="删除" data-action="delete" data-id="' + musicId + '" data-filename="' + escapeAttr(systemFilename) + '">'
             + '<span class="material-symbols-rounded">delete</span>'
             + '</button>'
-            + '</div>'
+            + '</div>')
             + '</div>';
     });
 
@@ -437,12 +557,12 @@ function toggleMusicSelect(musicId, checked) {
 
 function toggleSelectAll() {
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    const allIds = musicLibrary.map(m => m.id);
+    const filteredIds = getFilteredLibrary().map(m => m.id);
 
     if (selectAllCheckbox.checked) {
-        allIds.forEach(id => selectedMusicIds.add(id));
+        filteredIds.forEach(id => selectedMusicIds.add(id));
     } else {
-        selectedMusicIds.clear();
+        filteredIds.forEach(id => selectedMusicIds.delete(id));
     }
 
     document.querySelectorAll('.music-checkbox').forEach(cb => {
@@ -471,8 +591,8 @@ function updateBatchUI() {
     batchDeleteBtn.disabled = count === 0 || isBatchDownloading;
     batchPlaylistBtn.disabled = count === 0;
 
-    const allIds = musicLibrary.map(m => m.id);
-    if (allIds.length > 0 && count === allIds.length) {
+    const filteredIds = getFilteredLibrary().map(m => m.id);
+    if (filteredIds.length > 0 && filteredIds.every(id => selectedMusicIds.has(id))) {
         selectAllCheckbox.checked = true;
     } else {
         selectAllCheckbox.checked = false;
@@ -498,6 +618,8 @@ async function batchDownload() {
     isBatchDownloading = true;
 
     batchDeleteBtn.disabled = true;
+    const batchSelectBtn = document.getElementById('batchSelectBtn');
+    if (batchSelectBtn) batchSelectBtn.disabled = true;
     document.querySelectorAll('.music-action-btn[data-action="delete"], .music-action-btn[data-action="download"]').forEach(btn => btn.disabled = true);
     batchDownloadBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">hourglass_top</span> 准备中...';
 
@@ -554,6 +676,8 @@ async function batchDownload() {
         batchDownloadBtn.title = '';
         batchDownloadBtn.disabled = selectedMusicIds.size === 0;
         batchDeleteBtn.disabled = selectedMusicIds.size === 0;
+        const batchSelectBtn = document.getElementById('batchSelectBtn');
+        if (batchSelectBtn) batchSelectBtn.disabled = false;
         document.querySelectorAll('.music-action-btn[data-action="delete"], .music-action-btn[data-action="download"]').forEach(btn => btn.disabled = false);
     }
 }

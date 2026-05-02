@@ -586,6 +586,116 @@ body {
     width: 100%;
 }
 
+/* 库模块工具栏（搜索+筛选+操作按钮） */
+.library-toolbar {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.library-toolbar-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.library-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.library-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background-color: transparent;
+    border: 1px solid var(--md-sys-color-outline, #79747e);
+    border-radius: 8px;
+    max-width: 320px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.library-search-bar:focus-within {
+    border-color: var(--md-sys-color-primary);
+}
+
+.library-search-bar .material-symbols-rounded {
+    font-size: 20px;
+    color: var(--md-sys-color-on-surface-variant);
+    flex-shrink: 0;
+}
+
+.library-search-bar input {
+    flex: 1;
+    border: none;
+    background: none;
+    outline: none;
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface);
+    font-family: inherit;
+    min-width: 0;
+}
+
+.library-search-bar input::placeholder {
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.7;
+}
+
+.library-search-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 50%;
+    color: var(--md-sys-color-on-surface-variant);
+    flex-shrink: 0;
+}
+
+.library-search-clear .material-symbols-rounded {
+    font-size: 18px;
+}
+
+.library-filter-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    border: 1px solid var(--md-sys-color-surface-variant);
+    border-radius: 100px;
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.filter-chip:hover {
+    background-color: var(--md-sys-color-secondary-container);
+}
+
+.filter-chip.active {
+    background-color: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+    border-color: transparent;
+}
+
 /* 批量操作工具栏 */
 .batch-toolbar {
     display: flex;
@@ -719,8 +829,7 @@ body {
 }
 
 .batch-mode .music-item .music-actions-cell {
-    opacity: 0;
-    pointer-events: none;
+    display: none;
 }
 
 .music-item.batch-selected {
@@ -823,6 +932,7 @@ body {
     min-width: 0;
     padding-right: 12px;
     overflow: hidden;
+    max-width: 320px;
 }
 
 .music-title {
@@ -1094,6 +1204,20 @@ body {
         display: none;
     }
 
+    .library-toolbar-right {
+        flex-wrap: wrap;
+    }
+
+    .library-toolbar-right .btn-secondary {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+
+    .filter-chip {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+
     .batch-toolbar {
         padding: 10px 14px;
         border-radius: 12px;
@@ -1172,6 +1296,7 @@ body {
 
     .music-name {
         padding-right: 8px;
+        max-width: none;
     }
 
     .music-title {
