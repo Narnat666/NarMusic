@@ -3,8 +3,38 @@
 #include <fstream>
 #include <algorithm>
 #include <filesystem>
+#include <zlib.h>
 
 namespace narnat {
+
+static std::string gzipCompress(const std::string& data) {
+    z_stream strm = {};
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+    deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED,
+                 15 + 16, 8, Z_DEFAULT_STRATEGY);
+#pragma GCC diagnostic pop
+
+    strm.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
+    strm.avail_in = static_cast<uInt>(data.size());
+
+    size_t bound = deflateBound(&strm, data.size());
+    std::string out(bound, '\0');
+
+    strm.next_out = reinterpret_cast<Bytef*>(&out[0]);
+    strm.avail_out = static_cast<uInt>(bound);
+
+    int ret = deflate(&strm, Z_FINISH);
+    deflateEnd(&strm);
+
+    if (ret != Z_STREAM_END) {
+        return {};
+    }
+
+    out.resize(strm.total_out);
+    return out;
+}
 
 StaticFileHandler::StaticFileHandler(const std::string& webDir) : webDir_(webDir) {
     namespace fs = std::filesystem;
@@ -61,14 +91,35 @@ Response StaticFileHandler::handle(const Request& req) {
     std::string content((std::istreambuf_iterator<char>(file)),
                          std::istreambuf_iterator<char>());
 
-    return Response::file(content, contentTypeForPath(resolvedPath.string()));
+    std::string contentType = contentTypeForPath(resolvedPath.string());
+    auto resp = Response::file(content, contentType);
+
+    bool acceptsGzip = req.header("Accept-Encoding").find("gzip") != std::string::npos;
+    bool isCompressible = contentType.find("text/") == 0 ||
+                          contentType.find("application/javascript") == 0 ||
+                          contentType.find("application/json") == 0;
+    if (acceptsGzip && isCompressible && content.size() > 256) {
+        std::string compressed = gzipCompress(content);
+        if (!compressed.empty()) {
+            resp = Response::file(compressed, contentType);
+            resp.setHeader("Content-Encoding", "gzip");
+            resp.setHeader("Vary", "Accept-Encoding");
+            LOG_I("StaticFile", req.path() + " gzip " + std::to_string(content.size())
+                  + " -> " + std::to_string(compressed.size()) + " bytes ("
+                  + std::to_string(compressed.size() * 100 / content.size()) + "%)");
+        } else {
+            LOG_W("StaticFile", req.path() + " gzip压缩失败，返回原始内容");
+        }
+    }
+
+    return resp;
 }
 
 std::string StaticFileHandler::contentTypeForPath(const std::string& path) const {
     if (path.find(".html") != std::string::npos) return "text/html; charset=utf-8";
     if (path.find(".css") != std::string::npos)  return "text/css; charset=utf-8";
-    if (path.find(".js") != std::string::npos)   return "application/javascript; charset=utf-8";
     if (path.find(".json") != std::string::npos)  return "application/json; charset=utf-8";
+    if (path.find(".js") != std::string::npos)   return "application/javascript; charset=utf-8";
     if (path.find(".png") != std::string::npos)   return "image/png";
     if (path.find(".jpg") != std::string::npos || path.find(".jpeg") != std::string::npos)
         return "image/jpeg";
