@@ -1,32 +1,33 @@
-# Prerequisites
-*.d
+# ===== Android / Gradle =====
+*.iml
+.gradle/
+.kotlin/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
 
-# Compiled Object files
+# ===== 构建与运行日志 =====
+*.log
+
+# ===== C/C++ 编译产物（本分支为纯 Android 工程，规则保留以便与 main 分支共存）=====
+# 注意：不忽略 *.so —— Android 的 jniLibs 需要提交预编译动态库
+*.d
 *.slo
 *.lo
 *.o
 *.obj
-
-# Precompiled Headers
 *.gch
 *.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
 *.lai
 *.la
 *.a
 *.lib
-
-# Executables
-*.exe
-*.out
-*.app
+*.mod
+*.smod

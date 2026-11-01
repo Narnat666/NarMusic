@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NarMusic</string>
+
+    <!-- 文案表（docs/ui-spec.md S-1.8 组 B–F）中属于 Web 端专有能力、安卓端暂无对应功能的条目：
+         服务器侧打包下载 / 歌单生成 / 密码保护 / 任务轮询 / 浏览器下载按钮态。
+         按任务要求原文登记备查，当前未接线。 -->
+    <string name="copy_t034">请输入内容</string>
+    <string name="copy_t035">未找到有效的链接</string>
+    <string name="copy_t036">请输入自定义文件名</string>
+    <string name="copy_t038">正在创建下载任务...</string>
+    <string name="copy_t042">连接错误: {msg}</string>
+    <string name="copy_t043">准备中...</string>
+    <string name="copy_t044" formatted="false">下载中 {n}%</string>
+    <string name="copy_t046">下载已取消</string>
+    <string name="copy_t047">下载错误: {msg}</string>
+    <string name="copy_t048">任务不存在或已过期</string>
+    <string name="copy_t064">下载到服务器</string>
+    <string name="copy_t069">批量搜索失败: {msg}</string>
+    <string name="copy_t083">歌单已清空</string>
+    <string name="copy_t086">正在提交 {n} 首歌曲下载到服务器...</string>
+    <string name="copy_t087">提交失败</string>
+    <string name="copy_t089">，{n} 首提交失败</string>
+    <string name="copy_t090">所有歌曲下载提交失败</string>
+    <string name="copy_t091">批量下载错误: {msg}</string>
+    <string name="copy_t092">任务不存在</string>
+    <string name="copy_t093">状态查询失败</string>
+    <string name="copy_t094">状态查询多次失败，已停止轮询</string>
+    <string name="copy_t095">服务器音乐库</string>
+    <string name="copy_t109">歌单生成</string>
+    <string name="copy_t121">加载失败: {msg}</string>
+    <string name="copy_t122">网络连接失败</string>
+    <string name="copy_t123">请检查服务器是否运行</string>
+    <string name="copy_t126">有文件正在下载，刷新列表将中断下载，确定继续？</string>
+    <string name="copy_t128">请输入密码以执行删除操作</string>
+    <string name="copy_t130">密码错误</string>
+    <string name="copy_t133">文件ID无效</string>
+    <string name="copy_t134">确定要删除「{name}」吗？此操作不可恢复。</string>
+    <string name="copy_t137">需要密码验证</string>
+    <string name="copy_t138">删除错误: {msg}</string>
+    <string name="copy_t139">请先选择要下载的文件</string>
+    <string name="copy_t140">文件下载已开始</string>
+    <string name="copy_t141">{n} 个文件打包下载已开始</string>
+    <string name="copy_t142">删除中...</string>
+    <string name="copy_t143">正在删除 {n} 个文件...</string>
+    <string name="copy_t147">生成中...</string>
+    <string name="copy_t148">请先选择要生成歌单的文件</string>
+    <string name="copy_t149">歌单已生成: {n} 条记录</string>
+    <string name="copy_t150">歌单生成失败: {msg}</string>
+    <string name="copy_t151">下载失败: {msg}</string>
+    <string name="copy_t180">歌词库加载失败，请刷新页面</string>
+    <string name="copy_t181">服务器请求失败: {err}</string>
+    <string name="copy_t182">音频文件读取失败</string>
+    <string name="copy_t183">歌词数据不完整，尝试重新加载</string>
+    <string name="copy_t184">点击播放按钮开始播放</string>
+    <string name="copy_t185">正在加载音乐...</string>
+    <string name="copy_t187">文件名无效</string>
+</resources>
